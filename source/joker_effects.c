@@ -247,7 +247,7 @@ const JokerInfo joker_registry[] =
     { "Blueprint",        RARE_JOKER,     10, false, blueprint_joker_desc,        blueprint_brainstorm_joker_effect }, // 52 Blueprint
 
     // Spritesheet 18 (my_joker)
-    { "Wee Joker",     COMMON_JOKER,    3, false, default_joker_desc, wee_joker_effect              }, // 53 Wee Joker
+    { "Wee Joker",     RARE_JOKER,      8, false, default_joker_desc, wee_joker_effect              }, // 53 Wee Joker
     { "Riff-Raff",     COMMON_JOKER,    3, false, default_joker_desc, riff_raff_joker_effect        }, // 54 Riff-Raff
     { "Baron",         RARE_JOKER,      8, false, default_joker_desc, baron_joker_effect            }, // 55 Baron
     { "Mime",          UNCOMMON_JOKER,  5, false, default_joker_desc, mime_joker_effect             }, // 56 Mime

@@ -153,6 +153,11 @@ REGISTER_JOKER_EFFECT_FUNC(blueprint_brainstorm_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(hack_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(seltzer_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(sock_and_buskin_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(wee_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(riff_raff_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(baron_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(mime_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(egg_joker_effect)
 
 // clang-format off
 /* The index of a joker in the registry matches its ID.
@@ -235,6 +240,13 @@ const JokerInfo joker_registry[] =
     { "Four Fingers",     UNCOMMON_JOKER,  7, false, four_fingers_joker_desc,     joker_effect_noop,                }, // 50 Four Fingers
     { "Seltzer",          UNCOMMON_JOKER,  6, false, seltzer_joker_desc,          seltzer_joker_effect,             }, // 51
     { "Blueprint",        RARE_JOKER,     10, false, blueprint_joker_desc,        blueprint_brainstorm_joker_effect }, // 52 Blueprint
+
+    // Spritesheet 18 (my_joker)
+    { COMMON_JOKER,    3, wee_joker_effect              }, // 53 Wee Joker
+    { COMMON_JOKER,    3, riff_raff_joker_effect        }, // 54 Riff-Raff
+    { RARE_JOKER,      8, baron_joker_effect            }, // 55 Baron
+    { UNCOMMON_JOKER,  5, mime_joker_effect             }, // 56 Mime
+    { COMMON_JOKER,    4, egg_joker_effect              }, // 57 Egg
 
     // The following jokers don't have sprites yet,
     // uncomment them when their sprites are added.
@@ -2033,3 +2045,151 @@ static u32 sock_and_buskin_joker_effect(
 }
 
 #pragma endregion
+
+// ============================================================
+// New Jokers (my_joker sprites)
+// ============================================================
+
+// Wee Joker: Every played card gives +3 chips
+static u32 wee_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    SCORE_ON_EVENT_ONLY_WITH_CARD(scored_card, JOKER_EVENT_ON_CARD_SCORED, joker_event)
+
+    *joker_effect = &shared_joker_effect;
+    (*joker_effect)->chips = 3;
+
+    return JOKER_EFFECT_FLAG_CHIPS;
+}
+
+// Riff-Raff: When round starts, create 2 random common/uncommon jokers
+static u32 riff_raff_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    if (joker_event == JOKER_EVENT_ON_HAND_PLAYED)
+    {
+        // Only trigger once per round (use persistent_state as flag)
+        if (joker->persistent_state == 0)
+        {
+            joker->persistent_state = 1;
+
+            // Create 2 random common/uncommon jokers if slots available
+            List* jokers = get_jokers_list();
+            int max_jokers = MAX_JOKERS_HELD_SIZE;
+            int current_count = list_get_len(jokers);
+
+            for (int i = 0; i < 2 && current_count < max_jokers; i++)
+            {
+                // Random rarity: 70% common, 30% uncommon
+                u8 rarity = (rng_get_u32() % 100 < 70) ? COMMON_JOKER : UNCOMMON_JOKER;
+
+                // Find a valid joker ID for this rarity
+                u8 joker_id = 0;
+                bool found = false;
+                for (int attempt = 0; attempt < 50; attempt++)
+                {
+                    u8 candidate = rng_get_u32() % get_joker_registry_size();
+                    const JokerInfo* info = get_joker_registry_entry(candidate);
+                    if (info && info->rarity == rarity && !is_joker_owned(candidate))
+                    {
+                        joker_id = candidate;
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (found)
+                {
+                    Joker* new_joker = joker_new(joker_id);
+                    if (new_joker)
+                    {
+                        JokerObject* new_joker_object = joker_object_new(new_joker);
+                        if (new_joker_object)
+                        {
+                            add_joker(new_joker_object);
+                            current_count++;
+                        }
+                        else
+                        {
+                            joker_destroy(&new_joker);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else if (joker_event == JOKER_EVENT_ON_ROUND_END)
+    {
+        // Reset flag for next round
+        joker->persistent_state = 0;
+    }
+
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// Baron: Each King held in hand gives x1.5 mult
+static u32 baron_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    SCORE_ON_EVENT_ONLY(JOKER_EVENT_ON_CARD_HELD, joker_event)
+
+    u32 effect_flags_ret = JOKER_EFFECT_FLAG_NONE;
+
+    if (scored_card->rank == KING)
+    {
+        *joker_effect = &shared_joker_effect;
+
+        (*joker_effect)->xmult = 3; // x1.5 represented as 3/2 in fixed point
+        effect_flags_ret = JOKER_EFFECT_FLAG_XMULT;
+    }
+
+    return effect_flags_ret;
+}
+
+// Mime: Retrigger all cards held in hand
+static u32 mime_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    if (joker_event == JOKER_EVENT_ON_HAND_SCORED_END)
+    {
+        // Signal that held cards should be retriggered
+        // This would need integration with the scoring system
+        *joker_effect = &shared_joker_effect;
+        (*joker_effect)->message = "Retrigger!";
+        return JOKER_EFFECT_FLAG_MESSAGE;
+    }
+
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// Egg: Gains $3 of value each round
+static u32 egg_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    if (joker_event == JOKER_EVENT_ON_ROUND_END)
+    {
+        joker->value += 3;
+    }
+
+    return JOKER_EFFECT_FLAG_NONE;
+}

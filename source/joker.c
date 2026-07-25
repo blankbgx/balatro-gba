@@ -88,6 +88,8 @@ static const int JOKER_ID_TO_SPRITE_MAP[] = {
     15,
     16,
     17,
+    // Spritesheet 18 (my_joker): IDs 53-57
+    18, 18, 18, 18, 18,
 };
 
 // Map of Spritesheet idx -> first Joker ID in sheet
@@ -96,7 +98,7 @@ static const int JOKER_ID_TO_SPRITE_MAP[] = {
 // Notice how spritesheets with only one Joker have sequential starting IDs.
 static const int SPRITESHEET_IDX_TO_STARTING_JOKER_ID[] = {
      0, 18, 20, 22, 27, 32, 36, 40, 42, 44,
-    45, 46, 47, 48, 49, 50, 51, 52
+    45, 46, 47, 48, 49, 50, 51, 52, 53
 };
 
 // Lookup table of Joker Rarity strings. Used to display at the bottom of the description screen.

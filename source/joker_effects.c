@@ -252,7 +252,7 @@ const JokerInfo joker_registry[] =
 
     // Spritesheet 18 (my_joker)
     { "Wee Joker",     RARE_JOKER,      8, false, default_joker_desc, wee_joker_effect              }, // 53 Wee Joker
-    { "Riff-Raff",     COMMON_JOKER,    3, false, default_joker_desc, riff_raff_joker_effect        }, // 54 Riff-Raff
+    { "Riff-Raff",     COMMON_JOKER,    6, false, default_joker_desc, riff_raff_joker_effect        }, // 54 Riff-Raff
     { "Baron",         RARE_JOKER,      8, false, default_joker_desc, baron_joker_effect            }, // 55 Baron
     { "Mime",          UNCOMMON_JOKER,  5, false, default_joker_desc, mime_joker_effect             }, // 56 Mime
     { "Egg",           COMMON_JOKER,    4, false, default_joker_desc, egg_joker_effect              }, // 57 Egg

@@ -2050,7 +2050,7 @@ static u32 sock_and_buskin_joker_effect(
 // New Jokers (my_joker sprites)
 // ============================================================
 
-// Wee Joker: Every played card gives +3 chips
+// Wee Joker: Each played 2 gives +8 chips when scored
 static u32 wee_joker_effect(
     Joker* joker,
     Card* scored_card,
@@ -2060,10 +2060,15 @@ static u32 wee_joker_effect(
 {
     SCORE_ON_EVENT_ONLY_WITH_CARD(scored_card, JOKER_EVENT_ON_CARD_SCORED, joker_event)
 
-    *joker_effect = &shared_joker_effect;
-    (*joker_effect)->chips = 3;
+    if (scored_card->rank == TWO)
+    {
+        *joker_effect = &shared_joker_effect;
+        (*joker_effect)->chips = 8;
 
-    return JOKER_EFFECT_FLAG_CHIPS;
+        return JOKER_EFFECT_FLAG_CHIPS;
+    }
+
+    return JOKER_EFFECT_FLAG_NONE;
 }
 
 // Riff-Raff: When round starts, create 2 random common/uncommon jokers
@@ -2086,12 +2091,15 @@ static u32 riff_raff_joker_effect(
             int max_jokers = MAX_JOKERS_HELD_SIZE;
             int current_count = list_get_len(jokers);
 
+            u8 generated_ids[2] = {0, 0};
+            int generated_count = 0;
+
             for (int i = 0; i < 2 && current_count < max_jokers; i++)
             {
                 // Random rarity: 70% common, 30% uncommon
                 u8 rarity = (rng_get_u32() % 100 < 70) ? COMMON_JOKER : UNCOMMON_JOKER;
 
-                // Find a valid joker ID for this rarity
+                // Find a valid joker ID for this rarity (not owned, not duplicate of other generated)
                 u8 joker_id = 0;
                 bool found = false;
                 for (int attempt = 0; attempt < 50; attempt++)
@@ -2100,9 +2108,22 @@ static u32 riff_raff_joker_effect(
                     const JokerInfo* info = get_joker_registry_entry(candidate);
                     if (info && info->rarity == rarity && !is_joker_owned(candidate))
                     {
-                        joker_id = candidate;
-                        found = true;
-                        break;
+                        // Check not duplicate with previously generated this round
+                        bool dup = false;
+                        for (int g = 0; g < generated_count; g++)
+                        {
+                            if (generated_ids[g] == candidate)
+                            {
+                                dup = true;
+                                break;
+                            }
+                        }
+                        if (!dup)
+                        {
+                            joker_id = candidate;
+                            found = true;
+                            break;
+                        }
                     }
                 }
 
@@ -2115,6 +2136,7 @@ static u32 riff_raff_joker_effect(
                         if (new_joker_object)
                         {
                             add_joker(new_joker_object);
+                            generated_ids[generated_count++] = joker_id;
                             current_count++;
                         }
                         else

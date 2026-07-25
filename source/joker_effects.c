@@ -43,6 +43,10 @@ static JokerEffect s_shared_joker_effect = {0};
 // normal scoring (accumulate chips) from copy mode (read-only).
 bool s_is_copying_joker = false;
 
+// Pointer to the original joker being copied by Blueprint/Brainstorm.
+// Used by Wee Joker to read the original's accumulated scoring_state.
+Joker* s_copied_joker_source = NULL;
+
 // Joker Descriptions
 
 REGISTER_JOKER_DESC_FUNC(default_joker_desc)
@@ -1882,13 +1886,16 @@ static u32 blueprint_brainstorm_joker_effect(
 
                 // Then regardless of if we copied the data above, apply the
                 // copied JokerEffect function to the local data.
-                // Set copying flag so the copied effect knows it's being
-                // called by a Copying Joker (e.g. Wee Joker skips accumulation).
+                // Set copying flag and source pointer so the copied effect
+                // knows it's being called by a Copying Joker (e.g. Wee Joker
+                // reads the original's accumulated scoring_state).
                 s_is_copying_joker = true;
+                s_copied_joker_source = copied_joker_object->joker;
                 effect_flags_ret =
                     copied_joker_info
                         ->joker_effect_func(joker, scored_card, joker_event, joker_effect);
                 s_is_copying_joker = false;
+                s_copied_joker_source = NULL;
 
                 // make also sure we don't expire
                 effect_flags_ret &= ~JOKER_EFFECT_FLAG_EXPIRE;
@@ -2074,14 +2081,20 @@ static u32 wee_joker_effect(
 
     if (scored_card->rank == TWO)
     {
-        // Only accumulate chips when scored normally (not when copied)
-        if (!s_is_copying_joker)
+        if (s_is_copying_joker)
         {
-            joker->scoring_state += 8;
+            // Copy mode: read the original Wee Joker's accumulated value
+            *joker_effect = &s_shared_joker_effect;
+            (*joker_effect)->chips = s_copied_joker_source->scoring_state;
         }
+        else
+        {
+            // Normal mode: accumulate +8 chips on this joker
+            joker->scoring_state += 8;
 
-        *joker_effect = &s_shared_joker_effect;
-        (*joker_effect)->chips = joker->scoring_state;
+            *joker_effect = &s_shared_joker_effect;
+            (*joker_effect)->chips = joker->scoring_state;
+        }
 
         return JOKER_EFFECT_FLAG_CHIPS;
     }

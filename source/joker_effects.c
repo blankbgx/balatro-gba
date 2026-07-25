@@ -38,6 +38,11 @@
 
 static JokerEffect s_shared_joker_effect = {0};
 
+// Flag: true when a Copying Joker (Blueprint/Brainstorm) is calling
+// another joker's effect function. Used by Wee Joker to distinguish
+// normal scoring (accumulate chips) from copy mode (read-only).
+bool s_is_copying_joker = false;
+
 // Joker Descriptions
 
 REGISTER_JOKER_DESC_FUNC(default_joker_desc)
@@ -1876,10 +1881,14 @@ static u32 blueprint_brainstorm_joker_effect(
                 joker->persistent_state = copied_joker_object->joker->persistent_state;
 
                 // Then regardless of if we copied the data above, apply the
-                // copied JokerEffect function to the local data
+                // copied JokerEffect function to the local data.
+                // Set copying flag so the copied effect knows it's being
+                // called by a Copying Joker (e.g. Wee Joker skips accumulation).
+                s_is_copying_joker = true;
                 effect_flags_ret =
                     copied_joker_info
                         ->joker_effect_func(joker, scored_card, joker_event, joker_effect);
+                s_is_copying_joker = false;
 
                 // make also sure we don't expire
                 effect_flags_ret &= ~JOKER_EFFECT_FLAG_EXPIRE;
@@ -2050,7 +2059,10 @@ static u32 sock_and_buskin_joker_effect(
 // New Jokers (my_joker sprites)
 // ============================================================
 
-// Wee Joker: Each played 2 gives +8 chips when scored
+// Wee Joker: Each played 2 gives +8 chips when scored.
+// Chips accumulate on the joker itself (stored in scoring_state).
+// Starts at +0 chips, each scored 2 adds +8.
+// Brainstorm/Blueprint only copy the current accumulated value.
 static u32 wee_joker_effect(
     Joker* joker,
     Card* scored_card,
@@ -2062,8 +2074,14 @@ static u32 wee_joker_effect(
 
     if (scored_card->rank == TWO)
     {
+        // Only accumulate chips when scored normally (not when copied)
+        if (!s_is_copying_joker)
+        {
+            joker->scoring_state += 8;
+        }
+
         *joker_effect = &s_shared_joker_effect;
-        (*joker_effect)->chips = 8;
+        (*joker_effect)->chips = joker->scoring_state;
 
         return JOKER_EFFECT_FLAG_CHIPS;
     }

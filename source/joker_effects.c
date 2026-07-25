@@ -103,6 +103,13 @@ REGISTER_JOKER_DESC_FUNC(four_fingers_joker_desc)
 REGISTER_JOKER_DESC_FUNC(seltzer_joker_desc)
 REGISTER_JOKER_DESC_FUNC(sock_and_buskin_joker_desc)
 
+// New joker descriptions
+REGISTER_JOKER_DESC_FUNC(wee_joker_desc)
+REGISTER_JOKER_DESC_FUNC(riff_raff_joker_desc)
+REGISTER_JOKER_DESC_FUNC(baron_joker_desc)
+REGISTER_JOKER_DESC_FUNC(mime_joker_desc)
+REGISTER_JOKER_DESC_FUNC(egg_joker_desc)
+
 // Joker Effect functions
 
 static u32 sinful_joker_effect(
@@ -251,11 +258,11 @@ const JokerInfo joker_registry[] =
     { "Blueprint",        RARE_JOKER,     10, false, blueprint_joker_desc,        blueprint_brainstorm_joker_effect }, // 52 Blueprint
 
     // Spritesheet 18 (my_joker)
-    { "Wee Joker",     RARE_JOKER,      8, false, default_joker_desc, wee_joker_effect              }, // 53 Wee Joker
-    { "Riff-Raff",     COMMON_JOKER,    6, false, default_joker_desc, riff_raff_joker_effect        }, // 54 Riff-Raff
-    { "Baron",         RARE_JOKER,      8, false, default_joker_desc, baron_joker_effect            }, // 55 Baron
-    { "Mime",          UNCOMMON_JOKER,  5, false, default_joker_desc, mime_joker_effect             }, // 56 Mime
-    { "Egg",           COMMON_JOKER,    4, false, default_joker_desc, egg_joker_effect              }, // 57 Egg
+    { "Wee Joker",     RARE_JOKER,      8, true,  wee_joker_desc, wee_joker_effect              }, // 53 Wee Joker
+    { "Riff-Raff",     COMMON_JOKER,    6, false, riff_raff_joker_desc, riff_raff_joker_effect        }, // 54 Riff-Raff
+    { "Baron",         RARE_JOKER,      8, false, baron_joker_desc, baron_joker_effect            }, // 55 Baron
+    { "Mime",          UNCOMMON_JOKER,  5, false, mime_joker_desc, mime_joker_effect             }, // 56 Mime
+    { "Egg",           COMMON_JOKER,    4, false, egg_joker_desc, egg_joker_effect              }, // 57 Egg
 
     // The following jokers don't have sprites yet,
     // uncomment them when their sprites are added.
@@ -2066,7 +2073,52 @@ static u32 sock_and_buskin_joker_effect(
 // New Jokers (my_joker sprites)
 // ============================================================
 
-// Wee Joker: Each played 2 gives +8 chips when scored.
+// --- Descriptions ---
+
+static int wee_joker_desc(Joker* joker, Rect dest_rect)
+{
+    // Dynamic: shows current accumulated chips
+    static const char desc_format[] =
+        TTE_BLACK_TAG "Each played " TTE_RED_TAG "2" TTE_BLACK_TAG
+        " gives " TTE_RED_TAG "+8 " TTE_BLACK_TAG "Chips\n\n"
+        "(Now " TTE_RED_TAG "+%ld " TTE_BLACK_TAG "Chips)";
+    char desc[256];
+    snprintf(desc, sizeof(desc), desc_format, (long)joker->scoring_state);
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static int riff_raff_joker_desc(Joker* joker, Rect dest_rect)
+{
+    static const char desc[] =
+        TTE_BLACK_TAG "When round starts, create " TTE_RED_TAG "2 " TTE_BLACK_TAG
+        "random Jokers\n\n" TTE_BLACK_TAG "(Must have room)";
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static int baron_joker_desc(Joker* joker, Rect dest_rect)
+{
+    static const char desc[] =
+        TTE_BLACK_TAG "Each " TTE_RED_TAG "King " TTE_BLACK_TAG "held in hand\n"
+        "gives " TTE_RED_TAG "X1.5 " TTE_BLACK_TAG "Mult";
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static int mime_joker_desc(Joker* joker, Rect dest_rect)
+{
+    static const char desc[] =
+        TTE_BLACK_TAG "Retrigger all\n" TTE_RED_TAG "cards held in hand";
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static int egg_joker_desc(Joker* joker, Rect dest_rect)
+{
+    static const char desc[] =
+        TTE_BLACK_TAG "Gains " TTE_RED_TAG "$3 " TTE_BLACK_TAG "of value\n"
+        "each round";
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+// --- Effects ---
 // Chips accumulate on the joker itself (stored in scoring_state).
 // Starts at +0 chips, each scored 2 adds +8.
 // Accumulated chips are added to base chips at ON_HAND_SCORED_END,

@@ -2069,6 +2069,8 @@ static u32 sock_and_buskin_joker_effect(
 // Wee Joker: Each played 2 gives +8 chips when scored.
 // Chips accumulate on the joker itself (stored in scoring_state).
 // Starts at +0 chips, each scored 2 adds +8.
+// Accumulated chips are added to base chips at ON_HAND_SCORED_END,
+// so they participate in the final Chips × Mult calculation.
 // Brainstorm/Blueprint only copy the current accumulated value.
 static u32 wee_joker_effect(
     Joker* joker,
@@ -2077,26 +2079,39 @@ static u32 wee_joker_effect(
     JokerEffect** joker_effect
 )
 {
-    SCORE_ON_EVENT_ONLY_WITH_CARD(scored_card, JOKER_EVENT_ON_CARD_SCORED, joker_event)
-
-    if (scored_card->rank == TWO)
+    switch (joker_event)
     {
-        if (s_is_copying_joker)
-        {
-            // Copy mode: read the original Wee Joker's accumulated value
-            *joker_effect = &s_shared_joker_effect;
-            (*joker_effect)->chips = s_copied_joker_source->scoring_state;
-        }
-        else
-        {
-            // Normal mode: accumulate +8 chips on this joker
-            joker->scoring_state += 8;
+        case JOKER_EVENT_ON_CARD_SCORED:
+            if (scored_card != NULL && scored_card->rank == TWO)
+            {
+                if (s_is_copying_joker)
+                {
+                    // Copy mode: read original's accumulated value (no accumulation)
+                    *joker_effect = &s_shared_joker_effect;
+                    (*joker_effect)->chips = s_copied_joker_source->scoring_state;
+                    return JOKER_EFFECT_FLAG_CHIPS;
+                }
+                else
+                {
+                    // Normal mode: accumulate +8 chips on this joker
+                    joker->scoring_state += 8;
+                }
+            }
+            break;
 
-            *joker_effect = &s_shared_joker_effect;
-            (*joker_effect)->chips = joker->scoring_state;
-        }
+        case JOKER_EVENT_ON_HAND_SCORED_END:
+            // Add accumulated chips to base chips so they participate
+            // in the final Chips × Mult calculation
+            if (joker->scoring_state > 0)
+            {
+                *joker_effect = &s_shared_joker_effect;
+                (*joker_effect)->chips = joker->scoring_state;
+                return JOKER_EFFECT_FLAG_CHIPS;
+            }
+            break;
 
-        return JOKER_EFFECT_FLAG_CHIPS;
+        default:
+            break;
     }
 
     return JOKER_EFFECT_FLAG_NONE;

@@ -242,11 +242,11 @@ const JokerInfo joker_registry[] =
     { "Blueprint",        RARE_JOKER,     10, false, blueprint_joker_desc,        blueprint_brainstorm_joker_effect }, // 52 Blueprint
 
     // Spritesheet 18 (my_joker)
-    { COMMON_JOKER,    3, wee_joker_effect              }, // 53 Wee Joker
-    { COMMON_JOKER,    3, riff_raff_joker_effect        }, // 54 Riff-Raff
-    { RARE_JOKER,      8, baron_joker_effect            }, // 55 Baron
-    { UNCOMMON_JOKER,  5, mime_joker_effect             }, // 56 Mime
-    { COMMON_JOKER,    4, egg_joker_effect              }, // 57 Egg
+    { "Wee Joker",     COMMON_JOKER,    3, false, default_joker_desc, wee_joker_effect              }, // 53 Wee Joker
+    { "Riff-Raff",     COMMON_JOKER,    3, false, default_joker_desc, riff_raff_joker_effect        }, // 54 Riff-Raff
+    { "Baron",         RARE_JOKER,      8, false, default_joker_desc, baron_joker_effect            }, // 55 Baron
+    { "Mime",          UNCOMMON_JOKER,  5, false, default_joker_desc, mime_joker_effect             }, // 56 Mime
+    { "Egg",           COMMON_JOKER,    4, false, default_joker_desc, egg_joker_effect              }, // 57 Egg
 
     // The following jokers don't have sprites yet,
     // uncomment them when their sprites are added.
@@ -2062,7 +2062,7 @@ static u32 wee_joker_effect(
 
     if (scored_card->rank == TWO)
     {
-        *joker_effect = &shared_joker_effect;
+        *joker_effect = &s_shared_joker_effect;
         (*joker_effect)->chips = 8;
 
         return JOKER_EFFECT_FLAG_CHIPS;
@@ -2171,7 +2171,7 @@ static u32 baron_joker_effect(
 
     if (scored_card->rank == KING)
     {
-        *joker_effect = &shared_joker_effect;
+        *joker_effect = &s_shared_joker_effect;
 
         (*joker_effect)->xmult = 3; // x1.5 represented as 3/2 in fixed point
         effect_flags_ret = JOKER_EFFECT_FLAG_XMULT;
@@ -2192,7 +2192,7 @@ static u32 mime_joker_effect(
     {
         // Signal that held cards should be retriggered
         // This would need integration with the scoring system
-        *joker_effect = &shared_joker_effect;
+        *joker_effect = &s_shared_joker_effect;
         (*joker_effect)->message = "Retrigger!";
         return JOKER_EFFECT_FLAG_MESSAGE;
     }

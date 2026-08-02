@@ -142,6 +142,11 @@ static int s_shortcut_joker_count = 0;
 
 static int s_four_fingers_joker_count = 0;
 
+static int s_smeared_joker_count = 0;
+
+// Gros Michel / Cavendish food joker state
+static bool s_gros_michel_destroyed = false;
+
 void deck_push(Card* card)
 {
     if (s_deck_top >= MAX_DECK_SIZE - 1)
@@ -178,6 +183,9 @@ void game_init()
     s_discarded_jokers_list = list_init();
     s_expired_jokers_list = list_init();
     // TODO: Move this to an initialization of the play scoring states
+
+    // Reset food joker state for new game
+    s_gros_michel_destroyed = false;
 
     game_shop_reset();
 
@@ -392,6 +400,48 @@ bool is_shortcut_joker_active(void)
     return s_shortcut_joker_count > 0;
 }
 
+bool is_smeared_joker_active(void)
+{
+    return s_smeared_joker_count > 0;
+}
+
+// Gros Michel / Cavendish food joker pool management
+void joker_update_food_pool(void)
+{
+    if (s_gros_michel_destroyed)
+    {
+        // Gros Michel was destroyed: remove from pool, add Cavendish
+        joker_set_rollable(GROS_MICHEL_ID, false);
+        // Only unlock Cavendish if the player doesn't already own it
+        // (purchased Cavendish must stay out of the shop pool)
+        if (!is_joker_owned(CAVENDISH_ID))
+            joker_set_rollable(CAVENDISH_ID, true);
+    }
+}
+
+bool is_gros_michel_destroyed(void)
+{
+    return s_gros_michel_destroyed;
+}
+
+void set_gros_michel_destroyed(void)
+{
+    s_gros_michel_destroyed = true;
+}
+
+// Discarded face card count (used by Jolly Joker)
+static int s_discarded_face_card_count = 0;
+
+void set_discarded_face_card_count(int count)
+{
+    s_discarded_face_card_count = count;
+}
+
+int get_discarded_face_card_count(void)
+{
+    return s_discarded_face_card_count;
+}
+
 int get_straight_and_flush_size(void)
 {
     return s_four_fingers_joker_count > 0 ? STRAIGHT_AND_FLUSH_SIZE_FOUR_FINGERS
@@ -401,6 +451,9 @@ int get_straight_and_flush_size(void)
 void add_joker(JokerObject* joker_object)
 {
     list_push_back(&s_owned_jokers_list, joker_object);
+
+    // Owned jokers can't be rolled again in the shop
+    joker_set_rollable(joker_object->joker->id, false);
 
     // TODO: Extract to on_joker_added() callback
     // In case the player gets multiple Four Fingers Jokers,
@@ -413,6 +466,11 @@ void add_joker(JokerObject* joker_object)
     if (joker_object->joker->id == SHORTCUT_JOKER_ID)
     {
         s_shortcut_joker_count++;
+    }
+
+    if (joker_object->joker->id == SMEARED_JOKER_ID)
+    {
+        s_smeared_joker_count++;
     }
 }
 
@@ -430,6 +488,11 @@ void remove_owned_joker(int owned_joker_idx)
     if (joker_object->joker->id == SHORTCUT_JOKER_ID)
     {
         s_shortcut_joker_count--;
+    }
+
+    if (joker_object->joker->id == SMEARED_JOKER_ID)
+    {
+        s_smeared_joker_count--;
     }
 
     // TODO: Move to site of joker_destroy()?

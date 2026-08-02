@@ -88,18 +88,70 @@ static const int JOKER_ID_TO_SPRITE_MAP[] = {
     15,
     16,
     17,
-    // Spritesheet 18 (my_joker): IDs 53-57
-    18, 18, 18, 18, 18,
+    // ID 53-61: split across sheets 18 and 19
+    // 53=Wee(18), 54=Riff-Raff(18), 55=Baron(19), 56=Mime(19), 57=Egg(19), 58=Smeared(18), 59=Faceless(18), 60=Gros Michel(19), 61=Cavendish(19)
+    // ID 53-54,58-59 merged into sheet 0 (indices 18-23)
+    // ID 55-56 also merged into sheet 0 (indices 18-19)
+    // ID 57,60-61 remain on sheet 19 (indices 0-2)
+    // 53=Wee(0,20), 54=Riff-Raff(0,21), 55=Baron(0,18), 56=Mime(0,19), 57=Egg(19,0), 58=Smeared(0,23), 59=Faceless(0,22), 60=Gros Michel(19,1), 61=Cavendish(19,2)
+    0, 0, 0, 0, 19, 0, 0, 19, 19,
+    // ID 62=Flower Pot(20)
+        20,
+        // Placeholder for IDs 63-70
+        19, 19, 19, 19, 19, 19, 19, 19,
 };
 
-// Map of Spritesheet idx -> first Joker ID in sheet
-// This is used to determine the sprite index of a Joker's sprite
-// within its spritesheet by substracting its ID to this starting ID.
-// Notice how spritesheets with only one Joker have sequential starting IDs.
-static const int SPRITESHEET_IDX_TO_STARTING_JOKER_ID[] = {
-     0, 18, 20, 22, 27, 32, 36, 40, 42, 44,
-    45, 46, 47, 48, 49, 50, 51, 52, 53
-};
+// Map of Joker ID -> sprite index within its spritesheet
+// This handles non-sequential IDs across spritesheets
+static const int JOKER_ID_TO_SPRITE_IDX_IN_SHEET[] = {
+    // IDs 0-17: spritesheet 0 (sequential, use joker_id - 0)
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+    // IDs 18-19: spritesheet 1 (sequential, use joker_id - 18)
+    0, 1,
+    // IDs 20-21: spritesheet 2 (sequential)
+    0, 1,
+    // IDs 22-26: spritesheet 3 (sequential)
+    0, 1, 2, 3, 4,
+    // IDs 27-31: spritesheet 4 (sequential)
+    0, 1, 2, 3, 4,
+    // IDs 32-35: spritesheet 5 (sequential)
+    0, 1, 2, 3,
+    // IDs 36-39: spritesheet 6 (sequential)
+    0, 1, 2, 3,
+    // IDs 40-41: spritesheet 7 (sequential)
+    0, 1,
+    // IDs 42-43: spritesheet 8 (sequential)
+    0, 1,
+    // IDs 44-52: individual spritesheets (all index 0)
+    0, 0, 0, 0, 0, 0, 0, 0, 0,
+    // ID 53 (Wee) -> sheet 18, sprite 0
+    // ID 53 (Wee) -> sheet 0, sprite 20 (merged)
+    20,
+    // ID 54 (Riff-Raff) -> sheet 18, sprite 1
+    // ID 54 (Riff-Raff) -> sheet 0, sprite 21 (merged)
+    21,
+    // ID 55 (Baron) -> sheet 19, sprite 0
+    // ID 55 (Baron) -> sheet 0, sprite 18 (merged)
+    18,
+    // ID 56 (Mime) -> sheet 19, sprite 1
+    // ID 56 (Mime) -> sheet 0, sprite 19 (merged)
+    19,
+    // ID 57 (Egg) -> sheet 19, sprite 2
+    // ID 57 (Egg) -> sheet 19, sprite 0 (cleaned)
+    0,
+    // ID 58 (Smeared) -> sheet 0, sprite 23 (merged)
+    23,
+    // ID 59 (Faceless) -> sheet 0, sprite 22 (merged)
+    22,
+    // ID 60 (Gros Michel) -> sheet 19, sprite 3
+    // ID 60 (Gros Michel) -> sheet 19, sprite 1 (cleaned)
+    1,
+    // ID 61 (Cavendish) -> sheet 19, sprite 4
+    // ID 61 (Cavendish) -> sheet 19, sprite 2 (cleaned)
+    2,
+        // ID 62 (Flower Pot) -> sheet 20, sprite 0
+        0,
+    };
 
 // Lookup table of Joker Rarity strings. Used to display at the bottom of the description screen.
 static const char* JOKER_RARITY_STRINGS_LUT[MAX_RARITIES] = {
@@ -346,6 +398,22 @@ void joker_reset_rollable_jokers(void)
     {
         bitset_set_idx(&s_rollable_jokers_bitset, i, true);
     }
+
+    // Food joker initial pool state: Cavendish starts non-rollable
+    // (only becomes rollable after Gros Michel is destroyed)
+    bitset_set_idx(&s_rollable_jokers_bitset, CAVENDISH_ID, false);
+
+    // Owned jokers can't be rolled again in the shop
+    List* owned_jokers = get_jokers_list();
+    ListItr itr = list_itr_create(owned_jokers);
+    JokerObject* joker_object;
+    while ((joker_object = list_itr_next(&itr)))
+    {
+        if (joker_object != NULL && joker_object->joker != NULL)
+        {
+            bitset_set_idx(&s_rollable_jokers_bitset, joker_object->joker->id, false);
+        }
+    }
 }
 
 /**
@@ -353,6 +421,9 @@ void joker_reset_rollable_jokers(void)
  */
 static int joker_roll_id(enum RngSequence key)
 {
+    // Update Gros Michel / Cavendish pool before rolling
+    joker_update_food_pool();
+
     // Now determine how many jokers are available based on the rarity
     int jokers_avail_size = get_num_rollable_jokers();
 
@@ -475,8 +546,9 @@ bool joker_object_score(
     }
 
     JokerEffect* joker_effect = NULL;
+    Card* card = card_object ? card_object->card : NULL;
     u32 effect_flags_ret =
-        joker_get_score_effect(joker_object->joker, card_object->card, joker_event, &joker_effect);
+        joker_get_score_effect(joker_object->joker, card, joker_event, &joker_effect);
 
     if (effect_flags_ret == JOKER_EFFECT_FLAG_NONE)
     {
@@ -581,7 +653,7 @@ static int s_joker_get_spritesheet_idx(u8 joker_id)
 
 static int s_joker_get_sprite_idx_in_sheet(u8 joker_id, int spritesheet_idx)
 {
-    return joker_id - SPRITESHEET_IDX_TO_STARTING_JOKER_ID[JOKER_ID_TO_SPRITE_MAP[joker_id]];
+    return JOKER_ID_TO_SPRITE_IDX_IN_SHEET[joker_id];
 }
 
 static void s_joker_pb_add_sprite_user(int pb)

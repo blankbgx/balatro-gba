@@ -21,6 +21,8 @@
 #include "joker_gfx16.h"
 #include "joker_gfx17.h"
 #include "joker_gfx18.h"
+#include "joker_gfx19.h"
+#include "joker_gfx20.h"
 
 #endif
 // clang-format on

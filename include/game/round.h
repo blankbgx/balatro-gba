@@ -8,6 +8,8 @@
 
 #include <stdbool.h>
 
+typedef struct CardObject CardObject;
+
 /**
  * @brief Checks whether the score that would result from the current Chips and Mult exceeds the
  *         current Blind's score requirement, and applies the flaming effect if needed.
@@ -19,6 +21,7 @@ void toggle_flaming_score(void);
  *
  * @return int
  */
+CardObject** get_played_hand(void);
 int get_played_top(void);
 
 /**

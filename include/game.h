@@ -94,7 +94,13 @@ void display_ante(void);
 
 // joker specific functions
 bool is_shortcut_joker_active(void);
+bool is_smeared_joker_active(void);
 int get_straight_and_flush_size(void);
+void joker_update_food_pool(void);
+bool is_gros_michel_destroyed(void);
+void set_gros_michel_destroyed(void);
+void set_discarded_face_card_count(int count);
+int get_discarded_face_card_count(void);
 
 void game_start(void);
 

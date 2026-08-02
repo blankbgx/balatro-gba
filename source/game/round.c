@@ -240,6 +240,11 @@ static int s_cards_discarded = 0;
  * UTILS FUNCTIONS
  ******************************************************************************/
 
+CardObject** get_played_hand(void)
+{
+    return s_played_hand;
+}
+
 int get_played_top(void)
 {
     return s_played_top;
@@ -451,6 +456,24 @@ static inline void game_round_execute_discard(void)
 {
     if (!can_discard_hand())
         return;
+
+    // Count face cards in selected hand before discard animation removes them
+    // Used by Jolly Joker (ON_HAND_DISCARDED event)
+    {
+        int face_count = 0;
+        CardObject** hand = get_hand_array();
+        int top = get_hand_top();
+        for (int i = 0; i <= top; i++)
+        {
+            if (hand[i] && card_object_is_selected(hand[i]) && hand[i]->card)
+            {
+                u8 rank = hand[i]->card->rank;
+                if (rank == JACK || rank == QUEEN || rank == KING)
+                    face_count++;
+            }
+        }
+        set_discarded_face_card_count(face_count);
+    }
 
     set_hand_state(HAND_DISCARD);
     --g_game_vars.discards;
@@ -747,6 +770,19 @@ static inline void game_round_handle_round_over(void)
         next_state = GAME_STATE_LOSE;
     }
 
+    // Dispatch ON_ROUND_END to all jokers before transitioning state
+    // This allows jokers like Egg (gain value) and Riff-Raff (reset flag)
+    // to work correctly at round boundaries.
+    // Uses joker_object_score so effects like Egg's "+$3" animation are displayed.
+    {
+        ListItr itr = list_itr_create(get_jokers_list());
+        JokerObject* joker_obj;
+        while ((joker_obj = list_itr_next(&itr)))
+        {
+            joker_object_score(joker_obj, NULL, JOKER_EVENT_ON_ROUND_END);
+        }
+    }
+
     game_change_state(next_state);
 }
 
@@ -833,6 +869,17 @@ static inline void card_in_hand_loop_handle_discard_and_shuffling(
     {
         // This is never reached in the case of HAND_SHUFFLING. Not sure why but that's how it's
         // supposed to be.
+
+        // Dispatch ON_HAND_DISCARDED to all jokers before transitioning state
+        {
+            ListItr itr = list_itr_create(get_jokers_list());
+            JokerObject* joker_obj;
+            while ((joker_obj = list_itr_next(&itr)))
+            {
+                joker_object_score(joker_obj, NULL, JOKER_EVENT_ON_HAND_DISCARDED);
+            }
+        }
+
         set_hand_state(HAND_DRAW);
         s_sound_played = false;
         s_cards_discarded = 0;
@@ -2041,6 +2088,18 @@ void game_round_on_init(void)
      * otherwise or for the buttons.
      */
     game_round_selection_grid.selection = GAME_PLAYING_INIT_SEL;
+
+    // Dispatch ON_BLIND_SELECTED to all jokers after blind selection,
+    // before cards are dealt. Used by Riff-Raff, Dagger, Madness, etc.
+    {
+        ListItr itr = list_itr_create(get_jokers_list());
+        JokerObject* joker_obj;
+        while ((joker_obj = list_itr_next(&itr)))
+        {
+            JokerEffect* joker_effect = NULL;
+            joker_get_score_effect(joker_obj->joker, NULL, JOKER_EVENT_ON_BLIND_SELECTED, &joker_effect);
+        }
+    }
 }
 
 void game_round_on_update(void)

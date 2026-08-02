@@ -232,6 +232,7 @@ void sort_cards(void);
  *
  * @return              The number of cards in the best flush found, or 0 if no flush meets min_len.
  */
+int get_played_suit_counts(CardObject** played, int top, int suit_counts_out[NUM_SUITS]);
 int find_flush_in_played_cards(CardObject** played, int top, int min_len, bool* out_selection);
 
 /**

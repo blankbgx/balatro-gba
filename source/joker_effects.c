@@ -3,6 +3,7 @@
 #include "game_variables.h"
 #include "hand.h"
 #include "joker.h"
+#include "layout.h"
 #include "list.h"
 #include "pool.h"
 #include "random.h"
@@ -109,6 +110,11 @@ REGISTER_JOKER_DESC_FUNC(riff_raff_joker_desc)
 REGISTER_JOKER_DESC_FUNC(baron_joker_desc)
 REGISTER_JOKER_DESC_FUNC(mime_joker_desc)
 REGISTER_JOKER_DESC_FUNC(egg_joker_desc)
+REGISTER_JOKER_DESC_FUNC(smeared_joker_desc)
+REGISTER_JOKER_DESC_FUNC(faceless_joker_desc)
+REGISTER_JOKER_DESC_FUNC(gros_michel_joker_desc)
+REGISTER_JOKER_DESC_FUNC(cavendish_joker_desc)
+REGISTER_JOKER_DESC_FUNC(flower_pot_desc)
 
 // Joker Effect functions
 
@@ -174,6 +180,11 @@ REGISTER_JOKER_EFFECT_FUNC(riff_raff_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(baron_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(mime_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(egg_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(smeared_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(faceless_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(gros_michel_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(cavendish_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(flower_pot_effect)
 
 // clang-format off
 /* The index of a joker in the registry matches its ID.
@@ -263,8 +274,13 @@ const JokerInfo joker_registry[] =
     { "Baron",         RARE_JOKER,      8, false, baron_joker_desc, baron_joker_effect            }, // 55 Baron
     { "Mime",          UNCOMMON_JOKER,  5, false, mime_joker_desc, mime_joker_effect             }, // 56 Mime
     { "Egg",           COMMON_JOKER,    4, false, egg_joker_desc, egg_joker_effect              }, // 57 Egg
+    { "Smeared Joker", UNCOMMON_JOKER,  7, false, smeared_joker_desc, smeared_joker_effect        }, // 58 Smeared Joker
+    { "Faceless Joker", COMMON_JOKER,    5, false, faceless_joker_desc, faceless_joker_effect     }, // 59 Faceless Joker
+    { "Gros Michel",   COMMON_JOKER,    5, false, gros_michel_joker_desc, gros_michel_joker_effect }, // 60 Gros Michel
+    { "Cavendish",     COMMON_JOKER,    5, false, cavendish_joker_desc, cavendish_joker_effect     }, // 61 Cavendish
+        { "Flower Pot",    UNCOMMON_JOKER,  6, false, flower_pot_desc, flower_pot_effect              }, // 62 Flower Pot
 
-    // The following jokers don't have sprites yet,
+        // The following jokers
     // uncomment them when their sprites are added.
 #if 0
 #endif
@@ -1837,7 +1853,7 @@ static u32 blueprint_brainstorm_joker_effect(
     // No need for this kind of init since these Jokers
     // will have their data copied when needed
     if (joker_event == JOKER_EVENT_ON_JOKER_CREATED ||
-        joker_event == JOKER_EVENT_ON_HAND_SCORED_END || joker_event == JOKER_EVENT_ON_ROUND_END)
+        joker_event == JOKER_EVENT_ON_ROUND_END)
     {
         return effect_flags_ret;
     }
@@ -2001,23 +2017,27 @@ static u32 seltzer_joker_effect(
             break;
 
         case JOKER_EVENT_ON_HAND_SCORED_END:
-            *joker_effect = &s_shared_joker_effect;
-            effect_flags_ret = JOKER_EFFECT_FLAG_MESSAGE;
+            // Don't decrement countdown when being copied by Blueprint/Brainstorm
+            if (!s_is_copying_joker)
+            {
+                *joker_effect = &s_shared_joker_effect;
+                effect_flags_ret = JOKER_EFFECT_FLAG_MESSAGE;
 
-            (*p_hands_left_until_exp)--;
-            if (*p_hands_left_until_exp > 0)
-            {
-                // Need to do this for now because the message's memory can't really be allocated
-                // So we can't use snprintf to craft a message depending on the number of hands left
-                static const char* SELTZER_MESSAGES[] =
-                    {"1", "2", "3", "4", "5", "6", "7", "8", "9"};
-                (*joker_effect)->message = (char*)SELTZER_MESSAGES[(*p_hands_left_until_exp) - 1];
-            }
-            else
-            {
-                (*joker_effect)->message = "Drank!";
-                (*joker_effect)->expire = true;
-                effect_flags_ret |= JOKER_EFFECT_FLAG_EXPIRE;
+                (*p_hands_left_until_exp)--;
+                if (*p_hands_left_until_exp > 0)
+                {
+                    // Need to do this for now because the message's memory can't really be allocated
+                    // So we can't use snprintf to craft a message depending on the number of hands left
+                    static const char* SELTZER_MESSAGES[] =
+                        {"1", "2", "3", "4", "5", "6", "7", "8", "9"};
+                    (*joker_effect)->message = (char*)SELTZER_MESSAGES[(*p_hands_left_until_exp) - 1];
+                }
+                else
+                {
+                    (*joker_effect)->message = "Drank!";
+                    (*joker_effect)->expire = true;
+                    effect_flags_ret |= JOKER_EFFECT_FLAG_EXPIRE;
+                }
             }
             break;
 
@@ -2079,8 +2099,8 @@ static int wee_joker_desc(Joker* joker, Rect dest_rect)
 {
     // Dynamic: shows current accumulated chips
     static const char desc_format[] =
-        TTE_BLACK_TAG "Each played " TTE_RED_TAG "2" TTE_BLACK_TAG
-        " gives " TTE_RED_TAG "+8 " TTE_BLACK_TAG "Chips\n\n"
+        TTE_BLACK_TAG "Each scored " TTE_RED_TAG "2" TTE_BLACK_TAG
+        " gives " TTE_RED_TAG "+8 " TTE_BLACK_TAG "Chips "
         "(Now " TTE_RED_TAG "+%ld " TTE_BLACK_TAG "Chips)";
     char desc[256];
     snprintf(desc, sizeof(desc), desc_format, (long)joker->scoring_state);
@@ -2090,15 +2110,15 @@ static int wee_joker_desc(Joker* joker, Rect dest_rect)
 static int riff_raff_joker_desc(Joker* joker, Rect dest_rect)
 {
     static const char desc[] =
-        TTE_BLACK_TAG "When round starts, create " TTE_RED_TAG "2 " TTE_BLACK_TAG
-        "random Jokers\n\n" TTE_BLACK_TAG "(Must have room)";
+        TTE_BLACK_TAG "When blind starts, create " TTE_RED_TAG "2 " TTE_BLACK_TAG
+        "random Jokers (Must have room)";
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
 
 static int baron_joker_desc(Joker* joker, Rect dest_rect)
 {
     static const char desc[] =
-        TTE_BLACK_TAG "Each " TTE_RED_TAG "King " TTE_BLACK_TAG "held in hand\n"
+        TTE_BLACK_TAG "Each " TTE_RED_TAG "King " TTE_BLACK_TAG "held in hand "
         "gives " TTE_RED_TAG "X1.5 " TTE_BLACK_TAG "Mult";
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
@@ -2106,15 +2126,25 @@ static int baron_joker_desc(Joker* joker, Rect dest_rect)
 static int mime_joker_desc(Joker* joker, Rect dest_rect)
 {
     static const char desc[] =
-        TTE_BLACK_TAG "Retrigger all\n" TTE_RED_TAG "cards held in hand";
+        TTE_BLACK_TAG "Retrigger all " TTE_RED_TAG "cards held in hand";
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
 
 static int egg_joker_desc(Joker* joker, Rect dest_rect)
 {
     static const char desc[] =
-        TTE_BLACK_TAG "Gains " TTE_RED_TAG "$3 " TTE_BLACK_TAG "of value\n"
+        TTE_BLACK_TAG "Gains " TTE_RED_TAG "$3 " TTE_BLACK_TAG "of sell value "
         "each round";
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static int smeared_joker_desc(Joker* joker, Rect dest_rect)
+{
+    static const char desc[] =
+        TTE_RED_TAG "Clubs " TTE_BLACK_TAG "and " TTE_RED_TAG "Spades "
+        TTE_BLACK_TAG "are the same suit, "
+        TTE_RED_TAG "Diamonds " TTE_BLACK_TAG "and " TTE_RED_TAG "Hearts "
+        TTE_BLACK_TAG "are the same suit";
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
 
@@ -2169,7 +2199,7 @@ static u32 wee_joker_effect(
     return JOKER_EFFECT_FLAG_NONE;
 }
 
-// Riff-Raff: When round starts, create 2 random common/uncommon jokers
+// Riff-Raff: When blind starts (cards dealt), create 2 random common/uncommon jokers
 static u32 riff_raff_joker_effect(
     Joker* joker,
     Card* scored_card,
@@ -2177,7 +2207,7 @@ static u32 riff_raff_joker_effect(
     JokerEffect** joker_effect
 )
 {
-    if (joker_event == JOKER_EVENT_ON_HAND_PLAYED)
+    if (joker_event == JOKER_EVENT_ON_BLIND_SELECTED)
     {
         // Only trigger once per round (use persistent_state as flag)
         if (joker->persistent_state == 0)
@@ -2206,6 +2236,12 @@ static u32 riff_raff_joker_effect(
                     const JokerInfo* info = get_joker_registry_entry(candidate);
                     if (info && info->rarity == rarity && !is_joker_owned(candidate))
                     {
+                        // Exclude food jokers from Riff-Raff based on pool state
+                        if (candidate == GROS_MICHEL_ID && is_gros_michel_destroyed())
+                            continue;
+                        if (candidate == CAVENDISH_ID && !is_gros_michel_destroyed())
+                            continue;
+
                         // Check not duplicate with previously generated this round
                         bool dup = false;
                         for (int g = 0; g < generated_count; g++)
@@ -2233,7 +2269,11 @@ static u32 riff_raff_joker_effect(
                         JokerObject* new_joker_object = joker_object_new(new_joker);
                         if (new_joker_object)
                         {
+                            // Set Y position to match other held jokers
+                            new_joker_object->ty = int2fx(HELD_JOKERS_POS.y);
                             add_joker(new_joker_object);
+                            // Mark as non-rollable so shop won't generate the same joker
+                            joker_set_rollable(joker_id, false);
                             generated_ids[generated_count++] = joker_id;
                             current_count++;
                         }
@@ -2265,17 +2305,17 @@ static u32 baron_joker_effect(
 {
     SCORE_ON_EVENT_ONLY(JOKER_EVENT_ON_CARD_HELD, joker_event)
 
-    u32 effect_flags_ret = JOKER_EFFECT_FLAG_NONE;
-
     if (scored_card->rank == KING)
     {
-        *joker_effect = &s_shared_joker_effect;
+        // x1.5: mult = mult * 3 / 2 (applied directly since xmult only supports integers)
+        g_game_vars.mult = u32_protected_mult(g_game_vars.mult, 3) / 2;
 
-        (*joker_effect)->xmult = 3; // x1.5 represented as 3/2 in fixed point
-        effect_flags_ret = JOKER_EFFECT_FLAG_XMULT;
+        *joker_effect = &s_shared_joker_effect;
+        (*joker_effect)->message = "X1.5";
+        return JOKER_EFFECT_FLAG_MESSAGE;
     }
 
-    return effect_flags_ret;
+    return JOKER_EFFECT_FLAG_NONE;
 }
 
 // Mime: Retrigger all cards held in hand
@@ -2298,7 +2338,7 @@ static u32 mime_joker_effect(
     return JOKER_EFFECT_FLAG_NONE;
 }
 
-// Egg: Gains $3 of value each round
+// Egg: Gains $3 of sell value each round
 static u32 egg_joker_effect(
     Joker* joker,
     Card* scored_card,
@@ -2308,7 +2348,185 @@ static u32 egg_joker_effect(
 {
     if (joker_event == JOKER_EVENT_ON_ROUND_END)
     {
-        joker->value += 3;
+        // sell_value = value / 2, so +6 to value = +$3 sell value
+        joker->value += 6;
+
+        // Show "+$3" animation with shake
+        *joker_effect = &s_shared_joker_effect;
+        (*joker_effect)->message = "+$3";
+        return JOKER_EFFECT_FLAG_MESSAGE;
+    }
+
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// Smear Joker: Clubs and Spades count as the same suit; Diamonds and Hearts count as the same suit
+static u32 smeared_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    // Passive effect - suit merging is handled in hand.c via is_smeared_joker_active()
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// --- Descriptions for new jokers ---
+
+static int faceless_joker_desc(Joker* joker, Rect dest_rect)
+{
+    static const char desc[] =
+        TTE_BLACK_TAG "If discarded hand contains "
+        TTE_RED_TAG "3 or more Face Cards"
+        TTE_BLACK_TAG ", earn " TTE_RED_TAG "$5";
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static int gros_michel_joker_desc(Joker* joker, Rect dest_rect)
+{
+    static const char desc[] =
+        TTE_BLACK_TAG "Provides " TTE_RED_TAG "+15 Mult"
+        TTE_BLACK_TAG ". " TTE_RED_TAG "1 in 6"
+        TTE_BLACK_TAG " chance this card is destroyed at end of hand";
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static int cavendish_joker_desc(Joker* joker, Rect dest_rect)
+{
+    static const char desc[] =
+        TTE_BLACK_TAG "Provides " TTE_RED_TAG "X3 Mult"
+        TTE_BLACK_TAG ". " TTE_RED_TAG "1 in 1000"
+        TTE_BLACK_TAG " chance this card is destroyed at end of hand";
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+// --- Effects for new jokers ---
+
+// Faceless Joker: When 3+ face cards are discarded, give $5
+static u32 faceless_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    if (joker_event == JOKER_EVENT_ON_HAND_DISCARDED)
+    {
+        if (get_discarded_face_card_count() >= 3)
+        {
+            g_game_vars.money += 5;
+            *joker_effect = &s_shared_joker_effect;
+            (*joker_effect)->message = "$5";
+            return JOKER_EFFECT_FLAG_MESSAGE;
+        }
+    }
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// Gros Michel: +15 mult, 1/6 chance to self-destruct after each hand
+static u32 gros_michel_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    if (joker_event == JOKER_EVENT_INDEPENDENT)
+    {
+        *joker_effect = &s_shared_joker_effect;
+        (*joker_effect)->mult = 15;
+        return JOKER_EFFECT_FLAG_MULT;
+    }
+
+    if (joker_event == JOKER_EVENT_ON_HAND_SCORED_END)
+    {
+        // Don't self-destruct when being copied by Blueprint/Brainstorm
+        if (!s_is_copying_joker && (rng_get_u32() % 6) == 0)
+        {
+            // Self-destruct!
+            set_gros_michel_destroyed();
+            *joker_effect = &s_shared_joker_effect;
+            (*joker_effect)->message = "EXTINCT!";
+            (*joker_effect)->expire = true;
+            return JOKER_EFFECT_FLAG_MESSAGE | JOKER_EFFECT_FLAG_EXPIRE;
+        }
+    }
+
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// Cavendish: x3 mult, 1/1000 chance to self-destruct after each hand
+static u32 cavendish_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    if (joker_event == JOKER_EVENT_INDEPENDENT)
+    {
+        *joker_effect = &s_shared_joker_effect;
+        (*joker_effect)->xmult = 3;
+        return JOKER_EFFECT_FLAG_XMULT;
+    }
+
+    if (joker_event == JOKER_EVENT_ON_HAND_SCORED_END)
+    {
+        // Don't self-destruct when being copied by Blueprint/Brainstorm
+        if (!s_is_copying_joker && (rng_get_u32() % 1000) == 0)
+        {
+            // Self-destruct!
+            *joker_effect = &s_shared_joker_effect;
+            (*joker_effect)->message = "EXTINCT!";
+            (*joker_effect)->expire = true;
+            return JOKER_EFFECT_FLAG_MESSAGE | JOKER_EFFECT_FLAG_EXPIRE;
+        }
+    }
+
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// --- Flower Pot (ID 62) ---
+
+// Description: If played hand contains all 4 suits, give x3 mult.
+// With Smeared Joker: only need 1 red + 1 black card.
+static int flower_pot_desc(Joker* joker, Rect dest_rect)
+{
+    static const char desc[] =
+        TTE_BLACK_TAG "If played hand has "
+        TTE_RED_TAG "all 4 suits"
+        TTE_BLACK_TAG ", give "
+        TTE_RED_TAG "X3 Mult";
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+// Effect: x3 mult if played hand contains all 4 suits.
+// Uses suit_counts from hand.c which already applies card_effective_suit_mask().
+static u32 flower_pot_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    SCORE_ON_EVENT_ONLY(JOKER_EVENT_INDEPENDENT, joker_event)
+
+    // Get suit distribution of played cards (already smeared-joker aware)
+    extern CardObject** get_played_hand(void);
+    extern int get_played_top(void);
+    CardObject** played = get_played_hand();
+    int top = get_played_top();
+    int suit_counts[NUM_SUITS] = {0};
+    get_played_suit_counts(played, top, suit_counts);
+
+    // Check if all 4 suits are present
+    if (suit_counts[0] > 0 && suit_counts[1] > 0 &&
+        suit_counts[2] > 0 && suit_counts[3] > 0)
+    {
+        *joker_effect = &s_shared_joker_effect;
+        (*joker_effect)->xmult = 3;
+        return JOKER_EFFECT_FLAG_XMULT;
     }
 
     return JOKER_EFFECT_FLAG_NONE;

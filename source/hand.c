@@ -343,10 +343,28 @@ void hand_deselect_all_cards(void)
 // Hand Analysis
 
 /**
+ * @brief Returns a bitmask of suits that a card counts as.
+ * With Smeared Joker: black cards count as both CLUBS and SPADES,
+ *                     red cards count as both HEARTS and DIAMONDS.
+ */
+static inline u8 card_effective_suit_mask(u8 suit)
+{
+    if (!is_smeared_joker_active())
+        return (1 << suit);
+    // Black cards count as both CLUBS and SPADES
+    if (suit == CLUBS || suit == SPADES)
+        return (1 << CLUBS) | (1 << SPADES);
+    // Red cards count as both HEARTS and DIAMONDS
+    if (suit == HEARTS || suit == DIAMONDS)
+        return (1 << HEARTS) | (1 << DIAMONDS);
+    return (1 << suit);
+}
+
+/**
  * @brief Outputs the distribution of ranks and suits in the hand
- * @param ranks_out output - updated such as ranks_out[rank] is the number of cards of rank in the
+ * @param ranks_out output - updated such that ranks_out[rank] is the number of cards of rank in the
  *                  hand. Must be of size NUM_RANKS.
- * @param suits_out output - updated such as suits_out[suit] is the number of cards if suit in the
+ * @param suits_out output - updated such that suits_out[suit] is the number of cards if suit in the
  *                  hand Must be of size NUM_SUITS
  */
 static void get_hand_distribution(u8 ranks_out[NUM_RANKS], u8 suits_out[NUM_SUITS])
@@ -362,7 +380,12 @@ static void get_hand_distribution(u8 ranks_out[NUM_RANKS], u8 suits_out[NUM_SUIT
         if (s_hand.cards[i] && card_object_is_selected(s_hand.cards[i]))
         {
             ranks_out[s_hand.cards[i]->card->rank]++;
-            suits_out[s_hand.cards[i]->card->suit]++;
+            u8 mask = card_effective_suit_mask(s_hand.cards[i]->card->suit);
+            for (int s = 0; s < NUM_SUITS; s++)
+            {
+                if (mask & (1 << s))
+                    suits_out[s]++;
+            }
         }
     }
 }
@@ -539,6 +562,28 @@ static bool hand_contains_flush(u8* suits)
     return false;
 }
 
+// Returns suit counts of played cards, applying Smeared Joker effect.
+// Used by Flower Pot and other jokers that need suit distribution.
+int get_played_suit_counts(CardObject** played, int top, int suit_counts_out[NUM_SUITS])
+{
+    for (int i = 0; i < NUM_SUITS; i++)
+        suit_counts_out[i] = 0;
+
+    for (int i = 0; i <= top; i++)
+    {
+        if (played[i] && played[i]->card)
+        {
+            u8 mask = card_effective_suit_mask(played[i]->card->suit);
+            for (int s = 0; s < NUM_SUITS; s++)
+            {
+                if (mask & (1 << s))
+                    suit_counts_out[s]++;
+            }
+        }
+    }
+    return 0;
+}
+
 // Returns the number of cards in the best flush found
 // or 0 if no flush of min_len is found, and marks them in out_selection.
 int find_flush_in_played_cards(CardObject** played, int top, int min_len, bool* out_selection)
@@ -553,7 +598,12 @@ int find_flush_in_played_cards(CardObject** played, int top, int min_len, bool* 
     {
         if (played[i] && played[i]->card)
         {
-            suit_counts[played[i]->card->suit]++;
+            u8 mask = card_effective_suit_mask(played[i]->card->suit);
+            for (int s = 0; s < NUM_SUITS; s++)
+            {
+                if (mask & (1 << s))
+                    suit_counts[s]++;
+            }
         }
     }
 
@@ -572,9 +622,13 @@ int find_flush_in_played_cards(CardObject** played, int top, int min_len, bool* 
     {
         for (int i = 0; i <= top; i++)
         {
-            if (played[i] && played[i]->card && played[i]->card->suit == best_suit)
+            if (played[i] && played[i]->card)
             {
-                out_selection[i] = true;
+                u8 mask = card_effective_suit_mask(played[i]->card->suit);
+                if (mask & (1 << best_suit))
+                {
+                    out_selection[i] = true;
+                }
             }
         }
         return best_count;

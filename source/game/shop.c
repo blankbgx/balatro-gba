@@ -320,7 +320,11 @@ static void game_shop_intro()
             SHOP_REROLL_RECT.left,
             SHOP_REROLL_RECT.top,
             TTE_WHITE_PB,
+#ifdef DEBUG_SHOP_FREE
+            0
+#else
             s_reroll_cost
+#endif
         );
     }
 }
@@ -472,7 +476,9 @@ static bool shop_reroll_row_on_selection_changed(
  */
 static inline void game_shop_reroll(void)
 {
+#ifndef DEBUG_SHOP_FREE
     g_game_vars.money -= s_reroll_cost;
+#endif
     display_money(); // Update the money display
 
     List* shop_items_list = &s_shop_items_list;
@@ -511,7 +517,11 @@ static inline void game_shop_reroll(void)
         SHOP_REROLL_RECT.left,
         SHOP_REROLL_RECT.top,
         TTE_WHITE_PB,
+#ifdef DEBUG_SHOP_FREE
+        0
+#else
         s_reroll_cost
+#endif
     );
 }
 
@@ -546,7 +556,11 @@ static void reroll_on_pressed(void)
 
 static bool reroll_can_be_pressed(void)
 {
+#ifdef DEBUG_SHOP_FREE
+    return true;
+#else
     return g_game_vars.money >= s_reroll_cost;
+#endif
 }
 
 /**

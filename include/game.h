@@ -14,6 +14,12 @@
 #define MAX_SELECTION_SIZE   5
 #define FRAMES(x)            (((x) + (g_game_vars.game_speed) - 1) / (g_game_vars.game_speed))
 
+// ---------------------------------------------------------------------------
+// DEBUG SWITCHES
+// Set to 1 to enable, 0 for release builds.
+// ---------------------------------------------------------------------------
+#define DEBUG_SHOP_FREE 1 // Free shop rerolls + all items priced at $0
+
 // TODO: Can make these dynamic to support interest-related jokers and vouchers
 #define MAX_INTEREST   5
 #define INTEREST_PER_5 1

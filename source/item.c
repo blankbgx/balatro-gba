@@ -25,11 +25,16 @@ int item_get_buy_price(Item* item)
 {
     GBAL_RETURN_IF_NULL_RET(item, UNDEFINED);
 
+#ifdef DEBUG_SHOP_FREE
+    // Debug mode: everything is free
+    return 0;
+#else
     ItemFuncs* item_funcs = get_item_type_funcs(item->type);
     GBAL_RETURN_IF_NULL_RET(item_funcs, UNDEFINED);
     GBAL_RETURN_IF_NULL_RET(item_funcs->get_buy_price, UNDEFINED);
 
     return item_funcs->get_buy_price(item);
+#endif
 }
 
 void item_acquire(Item* item)

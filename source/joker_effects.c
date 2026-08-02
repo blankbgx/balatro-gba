@@ -115,6 +115,7 @@ REGISTER_JOKER_DESC_FUNC(faceless_joker_desc)
 REGISTER_JOKER_DESC_FUNC(gros_michel_joker_desc)
 REGISTER_JOKER_DESC_FUNC(cavendish_joker_desc)
 REGISTER_JOKER_DESC_FUNC(flower_pot_desc)
+REGISTER_JOKER_DESC_FUNC(loyalty_card_joker_desc)
 
 // Joker Effect functions
 
@@ -185,6 +186,7 @@ REGISTER_JOKER_EFFECT_FUNC(faceless_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(gros_michel_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(cavendish_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(flower_pot_effect)
+REGISTER_JOKER_EFFECT_FUNC(loyalty_card_joker_effect)
 
 // clang-format off
 /* The index of a joker in the registry matches its ID.
@@ -279,6 +281,7 @@ const JokerInfo joker_registry[] =
     { "Gros Michel",   COMMON_JOKER,    5, false, gros_michel_joker_desc, gros_michel_joker_effect }, // 60 Gros Michel
     { "Cavendish",     COMMON_JOKER,    5, false, cavendish_joker_desc, cavendish_joker_effect     }, // 61 Cavendish
         { "Flower Pot",    UNCOMMON_JOKER,  6, false, flower_pot_desc, flower_pot_effect              }, // 62 Flower Pot
+        { "Loyalty Card",  UNCOMMON_JOKER,  5, false, loyalty_card_joker_desc, loyalty_card_joker_effect }, // 63 Loyalty Card
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -2530,4 +2533,75 @@ static u32 flower_pot_effect(
     }
 
     return JOKER_EFFECT_FLAG_NONE;
+}
+
+// --- Loyalty Card (ID 63) ---
+
+#define LOYALTY_CARD_HANDS_REQUIRED 6
+
+// Description: Every 6 hands played, next hand gets X4 Mult.
+static int loyalty_card_joker_desc(Joker* joker, Rect dest_rect)
+{
+    static const char desc[] =
+        TTE_BLACK_TAG "Every " TTE_RED_TAG "6 hands"
+        TTE_BLACK_TAG " played, next hand gets "
+        TTE_RED_TAG "X4 Mult";
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+// Effect: after 5 played hands, the 6th hand gets X4 Mult (fixed multiplier).
+// persistent_state holds hands played in the current cycle (0-5).
+// Each instance counts independently (Blueprint/Brainstorm copies have their own counter).
+static u32 loyalty_card_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    u32 effect_flags_ret = JOKER_EFFECT_FLAG_NONE;
+    s32* p_hands_played = &(joker->persistent_state);
+
+    switch (joker_event)
+    {
+        case JOKER_EVENT_ON_JOKER_CREATED:
+            *p_hands_played = 0;
+            break;
+
+        case JOKER_EVENT_INDEPENDENT:
+            // Count this hand. On the 6th hand, apply X4 and reset the cycle.
+            (*p_hands_played)++;
+            if (*p_hands_played >= LOYALTY_CARD_HANDS_REQUIRED)
+            {
+                *p_hands_played = 0;
+                *joker_effect = &s_shared_joker_effect;
+                (*joker_effect)->xmult = 4;
+                effect_flags_ret = JOKER_EFFECT_FLAG_XMULT;
+            }
+            break;
+
+        case JOKER_EVENT_ON_HAND_SCORED_END:
+            // Show remaining hands until next X4 (real joker only, not copies)
+            if (!s_is_copying_joker)
+            {
+                *joker_effect = &s_shared_joker_effect;
+                effect_flags_ret = JOKER_EFFECT_FLAG_MESSAGE;
+
+                // Message memory can't be allocated, so use a static string table
+                static const char* LOYALTY_MESSAGES[] =
+                    {"1", "2", "3", "4", "5", "6"};
+                int remaining = LOYALTY_CARD_HANDS_REQUIRED - *p_hands_played;
+                if (remaining < 1)
+                    remaining = 1;
+                if (remaining > LOYALTY_CARD_HANDS_REQUIRED)
+                    remaining = LOYALTY_CARD_HANDS_REQUIRED;
+                (*joker_effect)->message = (char*)LOYALTY_MESSAGES[remaining - 1];
+            }
+            break;
+
+        default:
+            break;
+    }
+
+    return effect_flags_ret;
 }

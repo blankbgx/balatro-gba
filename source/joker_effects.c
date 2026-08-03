@@ -2707,10 +2707,11 @@ static u32 riding_the_bus_joker_effect(
                 (*p_accumulated_mult)++;
             }
 
-            // Show current mult after the update
+            // Show the outcome: streak reset vs. streak extended
             *joker_effect = &s_shared_joker_effect;
             effect_flags_ret = JOKER_EFFECT_FLAG_MESSAGE;
-            (*joker_effect)->message = "Mult!";
+            (*joker_effect)->message =
+                had_scoring_face_card ? "Reset!" : "Mult!";
             break;
         }
 

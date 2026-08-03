@@ -101,8 +101,10 @@ static const int JOKER_ID_TO_SPRITE_MAP[] = {
         0,
     // ID 64=Riding the Bus(8,2)
         8,
-    // Placeholder for IDs 65-70
-        19, 19, 19, 19, 19, 19,
+    // ID 65=Ceremonial Dagger(0,26)
+        0,
+    // Placeholder for IDs 66-70
+        19, 19, 19, 19, 19,
 };
 
 // Map of Joker ID -> sprite index within its spritesheet
@@ -159,6 +161,8 @@ static const int JOKER_ID_TO_SPRITE_IDX_IN_SHEET[] = {
         24,
         // ID 64 (Riding the Bus) -> sheet 8, sprite 2
         2,
+        // ID 65 (Ceremonial Dagger) -> sheet 0, sprite 26
+        26,
     };
 
 // Lookup table of Joker Rarity strings. Used to display at the bottom of the description screen.

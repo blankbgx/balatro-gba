@@ -117,6 +117,7 @@ REGISTER_JOKER_DESC_FUNC(cavendish_joker_desc)
 REGISTER_JOKER_DESC_FUNC(flower_pot_desc)
 REGISTER_JOKER_DESC_FUNC(loyalty_card_joker_desc)
 REGISTER_JOKER_DESC_FUNC(riding_the_bus_joker_desc)
+REGISTER_JOKER_DESC_FUNC(ceremonial_dagger_joker_desc)
 
 // Joker Effect functions
 
@@ -189,6 +190,7 @@ REGISTER_JOKER_EFFECT_FUNC(cavendish_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(flower_pot_effect)
 REGISTER_JOKER_EFFECT_FUNC(loyalty_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(riding_the_bus_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(ceremonial_dagger_joker_effect)
 
 // clang-format off
 /* The index of a joker in the registry matches its ID.
@@ -285,6 +287,7 @@ const JokerInfo joker_registry[] =
         { "Flower Pot",    UNCOMMON_JOKER,  6, false, flower_pot_desc, flower_pot_effect              }, // 62 Flower Pot
         { "Loyalty Card",  UNCOMMON_JOKER,  5, false, loyalty_card_joker_desc, loyalty_card_joker_effect }, // 63 Loyalty Card
         { "Riding the Bus", COMMON_JOKER,   6, false, riding_the_bus_joker_desc, riding_the_bus_joker_effect }, // 64 Riding the Bus
+        { "Ceremonial Dagger", UNCOMMON_JOKER, 6, false, ceremonial_dagger_joker_desc, ceremonial_dagger_joker_effect }, // 65 Ceremonial Dagger
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -2728,6 +2731,107 @@ static u32 riding_the_bus_joker_effect(
             // Clear the per-hand face-card flag for the next hand
             joker->persistent_state = 0;
             break;
+
+        default:
+            break;
+    }
+
+    return effect_flags_ret;
+}
+
+// --- Ceremonial Dagger (ID 65) ---
+
+// Description: when blind is selected, destroy the Joker to the right and add
+// double its sell value to this Joker's Mult. Dynamic: shows current mult.
+static int ceremonial_dagger_joker_desc(Joker* joker, Rect dest_rect)
+{
+    char desc[200];
+    snprintf(
+        desc,
+        sizeof(desc),
+        TTE_BLACK_TAG "When blind is selected, destroy " TTE_RED_TAG "Joker to the right"
+        TTE_BLACK_TAG " and add double its sell value to its " TTE_RED_TAG "Mult"
+        TTE_BLACK_TAG " (now " TTE_RED_TAG "+%ld " TTE_BLACK_TAG "Mult)",
+        (long)joker->scoring_state
+    );
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+// Effect: at ON_BLIND_SELECTED, destroys the Joker immediately to the right
+// (only the adjacent one; ones further right are safe; if this Joker is
+// rightmost, nothing happens). Adds double the victim's *sell value* to the
+// accumulated mult - joker_get_sell_value() reads the live value/2, so it
+// correctly absorbs an Egg that has been growing its sell value. The victim
+// is shaken and pushed to the expired list (rotating/shrinking animation,
+// then auto-removal - safe during list iteration since the owned list isn't
+// touched immediately). The mult applies at INDEPENDENT; copies mirror it.
+static u32 ceremonial_dagger_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    u32 effect_flags_ret = JOKER_EFFECT_FLAG_NONE;
+    s32* p_accumulated_mult = &(joker->scoring_state);
+
+    switch (joker_event)
+    {
+        case JOKER_EVENT_ON_JOKER_CREATED:
+            *p_accumulated_mult = 0;
+            break;
+
+        case JOKER_EVENT_ON_BLIND_SELECTED:
+            // Copies don't sacrifice (they mirror the original's mult)
+            if (s_is_copying_joker)
+                break;
+
+            // Find this Joker in the list; the next entry is the right neighbor
+            ListItr itr = list_itr_create(get_jokers_list());
+            JokerObject* cur;
+            while ((cur = list_itr_next(&itr)))
+            {
+                if (cur->joker == joker)
+                {
+                    JokerObject* victim = list_itr_next(&itr);
+                    if (victim != NULL && victim->joker != NULL)
+                    {
+                        // Add double the victim's sell value to the mult
+                        (*p_accumulated_mult) +=
+                            2 * joker_get_sell_value(victim->joker);
+
+                        // Sacrifice: shake then expire (auto-removed after the
+                        // shrink animation; owned list is not modified now, so
+                        // the ongoing ON_BLIND_SELECTED iteration stays valid)
+                        joker_object_shake(victim, UNDEFINED);
+                        list_push_back(get_expired_jokers_list(), victim);
+                    }
+                    break;
+                }
+            }
+            break;
+
+        case JOKER_EVENT_INDEPENDENT:
+        {
+            s32 mult_to_apply;
+            if (s_is_copying_joker && s_copied_joker_source != NULL)
+            {
+                // Copy mode: mirror the original's accumulated mult
+                mult_to_apply = s_copied_joker_source->scoring_state;
+            }
+            else
+            {
+                mult_to_apply = *p_accumulated_mult;
+            }
+
+            if (mult_to_apply > 0)
+            {
+                *joker_effect = &s_shared_joker_effect;
+                (*joker_effect)->mult = mult_to_apply;
+                effect_flags_ret = JOKER_EFFECT_FLAG_MULT;
+            }
+            break;
+        }
 
         default:
             break;

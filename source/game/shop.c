@@ -511,7 +511,9 @@ static inline void game_shop_reroll(void)
         }
     }
 
+#ifndef DEBUG_SHOP_FREE
     s_reroll_cost++;
+#endif
     tte_printf(
         "#{P:%d,%d; cx:0x%X000}$%d",
         SHOP_REROLL_RECT.left,

@@ -494,7 +494,11 @@ void main_bg_se_clear_rect(Rect se_rect)
     // Clip to avoid screenblock overflow
     clip_se_rect_to_screenblock(&se_rect);
 
-    for (int y = se_rect.top; y < se_rect.bottom; y++)
+    // Rect is inclusive (same convention as every other se_* draw function:
+    // rect_height = bottom - top + 1). Clearing must cover the bottom row too,
+    // otherwise a panel drawn to its full base rect (e.g. a long joker
+    // description) leaves its last row on screen after being cleared.
+    for (int y = se_rect.top; y <= se_rect.bottom; y++)
     {
         memset16(&(se_mat[MAIN_BG_SBB][y][se_rect.left]), 0x0000, rect_width(&se_rect));
     }

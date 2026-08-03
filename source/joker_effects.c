@@ -2677,24 +2677,27 @@ static u32 riding_the_bus_joker_effect(
             if (s_is_copying_joker)
                 break;
 
-            // Check played hand for any face card (card_is_face respects Pareidolia)
+            // Check played hand for any *scoring* face card (card_is_face respects
+            // Pareidolia). Only selected cards actually score, so unselected
+            // played face cards must NOT reset the streak.
             extern CardObject** get_played_hand(void);
             extern int get_played_top(void);
             CardObject** played = get_played_hand();
             int top = get_played_top();
 
-            bool had_face_card = false;
+            bool had_scoring_face_card = false;
             for (int i = 0; i <= top; i++)
             {
                 if (played[i] != NULL && played[i]->card != NULL &&
+                    card_object_is_selected(played[i]) &&
                     card_is_face(played[i]->card))
                 {
-                    had_face_card = true;
+                    had_scoring_face_card = true;
                     break;
                 }
             }
 
-            if (had_face_card)
+            if (had_scoring_face_card)
             {
                 *p_accumulated_mult = 0;
             }

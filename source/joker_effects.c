@@ -2178,8 +2178,11 @@ static u32 wee_joker_effect(
                 }
                 else
                 {
-                    // Normal mode: accumulate +8 chips on this joker
+                    // Normal mode: accumulate +8 chips and show upgrade animation
                     joker->scoring_state += 8;
+                    *joker_effect = &s_shared_joker_effect;
+                    (*joker_effect)->message = "Upgrade!";
+                    return JOKER_EFFECT_FLAG_MESSAGE;
                 }
             }
             break;

@@ -681,6 +681,14 @@ static void game_shop_show_card_desc(void)
             CARD_DESC_MAX_TEXT_HEIGHT -
             info->joker_print_desc(s_description_card->joker, CARD_DESC_TEXT_RECT);
 
+        // Long descriptions (e.g. Riding the Bus) can exceed the max text height,
+        // which would grow the panel past CARD_DESC_9_PTCH_TO_RECT. The hide
+        // animation clears exactly that base rect, so a grown panel would leave
+        // residue when B is released. Clamp to the base rect: text still fits
+        // (it renders inside CARD_DESC_TEXT_RECT) and the panel never overflows.
+        if (desc_bottom_offset < 0)
+            desc_bottom_offset = 0;
+
         // Print Rarity and change color or the panel
         // Do it before drawing the panel so the color is already set
         const char* rarity_str = joker_get_rarity_string(info->rarity);

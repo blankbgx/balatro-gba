@@ -61,6 +61,8 @@
 
 ## 已归档决策（防遗忘）
 
+- **效果函数架构红线**：`s_shared_joker_effect` 是单缓冲——效果函数必须**同步**消费 `joker_effect` 并立即返回，禁止保存指针供后续延迟使用（否则同帧多 joker 触发会串数据）
+- **计数器生命周期**：`scoring_state`（累积值，如 Wee chips/巴士 mult）= 对局内临时状态，每局从 0 开始、卖掉重买归 0、**不写入存档**；`persistent_state` = 机制状态（如 Loyalty 剩余手数），随存档保存
 - **gfx0 调色板**：16 色（含透明），非透明 14 色（3F6367 已并入 4F6367）。未来新小丑量化时注意：低频色（#BB4D46/#BC8019/#347EB2/#FD8086）是优先合并候选
 - **精灵表索引规则**：`def_joker_gfx_table.h` 条目数必须与 sheet 编号 0..N 连续一一对应（删除占位会致数组前移、贴图错乱）
 - **构建流程**：Docker Desktop 需手动启动（~15s）；`rm -rf build` 后必须重跑 `python3 scripts/generate_font.py`

@@ -2540,12 +2540,23 @@ static u32 flower_pot_effect(
 #define LOYALTY_CARD_HANDS_REQUIRED 6
 
 // Description: Every 6 hands played, next hand gets X4 Mult.
+// Shows remaining hands until the next X4 (dynamic, updates with the counter).
 static int loyalty_card_joker_desc(Joker* joker, Rect dest_rect)
 {
-    static const char desc[] =
-        TTE_BLACK_TAG "Every " TTE_RED_TAG "6 hands"
-        TTE_BLACK_TAG " played, next hand gets "
-        TTE_RED_TAG "X4 Mult";
+    char desc[160];
+    int remaining = LOYALTY_CARD_HANDS_REQUIRED - joker->persistent_state;
+    if (remaining < 1)
+        remaining = 1;
+    if (remaining > LOYALTY_CARD_HANDS_REQUIRED)
+        remaining = LOYALTY_CARD_HANDS_REQUIRED;
+
+    snprintf(
+        desc,
+        sizeof(desc),
+        TTE_BLACK_TAG "Every " TTE_RED_TAG "6 hands" TTE_BLACK_TAG " played, "
+        TTE_RED_TAG "X4 Mult" TTE_BLACK_TAG ", " TTE_RED_TAG "%d" TTE_BLACK_TAG " remaining",
+        remaining
+    );
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
 

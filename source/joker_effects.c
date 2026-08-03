@@ -2645,8 +2645,10 @@ static int riding_the_bus_joker_desc(Joker* joker, Rect dest_rect)
 // scores* (ON_CARD_SCORED only fires for cards actually participating in
 // scoring, so unselected played face cards don't break the streak, and future
 // Splash support is automatic). A hand with no scoring face card extends the
-// streak by +1 at ON_HAND_SCORED_END. persistent_state is a per-hand flag
-// marking whether a face card scored (reset it back to 0 at hand end).
+// streak by +1 at INDEPENDENT timing (before scoring completes) so the new
+// mult applies to the current hand - same as Wee Joker's immediate chips.
+// persistent_state is a per-hand flag marking whether a face card scored.
+// Blueprint/Brainstorm copies mirror the original's accumulated mult.
 static u32 riding_the_bus_joker_effect(
     Joker* joker,
     Card* scored_card,
@@ -2665,14 +2667,39 @@ static u32 riding_the_bus_joker_effect(
             break;
 
         case JOKER_EVENT_INDEPENDENT:
-            // Apply accumulated mult (if any) during scoring
-            if (*p_accumulated_mult > 0)
+        {
+            bool is_copy = s_is_copying_joker;
+            s32 mult_to_apply = *p_accumulated_mult;
+
+            if (!is_copy)
+            {
+                // No scoring face card this hand -> extend the streak NOW so
+                // the current hand already benefits from the new mult
+                if (joker->persistent_state == 0)
+                    (*p_accumulated_mult)++;
+                mult_to_apply = *p_accumulated_mult;
+            }
+            else if (s_copied_joker_source != NULL)
+            {
+                // Copy mode: mirror the original's accumulated value
+                mult_to_apply = s_copied_joker_source->scoring_state;
+            }
+
+            if (mult_to_apply > 0)
             {
                 *joker_effect = &s_shared_joker_effect;
-                (*joker_effect)->mult = *p_accumulated_mult;
+                (*joker_effect)->mult = mult_to_apply;
                 effect_flags_ret = JOKER_EFFECT_FLAG_MULT;
+
+                // Only the real joker pops the message (copies stay silent)
+                if (!is_copy)
+                {
+                    (*joker_effect)->message = "Mult!";
+                    effect_flags_ret |= JOKER_EFFECT_FLAG_MESSAGE;
+                }
             }
             break;
+        }
 
         case JOKER_EVENT_ON_CARD_SCORED:
             // A face card scoring breaks the streak instantly
@@ -2680,7 +2707,7 @@ static u32 riding_the_bus_joker_effect(
             if (scored_card != NULL && !s_is_copying_joker &&
                 card_is_face(scored_card))
             {
-                // Always mark the hand (blocks the +1 at hand end)
+                // Always mark the hand (blocks the +1 at INDEPENDENT)
                 joker->persistent_state = 1;
 
                 // Only animate/reset if there is a streak to break
@@ -2695,19 +2722,10 @@ static u32 riding_the_bus_joker_effect(
             break;
 
         case JOKER_EVENT_ON_HAND_SCORED_END:
-            // Copies don't extend/reset the streak (they mirror the original)
+            // Copies don't touch the flag (they mirror the original)
             if (s_is_copying_joker)
                 break;
-
-            // No scoring face card this hand -> streak continues
-            if (joker->persistent_state == 0)
-            {
-                (*p_accumulated_mult)++;
-                *joker_effect = &s_shared_joker_effect;
-                effect_flags_ret = JOKER_EFFECT_FLAG_MESSAGE;
-                (*joker_effect)->message = "Mult!";
-            }
-            // Reset the per-hand flag for the next hand
+            // Clear the per-hand face-card flag for the next hand
             joker->persistent_state = 0;
             break;
 

@@ -2641,9 +2641,12 @@ static int riding_the_bus_joker_desc(Joker* joker, Rect dest_rect)
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
 
-// Effect: after each scored hand, check if any played card was a face card.
-// If yes, reset accumulated mult to 0. If no, +1 mult.
-// The accumulated value is applied as mult at INDEPENDENT timing.
+// Effect: a scoring face card resets the accumulated mult *at the moment it
+// scores* (ON_CARD_SCORED only fires for cards actually participating in
+// scoring, so unselected played face cards don't break the streak, and future
+// Splash support is automatic). A hand with no scoring face card extends the
+// streak by +1 at ON_HAND_SCORED_END. persistent_state is a per-hand flag
+// marking whether a face card scored (reset it back to 0 at hand end).
 static u32 riding_the_bus_joker_effect(
     Joker* joker,
     Card* scored_card,
@@ -2658,6 +2661,7 @@ static u32 riding_the_bus_joker_effect(
     {
         case JOKER_EVENT_ON_JOKER_CREATED:
             *p_accumulated_mult = 0;
+            joker->persistent_state = 0;
             break;
 
         case JOKER_EVENT_INDEPENDENT:
@@ -2670,50 +2674,36 @@ static u32 riding_the_bus_joker_effect(
             }
             break;
 
+        case JOKER_EVENT_ON_CARD_SCORED:
+            // A face card scoring breaks the streak instantly
+            // (card_is_face respects Pareidolia; copies stay silent)
+            if (scored_card != NULL && !s_is_copying_joker &&
+                card_is_face(scored_card))
+            {
+                *p_accumulated_mult = 0;
+                joker->persistent_state = 1;
+                *joker_effect = &s_shared_joker_effect;
+                (*joker_effect)->message = "Reset!";
+                effect_flags_ret = JOKER_EFFECT_FLAG_MESSAGE;
+            }
+            break;
+
         case JOKER_EVENT_ON_HAND_SCORED_END:
-        {
-            // Don't count/reset when copied by Blueprint/Brainstorm
-            // (the copy mirrors this joker's value instead)
+            // Copies don't extend/reset the streak (they mirror the original)
             if (s_is_copying_joker)
                 break;
 
-            // Check played hand for any *scoring* face card (card_is_face respects
-            // Pareidolia). card_object_is_scoring() abstracts the scoring rule
-            // (selected, or all-played-cards under future Splash) so this stays
-            // correct when Splash is added.
-            extern CardObject** get_played_hand(void);
-            extern int get_played_top(void);
-            CardObject** played = get_played_hand();
-            int top = get_played_top();
-
-            bool had_scoring_face_card = false;
-            for (int i = 0; i <= top; i++)
-            {
-                if (played[i] != NULL && played[i]->card != NULL &&
-                    card_object_is_scoring(played[i]) &&
-                    card_is_face(played[i]->card))
-                {
-                    had_scoring_face_card = true;
-                    break;
-                }
-            }
-
-            if (had_scoring_face_card)
-            {
-                *p_accumulated_mult = 0;
-            }
-            else
+            // No scoring face card this hand -> streak continues
+            if (joker->persistent_state == 0)
             {
                 (*p_accumulated_mult)++;
+                *joker_effect = &s_shared_joker_effect;
+                effect_flags_ret = JOKER_EFFECT_FLAG_MESSAGE;
+                (*joker_effect)->message = "Mult!";
             }
-
-            // Show the outcome: streak reset vs. streak extended
-            *joker_effect = &s_shared_joker_effect;
-            effect_flags_ret = JOKER_EFFECT_FLAG_MESSAGE;
-            (*joker_effect)->message =
-                had_scoring_face_card ? "Reset!" : "Mult!";
+            // Reset the per-hand flag for the next hand
+            joker->persistent_state = 0;
             break;
-        }
 
         default:
             break;

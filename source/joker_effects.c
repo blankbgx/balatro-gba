@@ -2680,11 +2680,17 @@ static u32 riding_the_bus_joker_effect(
             if (scored_card != NULL && !s_is_copying_joker &&
                 card_is_face(scored_card))
             {
-                *p_accumulated_mult = 0;
+                // Always mark the hand (blocks the +1 at hand end)
                 joker->persistent_state = 1;
-                *joker_effect = &s_shared_joker_effect;
-                (*joker_effect)->message = "Reset!";
-                effect_flags_ret = JOKER_EFFECT_FLAG_MESSAGE;
+
+                // Only animate/reset if there is a streak to break
+                if (*p_accumulated_mult > 0)
+                {
+                    *p_accumulated_mult = 0;
+                    *joker_effect = &s_shared_joker_effect;
+                    (*joker_effect)->message = "Reset!";
+                    effect_flags_ret = JOKER_EFFECT_FLAG_MESSAGE;
+                }
             }
             break;
 

@@ -2,6 +2,23 @@
 
 > 已完成的修复不在此列。这些是设计讨论中确定的后续工作，按优先级排列。
 
+## 🎯 主线目标：完成全部小丑实装（当务之急）
+
+当前自定义小丑已实装 12 张（53-64）。原版 joker 注册表中还有注释掉的条目（"uncomment when sprites are added"）——逐步补齐：效果实现 → 精灵量化 → 注册 → 映射 → 测试。每个交付照常走：编译 → 命名时间戳 ROM → upload_rom.sh 上传。
+
+## 💾 SaveMeta：成就系统 + joker 解锁进度（为将来预留）
+
+**来源**：2026-08-03 设计讨论。GBAlatro 已有三段式 SRAM 存档（Header@0x00 / Options@0x10 / Game@0x30，magic+hash 校验），缺元进度段。
+
+- 新增 `SaveMeta` 段（`SAVE_SECTION_FLAG_META (1<<2)`，GAME 之后）
+  - joker 解锁位图（bit per joker ID）
+  - 成就位图
+  - 版本号（结构变更兼容）
+- API：`unlock_joker(id) / is_joker_unlocked(id)`、成就同款
+- 商店池：生成时用 rollable 标志 + 解锁位过滤（游戏初期仅基础 joker 可用）
+- 元进度 = 设备级（跨 run 持久），与 SaveGame（run 级）隔离
+- SRAM 32KB 空间充足（现有三段仅几百字节）
+
 ## 🎮 START 键 Run Info 面板（信息面板入口）
 
 **来源**：2026-08-03 设计讨论。回合制游戏"暂停"无意义，START 键的最佳归宿是信息面板。

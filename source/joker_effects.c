@@ -2544,11 +2544,11 @@ static u32 flower_pot_effect(
 static int loyalty_card_joker_desc(Joker* joker, Rect dest_rect)
 {
     char desc[160];
-    int remaining = LOYALTY_CARD_HANDS_REQUIRED - joker->persistent_state;
-    if (remaining < 1)
-        remaining = 1;
-    if (remaining > LOYALTY_CARD_HANDS_REQUIRED)
-        remaining = LOYALTY_CARD_HANDS_REQUIRED;
+    int remaining = joker->persistent_state;
+    if (remaining < 0)
+        remaining = 0;
+    if (remaining > LOYALTY_CARD_HANDS_REQUIRED - 1)
+        remaining = LOYALTY_CARD_HANDS_REQUIRED - 1;
 
     snprintf(
         desc,
@@ -2560,8 +2560,9 @@ static int loyalty_card_joker_desc(Joker* joker, Rect dest_rect)
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
 
-// Effect: after 5 played hands, the 6th hand gets X4 Mult (fixed multiplier).
-// persistent_state holds hands played in the current cycle (0-5).
+// Effect: remaining hands countdown 5 -> 0; the hand that plays at 0 gets X4 Mult,
+// then the cycle resets to 5.
+// persistent_state holds remaining hands until the next X4 (5-0).
 // Each instance counts independently (Blueprint/Brainstorm copies have their own counter).
 static u32 loyalty_card_joker_effect(
     Joker* joker,
@@ -2571,23 +2572,26 @@ static u32 loyalty_card_joker_effect(
 )
 {
     u32 effect_flags_ret = JOKER_EFFECT_FLAG_NONE;
-    s32* p_hands_played = &(joker->persistent_state);
+    s32* p_remaining = &(joker->persistent_state);
 
     switch (joker_event)
     {
         case JOKER_EVENT_ON_JOKER_CREATED:
-            *p_hands_played = 0;
+            *p_remaining = LOYALTY_CARD_HANDS_REQUIRED - 1; // 5 hands remaining
             break;
 
         case JOKER_EVENT_INDEPENDENT:
-            // Count this hand. On the 6th hand, apply X4 and reset the cycle.
-            (*p_hands_played)++;
-            if (*p_hands_played >= LOYALTY_CARD_HANDS_REQUIRED)
+            // Remaining == 0 means this hand gets the X4, then the cycle resets.
+            if (*p_remaining == 0)
             {
-                *p_hands_played = 0;
+                *p_remaining = LOYALTY_CARD_HANDS_REQUIRED - 1;
                 *joker_effect = &s_shared_joker_effect;
                 (*joker_effect)->xmult = 4;
                 effect_flags_ret = JOKER_EFFECT_FLAG_XMULT;
+            }
+            else
+            {
+                (*p_remaining)--;
             }
             break;
 
@@ -2600,13 +2604,8 @@ static u32 loyalty_card_joker_effect(
 
                 // Message memory can't be allocated, so use a static string table
                 static const char* LOYALTY_MESSAGES[] =
-                    {"1", "2", "3", "4", "5", "6"};
-                int remaining = LOYALTY_CARD_HANDS_REQUIRED - *p_hands_played;
-                if (remaining < 1)
-                    remaining = 1;
-                if (remaining > LOYALTY_CARD_HANDS_REQUIRED)
-                    remaining = LOYALTY_CARD_HANDS_REQUIRED;
-                (*joker_effect)->message = (char*)LOYALTY_MESSAGES[remaining - 1];
+                    {"0", "1", "2", "3", "4", "5"};
+                (*joker_effect)->message = (char*)LOYALTY_MESSAGES[*p_remaining];
             }
             break;
 

@@ -2632,7 +2632,7 @@ static int riding_the_bus_joker_desc(Joker* joker, Rect dest_rect)
     snprintf(
         desc,
         sizeof(desc),
-        TTE_BLACK_TAG "This joker gains " TTE_RED_TAG "+1 Mult"
+        TTE_BLACK_TAG "Gains " TTE_RED_TAG "+1 Mult"
         TTE_BLACK_TAG " per consecutive hand played without a scoring "
         TTE_RED_TAG "Face Card" TTE_BLACK_TAG " (currently " TTE_RED_TAG "+%ld "
         TTE_BLACK_TAG "Mult)",

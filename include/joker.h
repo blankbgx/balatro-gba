@@ -102,6 +102,7 @@ enum JokerEvent
 #define GROS_MICHEL_ID        60
 #define CAVENDISH_ID          61
 #define LOYALTY_CARD_ID       63
+#define RIDING_THE_BUS_ID     64
 
 typedef struct
 {

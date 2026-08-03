@@ -116,6 +116,7 @@ REGISTER_JOKER_DESC_FUNC(gros_michel_joker_desc)
 REGISTER_JOKER_DESC_FUNC(cavendish_joker_desc)
 REGISTER_JOKER_DESC_FUNC(flower_pot_desc)
 REGISTER_JOKER_DESC_FUNC(loyalty_card_joker_desc)
+REGISTER_JOKER_DESC_FUNC(riding_the_bus_joker_desc)
 
 // Joker Effect functions
 
@@ -187,6 +188,7 @@ REGISTER_JOKER_EFFECT_FUNC(gros_michel_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(cavendish_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(flower_pot_effect)
 REGISTER_JOKER_EFFECT_FUNC(loyalty_card_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(riding_the_bus_joker_effect)
 
 // clang-format off
 /* The index of a joker in the registry matches its ID.
@@ -282,6 +284,7 @@ const JokerInfo joker_registry[] =
     { "Cavendish",     COMMON_JOKER,    5, false, cavendish_joker_desc, cavendish_joker_effect     }, // 61 Cavendish
         { "Flower Pot",    UNCOMMON_JOKER,  6, false, flower_pot_desc, flower_pot_effect              }, // 62 Flower Pot
         { "Loyalty Card",  UNCOMMON_JOKER,  5, false, loyalty_card_joker_desc, loyalty_card_joker_effect }, // 63 Loyalty Card
+        { "Riding the Bus", COMMON_JOKER,   6, false, riding_the_bus_joker_desc, riding_the_bus_joker_effect }, // 64 Riding the Bus
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -2611,6 +2614,101 @@ static u32 loyalty_card_joker_effect(
                 (*joker_effect)->message = (char*)LOYALTY_MESSAGES[*p_remaining];
             }
             break;
+
+        default:
+            break;
+    }
+
+    return effect_flags_ret;
+}
+
+// --- Riding the Bus (ID 64) ---
+
+// Description: gains +1 mult per consecutive hand played without a scoring
+// face card. Dynamic: shows current accumulated mult.
+static int riding_the_bus_joker_desc(Joker* joker, Rect dest_rect)
+{
+    char desc[200];
+    snprintf(
+        desc,
+        sizeof(desc),
+        TTE_BLACK_TAG "This joker gains " TTE_RED_TAG "+1 Mult"
+        TTE_BLACK_TAG " per consecutive hand played without a scoring "
+        TTE_RED_TAG "Face Card" TTE_BLACK_TAG " (currently " TTE_RED_TAG "+%ld "
+        TTE_BLACK_TAG "Mult)",
+        (long)joker->scoring_state
+    );
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+// Effect: after each scored hand, check if any played card was a face card.
+// If yes, reset accumulated mult to 0. If no, +1 mult.
+// The accumulated value is applied as mult at INDEPENDENT timing.
+static u32 riding_the_bus_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    u32 effect_flags_ret = JOKER_EFFECT_FLAG_NONE;
+    s32* p_accumulated_mult = &(joker->scoring_state);
+
+    switch (joker_event)
+    {
+        case JOKER_EVENT_ON_JOKER_CREATED:
+            *p_accumulated_mult = 0;
+            break;
+
+        case JOKER_EVENT_INDEPENDENT:
+            // Apply accumulated mult (if any) during scoring
+            if (*p_accumulated_mult > 0)
+            {
+                *joker_effect = &s_shared_joker_effect;
+                (*joker_effect)->mult = *p_accumulated_mult;
+                effect_flags_ret = JOKER_EFFECT_FLAG_MULT;
+            }
+            break;
+
+        case JOKER_EVENT_ON_HAND_SCORED_END:
+        {
+            // Don't count/reset when copied by Blueprint/Brainstorm
+            // (the copy mirrors this joker's value instead)
+            if (s_is_copying_joker)
+                break;
+
+            // Check played hand for any face card (card_is_face respects Pareidolia)
+            extern CardObject** get_played_hand(void);
+            extern int get_played_top(void);
+            CardObject** played = get_played_hand();
+            int top = get_played_top();
+
+            bool had_face_card = false;
+            for (int i = 0; i <= top; i++)
+            {
+                if (played[i] != NULL && played[i]->card != NULL &&
+                    card_is_face(played[i]->card))
+                {
+                    had_face_card = true;
+                    break;
+                }
+            }
+
+            if (had_face_card)
+            {
+                *p_accumulated_mult = 0;
+            }
+            else
+            {
+                (*p_accumulated_mult)++;
+            }
+
+            // Show current mult after the update
+            *joker_effect = &s_shared_joker_effect;
+            effect_flags_ret = JOKER_EFFECT_FLAG_MESSAGE;
+            (*joker_effect)->message = "Mult!";
+            break;
+        }
 
         default:
             break;

@@ -95,12 +95,14 @@ static const int JOKER_ID_TO_SPRITE_MAP[] = {
     // ID 57,60-61 remain on sheet 19 (indices 0-2)
     // 53=Wee(0,20), 54=Riff-Raff(0,21), 55=Baron(0,18), 56=Mime(0,19), 57=Egg(19,0), 58=Smeared(0,23), 59=Faceless(0,22), 60=Gros Michel(19,1), 61=Cavendish(19,2)
     0, 0, 0, 0, 19, 0, 0, 19, 19,
-    // ID 62=Flower Pot(20)
-        20,
-        // ID 63=Loyalty Card(0,24)
+    // ID 62=Flower Pot(0,25)
         0,
-        // Placeholder for IDs 64-70
-        19, 19, 19, 19, 19, 19, 19,
+    // ID 63=Loyalty Card(0,24)
+        0,
+    // ID 64=Riding the Bus(8,2)
+        8,
+    // Placeholder for IDs 65-70
+        19, 19, 19, 19, 19, 19,
 };
 
 // Map of Joker ID -> sprite index within its spritesheet
@@ -151,10 +153,12 @@ static const int JOKER_ID_TO_SPRITE_IDX_IN_SHEET[] = {
     // ID 61 (Cavendish) -> sheet 19, sprite 4
     // ID 61 (Cavendish) -> sheet 19, sprite 2 (cleaned)
     2,
-        // ID 62 (Flower Pot) -> sheet 20, sprite 0
-        0,
+        // ID 62 (Flower Pot) -> sheet 0, sprite 25 (moved from sheet 20)
+        25,
         // ID 63 (Loyalty Card) -> sheet 0, sprite 24
         24,
+        // ID 64 (Riding the Bus) -> sheet 8, sprite 2
+        2,
     };
 
 // Lookup table of Joker Rarity strings. Used to display at the bottom of the description screen.

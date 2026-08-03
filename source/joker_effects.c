@@ -2678,8 +2678,9 @@ static u32 riding_the_bus_joker_effect(
                 break;
 
             // Check played hand for any *scoring* face card (card_is_face respects
-            // Pareidolia). Only selected cards actually score, so unselected
-            // played face cards must NOT reset the streak.
+            // Pareidolia). card_object_is_scoring() abstracts the scoring rule
+            // (selected, or all-played-cards under future Splash) so this stays
+            // correct when Splash is added.
             extern CardObject** get_played_hand(void);
             extern int get_played_top(void);
             CardObject** played = get_played_hand();
@@ -2689,7 +2690,7 @@ static u32 riding_the_bus_joker_effect(
             for (int i = 0; i <= top; i++)
             {
                 if (played[i] != NULL && played[i]->card != NULL &&
-                    card_object_is_selected(played[i]) &&
+                    card_object_is_scoring(played[i]) &&
                     card_is_face(played[i]->card))
                 {
                     had_scoring_face_card = true;

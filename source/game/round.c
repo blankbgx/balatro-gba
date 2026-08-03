@@ -1612,8 +1612,9 @@ static inline bool play_scoring_cards_update(void)
         // We are about to score played Cards.
         // Start from the current card index
         // and seek the next scoring card
+        // (card_object_is_scoring abstracts "selected" + future Splash behavior)
         while (s_scored_card_index <= s_played_top &&
-               !card_object_is_selected(s_played_hand[s_scored_card_index]))
+               !card_object_is_scoring(s_played_hand[s_scored_card_index]))
         {
             s_scored_card_index++;
         }

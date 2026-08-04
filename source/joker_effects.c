@@ -2219,15 +2219,23 @@ static u32 wee_joker_effect(
 // Riff-Raff: When blind starts (cards dealt), create 2 random common/uncommon jokers
 // --- Riff-Raff serialized spawn chain ----------------------------------------
 // ON_BLIND_SELECTED dispatches left-to-right; each Riff-Raff instance (the
-// real one and any Blueprint/Brainstorm copies) queues itself. The queue is
-// then processed serially, one spawn per RIFF_RAFF_SPAWN_DELAY: each queued
+// real one and any Blueprint/Brainstorm copies) locks its spawn count at
+// DISPATCH time (free slots = MAX - list length at that exact moment, i.e.
+// before any deferred spawn happens) and queues itself. The queue is then
+// processed serially, one spawn per RIFF_RAFF_SPAWN_DELAY: each queued
 // instance shows its "+N Jokers" animation, waits a beat, then actually
-// spawns - checking the *current* free slots at spawn time (so a Dagger that
-// sacrificed a Joker earlier in the same dispatch frees a slot the Riff-Raff
-// can use). The chain stops silently when no slots are left.
+// spawns its locked count. Because the count is locked at dispatch:
+//  - a Riff-Raff LEFT of a Dagger sees pre-sacrifice slots (locked count),
+//    and the slot the Dagger frees goes to whoever dispatches AFTER it
+//    (e.g. a Brainstorm copy) - matching original Balatro's left-to-right
+//    resolution;
+//  - a Riff-Raff RIGHT of a Dagger sees the list minus the (about to be
+//    expired) victim, so it gets to use the freed slot.
+// The chain stops silently when no requests were queued (no room at dispatch).
 #define RIFF_RAFF_SPAWN_DELAY FRAMES(60) // ~1s pause after each trigger anim
 
 static JokerObject* s_riff_raff_queue[MAX_JOKERS_HELD_SIZE];
+static int s_riff_raff_queue_anim[MAX_JOKERS_HELD_SIZE];
 static int s_riff_raff_queue_count = 0;
 static int s_riff_raff_active = -1;
 static int s_riff_raff_anim_count = 0;
@@ -2269,24 +2277,10 @@ void riff_raff_process_pending(void)
         }
     }
 
-    // Activate the next queued instance: compute how many slots are free
-    // right now, show its trigger animation, then schedule the spawn.
-    // Jokers currently in the expired list are about to be removed (e.g. a
-    // Dagger sacrificed them earlier in this dispatch), so they don't occupy
-    // a slot: their slots are usable right away.
+    // Activate the next queued instance: use the spawn count that was locked
+    // at dispatch time, show its trigger animation, then schedule the spawn.
     if (s_riff_raff_spawn_at == 0)
     {
-        int occupied = list_get_len(get_jokers_list()) -
-                       list_get_len(get_expired_jokers_list());
-        int free_slots = MAX_JOKERS_HELD_SIZE - occupied;
-        if (free_slots <= 0)
-        {
-            // No room - chain stops silently (and all remaining requests)
-            s_riff_raff_queue_count = 0;
-            s_riff_raff_active = -1;
-            return;
-        }
-
         s_riff_raff_active++;
         if (s_riff_raff_active >= s_riff_raff_queue_count)
         {
@@ -2303,7 +2297,7 @@ void riff_raff_process_pending(void)
             return;
         }
 
-        s_riff_raff_anim_count = free_slots < 2 ? free_slots : 2;
+        s_riff_raff_anim_count = s_riff_raff_queue_anim[s_riff_raff_active];
 
         // Show the trigger animation "+N Jokers" over this instance
         char anim_buffer[16];
@@ -2411,7 +2405,13 @@ static u32 riff_raff_joker_effect(
             }
 
             // Queue this instance for the serialized spawn chain (processed
-            // left-to-right by riff_raff_process_pending()).
+            // left-to-right by riff_raff_process_pending()). The spawn count
+            // is LOCKED here at dispatch time: free slots are computed from
+            // the list length at this exact moment (before any deferred spawn
+            // happens). A Riff-Raff left of a Dagger therefore locks the
+            // pre-sacrifice count, while one right of a Dagger sees the list
+            // without the sacrificed victim - matching the left-to-right
+            // resolution order of original Balatro.
             ListItr itr = list_itr_create(get_jokers_list());
             JokerObject* self_object = NULL;
             JokerObject* cur;
@@ -2427,7 +2427,15 @@ static u32 riff_raff_joker_effect(
             if (self_object != NULL &&
                 s_riff_raff_queue_count < MAX_JOKERS_HELD_SIZE)
             {
-                s_riff_raff_queue[s_riff_raff_queue_count++] = self_object;
+                int free_slots =
+                    MAX_JOKERS_HELD_SIZE - list_get_len(get_jokers_list());
+                if (free_slots > 0)
+                {
+                    s_riff_raff_queue[s_riff_raff_queue_count] = self_object;
+                    s_riff_raff_queue_anim[s_riff_raff_queue_count] =
+                        free_slots < 2 ? free_slots : 2;
+                    s_riff_raff_queue_count++;
+                }
             }
         }
     }

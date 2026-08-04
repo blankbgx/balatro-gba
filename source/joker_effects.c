@@ -2217,47 +2217,57 @@ static u32 wee_joker_effect(
 }
 
 // Riff-Raff: When blind starts (cards dealt), create 2 random common/uncommon jokers
-// --- Riff-Raff serialized spawn chain ----------------------------------------
-// ON_BLIND_SELECTED dispatches left-to-right; each Riff-Raff instance (the
-// real one and any Blueprint/Brainstorm copies) locks its spawn count at
-// DISPATCH time (free slots = MAX - list length at that exact moment, i.e.
-// before any deferred spawn happens) and queues itself. The queue is then
-// processed serially, one spawn per RIFF_RAFF_SPAWN_DELAY: each queued
-// instance shows its "+N Jokers" animation, waits a beat, then actually
-// spawns its locked count. Because the count is locked at dispatch:
-//  - a Riff-Raff LEFT of a Dagger sees pre-sacrifice slots (locked count),
-//    and the slot the Dagger frees goes to whoever dispatches AFTER it
-//    (e.g. a Brainstorm copy) - matching original Balatro's left-to-right
-//    resolution;
-//  - a Riff-Raff RIGHT of a Dagger sees the list minus the (about to be
-//    expired) victim, so it gets to use the freed slot.
-// The chain stops silently when no requests were queued (no room at dispatch).
-#define RIFF_RAFF_SPAWN_DELAY FRAMES(60) // ~1s pause after each trigger anim
+// --- Unified deferred blind-selected action queue ----------------------------
+// ON_BLIND_SELECTED dispatches left-to-right; every blind-selected joker
+// (Riff-Raff spawns, Ceremonial Dagger sacrifice) enqueues ONE request in
+// list order. A single per-frame scheduler then executes the queue strictly
+// left-to-right, one action at a time: each action shows its trigger
+// animation, waits DEFER_DELAY, then applies its effect. This gives the
+// original Balatro resolution order:
+//  - a Riff-Raff left of a Dagger spawns into the slots that exist when its
+//    turn comes (before the Dagger sacrifices);
+//  - the Dagger, when its turn comes, sacrifices whatever is immediately to
+//    its right at that moment (which may be a joker a Riff-Raff to its left
+//    just spawned - "right neighbor present => higher effective priority");
+//  - a Riff-Raff right of a Dagger sees the list after the sacrifice.
+#define DEFER_DELAY FRAMES(60) // ~1s pause after each trigger animation
 
-static JokerObject* s_riff_raff_queue[MAX_JOKERS_HELD_SIZE];
-static int s_riff_raff_queue_anim[MAX_JOKERS_HELD_SIZE];
-static int s_riff_raff_queue_count = 0;
-static int s_riff_raff_active = -1;
-static int s_riff_raff_anim_count = 0;
-static u32 s_riff_raff_spawn_at = 0;
+typedef enum
+{
+    DEFER_RIFF_RAFF, // activate: lock spawn count; fire: spawn jokers
+    DEFER_DAGGER,    // activate: lock right neighbor; fire: sacrifice it
+} DeferredKind;
 
-// Called every frame from game.c's jokers_update_loop(). Advances the spawn
-// chain: activate next queued instance -> show animation -> wait -> spawn.
+static JokerObject* s_deferred_queue[MAX_JOKERS_HELD_SIZE];
+static DeferredKind s_deferred_kind[MAX_JOKERS_HELD_SIZE];
+static int s_deferred_count = 0;
+static int s_deferred_active = -1;
+static int s_deferred_anim_count = 0; // Riff-Raff spawn count (locked at activation)
+static JokerObject* s_deferred_victim = NULL; // Dagger victim (locked at activation)
+static u32 s_deferred_fire_at = 0;
+
+// Defined below in the dagger section; used by the deferred scheduler.
+static void dagger_sacrifice(JokerObject* dagger_object, JokerObject* victim);
+
+// Called every frame from game.c's jokers_update_loop(). Advances the
+// deferred queue strictly left-to-right: activate next request (lock its
+// action) -> show animation -> wait DEFER_DELAY -> apply effect.
 void riff_raff_process_pending(void)
 {
-    if (s_riff_raff_queue_count == 0)
+    if (s_deferred_count == 0)
         return;
 
-    // Validate the active request's source object is still owned (it may
-    // have been sacrificed by a Dagger meanwhile).
-    if (s_riff_raff_active >= 0)
+    // Validate the ACTIVE request's source object is still owned (it may
+    // have been sacrificed/removed meanwhile). If gone, skip it: clear the
+    // timer and let the activation branch advance next frame.
+    if (s_deferred_active >= 0)
     {
         bool still_owned = false;
         ListItr itr = list_itr_create(get_jokers_list());
         JokerObject* cur;
         while ((cur = list_itr_next(&itr)))
         {
-            if (cur == s_riff_raff_queue[s_riff_raff_active])
+            if (cur == s_deferred_queue[s_deferred_active])
             {
                 still_owned = true;
                 break;
@@ -2265,125 +2275,203 @@ void riff_raff_process_pending(void)
         }
         if (!still_owned)
         {
-            // Source gone - skip this request entirely. Do NOT increment
-            // s_riff_raff_active here (the activation branch below owns all
-            // advancing); just clear the timer so we come back and advance.
-            s_riff_raff_spawn_at = 0;
+            s_deferred_fire_at = 0;
             return;
         }
     }
 
-    // Activate the next queued instance: use the spawn count that was locked
-    // at dispatch time, show its trigger animation, then schedule the spawn.
-    // Active index advances ONLY here (first frame starts at 0; afterwards
-    // each spawn completion sets spawn_at=0 which brings us back here to
-    // advance) - the spawn branch below must NOT increment it, or every
-    // queued request after the first would be skipped.
-    if (s_riff_raff_spawn_at == 0)
+    // Activate the next queued request. Active index advances ONLY here
+    // (first frame starts at 0; each fire completion clears the timer which
+    // brings us back here to advance) - the fire branch below must NOT
+    // increment it, or every request after the first would be skipped.
+    if (s_deferred_fire_at == 0)
     {
-        if (s_riff_raff_active < 0)
-            s_riff_raff_active = 0;
+        if (s_deferred_active < 0)
+            s_deferred_active = 0;
         else
-            s_riff_raff_active++;
-        if (s_riff_raff_active >= s_riff_raff_queue_count)
+            s_deferred_active++;
+        if (s_deferred_active >= s_deferred_count)
         {
-            s_riff_raff_queue_count = 0;
-            s_riff_raff_active = -1;
+            s_deferred_count = 0;
+            s_deferred_active = -1;
             return;
         }
 
-        JokerObject* source = s_riff_raff_queue[s_riff_raff_active];
+        JokerObject* source = s_deferred_queue[s_deferred_active];
         if (source == NULL || source->joker == NULL)
         {
-            s_riff_raff_queue_count = 0;
-            s_riff_raff_active = -1;
+            s_deferred_count = 0;
+            s_deferred_active = -1;
             return;
         }
 
-        s_riff_raff_anim_count = s_riff_raff_queue_anim[s_riff_raff_active];
+        switch (s_deferred_kind[s_deferred_active])
+        {
+            case DEFER_RIFF_RAFF:
+            {
+                // Lock the spawn count from the CURRENT list length: in the
+                // strict left-to-right order, slots freed by a Dagger that
+                // dispatched BEFORE this Riff-Raff are already visible.
+                int free_slots =
+                    MAX_JOKERS_HELD_SIZE - list_get_len(get_jokers_list());
+                if (free_slots <= 0)
+                {
+                    // No room right now - skip silently (no animation)
+                    s_deferred_fire_at = 0;
+                    return;
+                }
+                s_deferred_anim_count = free_slots < 2 ? free_slots : 2;
 
-        // Show the trigger animation "+N Jokers" over this instance
-        char anim_buffer[16];
-        snprintf(
-            anim_buffer,
-            sizeof(anim_buffer),
-            "+%d Jokers",
-            s_riff_raff_anim_count
-        );
-        tte_set_pos(fx2int(source->x) + TILE_SIZE, JOKER_SCORE_TEXT_Y);
-        tte_set_special(TTE_WHITE_PB * TTE_SPECIAL_PB_MULT_OFFSET);
-        tte_write(anim_buffer);
-        joker_object_shake(source, UNDEFINED);
-        // Keep the event message auto-clear timer from wiping this text early
-        schedule_joker_event_text_clear();
+                char anim_buffer[16];
+                snprintf(
+                    anim_buffer,
+                    sizeof(anim_buffer),
+                    "+%d Jokers",
+                    s_deferred_anim_count
+                );
+                tte_set_pos(fx2int(source->x) + TILE_SIZE, JOKER_SCORE_TEXT_Y);
+                tte_set_special(TTE_WHITE_PB * TTE_SPECIAL_PB_MULT_OFFSET);
+                tte_write(anim_buffer);
+                joker_object_shake(source, UNDEFINED);
+                schedule_joker_event_text_clear();
+                break;
+            }
 
-        s_riff_raff_spawn_at = g_game_vars.timer + RIFF_RAFF_SPAWN_DELAY;
+            case DEFER_DAGGER:
+            {
+                // Lock the victim: whatever is immediately right of the
+                // dagger NOW (a Riff-Raff left of it may have just spawned
+                // new jokers that landed to the right).
+                JokerObject* victim = NULL;
+                ListItr itr = list_itr_create(get_jokers_list());
+                JokerObject* cur;
+                while ((cur = list_itr_next(&itr)))
+                {
+                    if (cur == source)
+                    {
+                        victim = list_itr_next(&itr);
+                        break;
+                    }
+                }
+                if (victim == NULL || victim->joker == NULL)
+                {
+                    // Nothing to sacrifice - skip silently
+                    s_deferred_fire_at = 0;
+                    return;
+                }
+                s_deferred_victim = victim;
+                break;
+            }
+        }
+
+        s_deferred_fire_at = g_game_vars.timer + DEFER_DELAY;
         return;
     }
 
-    // Time to spawn the queued instance's jokers
-    if (g_game_vars.timer >= s_riff_raff_spawn_at)
+    // Time to apply the active request's effect
+    if (g_game_vars.timer >= s_deferred_fire_at)
     {
-        int to_spawn = s_riff_raff_anim_count;
-        // Same effective-occupancy rule as the activation check above:
-        // expired jokers are about to be removed, their slots are usable.
-        int current_count = list_get_len(get_jokers_list()) -
-                            list_get_len(get_expired_jokers_list());
-        if (current_count + to_spawn > MAX_JOKERS_HELD_SIZE)
-            to_spawn = MAX_JOKERS_HELD_SIZE - current_count;
-
-        for (int i = 0; i < to_spawn; i++)
+        JokerObject* source = s_deferred_queue[s_deferred_active];
+        switch (s_deferred_kind[s_deferred_active])
         {
-            // Riff-Raff only spawns Common Jokers
-            u8 rarity = COMMON_JOKER;
-            u8 joker_id = 0;
-            bool found = false;
-            for (int attempt = 0; attempt < 50; attempt++)
+            case DEFER_RIFF_RAFF:
             {
-                u8 candidate = rng_get_u32() % get_joker_registry_size();
-                const JokerInfo* info = get_joker_registry_entry(candidate);
-                if (info && info->rarity == rarity && !is_joker_owned(candidate))
+                int to_spawn = s_deferred_anim_count;
+                // Expired jokers are about to be removed, their slots usable.
+                int current_count = list_get_len(get_jokers_list()) -
+                                    list_get_len(get_expired_jokers_list());
+                if (current_count + to_spawn > MAX_JOKERS_HELD_SIZE)
+                    to_spawn = MAX_JOKERS_HELD_SIZE - current_count;
+
+                for (int i = 0; i < to_spawn; i++)
                 {
-                    if (candidate == GROS_MICHEL_ID && is_gros_michel_destroyed())
+                    // Riff-Raff only spawns Common Jokers
+                    u8 rarity = COMMON_JOKER;
+                    u8 joker_id = 0;
+                    bool found = false;
+                    for (int attempt = 0; attempt < 50; attempt++)
+                    {
+                        u8 candidate = rng_get_u32() % get_joker_registry_size();
+                        const JokerInfo* info = get_joker_registry_entry(candidate);
+                        if (info && info->rarity == rarity &&
+                            !is_joker_owned(candidate))
+                        {
+                            if (candidate == GROS_MICHEL_ID &&
+                                is_gros_michel_destroyed())
+                                continue;
+                            if (candidate == CAVENDISH_ID &&
+                                !is_gros_michel_destroyed())
+                                continue;
+                            joker_id = candidate;
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (!found)
                         continue;
-                    if (candidate == CAVENDISH_ID && !is_gros_michel_destroyed())
+
+                    Joker* new_joker = joker_new(joker_id);
+                    if (new_joker == NULL)
                         continue;
-                    joker_id = candidate;
-                    found = true;
-                    break;
+
+                    JokerObject* new_joker_object = joker_object_new(new_joker);
+                    if (new_joker_object == NULL)
+                    {
+                        joker_destroy(&new_joker);
+                        continue;
+                    }
+
+                    // Set Y position to match other held jokers
+                    new_joker_object->ty = int2fx(HELD_JOKERS_POS.y);
+                    add_joker(new_joker_object);
+                    // Mark as non-rollable so shop won't generate the same
+                    joker_set_rollable(joker_id, false);
+                    current_count++;
                 }
+                break;
             }
 
-            if (!found)
-                continue;
-
-            Joker* new_joker = joker_new(joker_id);
-            if (new_joker == NULL)
-                continue;
-
-            JokerObject* new_joker_object = joker_object_new(new_joker);
-            if (new_joker_object == NULL)
+            case DEFER_DAGGER:
             {
-                joker_destroy(&new_joker);
-                continue;
+                JokerObject* victim = s_deferred_victim;
+                // Verify the victim is still in the owned list (it may have
+                // been sold/expired meanwhile)
+                bool victim_found = false;
+                ListItr itr = list_itr_create(get_jokers_list());
+                JokerObject* cur;
+                while ((cur = list_itr_next(&itr)))
+                {
+                    if (cur == victim)
+                    {
+                        victim_found = true;
+                        break;
+                    }
+                }
+                if (victim_found)
+                {
+                    // Wait for its entry animation to finish so it settles
+                    // into its slot first
+                    if (victim->x != victim->tx || victim->y != victim->ty)
+                    {
+                        s_deferred_fire_at = g_game_vars.timer + DEFER_DELAY;
+                        return;
+                    }
+                    dagger_sacrifice(source, victim);
+                }
+                s_deferred_victim = NULL;
+                break;
             }
-
-            // Set Y position to match other held jokers
-            new_joker_object->ty = int2fx(HELD_JOKERS_POS.y);
-            add_joker(new_joker_object);
-            // Mark as non-rollable so shop won't generate the same joker
-            joker_set_rollable(joker_id, false);
-            current_count++;
         }
 
-        // Advance to the next queued instance: just clear the timer so the
-        // activation branch above advances s_riff_raff_active next frame
-        // (never increment here - see note at the activation branch).
-        s_riff_raff_spawn_at = 0;
-        if (s_riff_raff_active + 1 >= s_riff_raff_queue_count)
+        // Advance to the next request: just clear the timer so the
+        // activation branch advances s_deferred_active next frame (never
+        // increment here - see note at the activation branch).
+        s_deferred_fire_at = 0;
+        if (s_deferred_active + 1 >= s_deferred_count)
         {
-            s_riff_raff_queue_count = 0;
-            s_riff_raff_active = -1;
+            s_deferred_count = 0;
+            s_deferred_active = -1;
         }
     }
 }
@@ -2429,17 +2517,14 @@ static u32 riff_raff_joker_effect(
             }
 
             if (self_object != NULL &&
-                s_riff_raff_queue_count < MAX_JOKERS_HELD_SIZE)
+                s_deferred_count < MAX_JOKERS_HELD_SIZE)
             {
-                int free_slots =
-                    MAX_JOKERS_HELD_SIZE - list_get_len(get_jokers_list());
-                if (free_slots > 0)
-                {
-                    s_riff_raff_queue[s_riff_raff_queue_count] = self_object;
-                    s_riff_raff_queue_anim[s_riff_raff_queue_count] =
-                        free_slots < 2 ? free_slots : 2;
-                    s_riff_raff_queue_count++;
-                }
+                // Enqueue (no count locking here: the scheduler locks the
+                // spawn count when this request activates, from the list
+                // state at that moment - strict left-to-right order).
+                s_deferred_queue[s_deferred_count] = self_object;
+                s_deferred_kind[s_deferred_count] = DEFER_RIFF_RAFF;
+                s_deferred_count++;
             }
         }
     }
@@ -2911,16 +2996,11 @@ static int ceremonial_dagger_joker_desc(Joker* joker, Rect dest_rect)
 // then auto-removal - safe during list iteration since the owned list isn't
 // touched immediately). The mult applies at INDEPENDENT; copies mirror it.
 //
-// If the right neighbor is still playing its entry animation (e.g. a Joker
-// just spawned by Riff-Raff hasn't reached its slot yet), the sacrifice is
-// deferred: the victim is stored and consumed by
-// ceremonial_dagger_process_pending() once it has arrived at its slot, so
-// the entry animation always plays out first.
-// If there was no right neighbor at dispatch (e.g. a Riff-Raff to the left
-// will spawn new jokers this blind), the dagger waits for one to appear and
-// sacrifices it once it settles (s_dagger_waiting_new_victim).
-static JokerObject* s_dagger_pending_victim = NULL;
-static bool s_dagger_waiting_new_victim = false;
+// The sacrifice is NOT immediate: the dagger enqueues a deferred request at
+// its list position and the unified scheduler runs it in strict left-to-right
+// order. When its turn comes it locks whatever is immediately to its right
+// (which may be a joker a Riff-Raff to its left just spawned) and, after the
+// beat, sacrifices it once it has settled.
 
 // Sacrifice a victim: add double its sell value to the dagger's mult, shake
 // the dagger and the victim, show "+N Mult" over the dagger, and push the
@@ -2942,97 +3022,17 @@ static void dagger_sacrifice(JokerObject* dagger_object, JokerObject* victim)
     tte_set_pos(fx2int(dagger_object->x) + TILE_SIZE, JOKER_SCORE_TEXT_Y);
     tte_set_special(TTE_RED_PB * TTE_SPECIAL_PB_MULT_OFFSET);
     tte_write(gain_buffer);
+    schedule_joker_event_text_clear();
 
     joker_object_shake(dagger_object, SFX_MULT);
     joker_object_shake(victim, UNDEFINED);
     list_push_back(get_expired_jokers_list(), victim);
 }
 
-// Per-frame check for a deferred dagger sacrifice:
-//  - fixed victim: sacrifice it once it has arrived at its slot
-//  - waiting-new-victim: a right neighbor will be spawned (Riff-Raff chain);
-//    sacrifice it once it appears and settles. Gives up when the Riff-Raff
-//    chain is done and still nothing showed up to the right.
-// Called every frame from game.c's jokers_update_loop().
+// Kept as the historical entry point name; dagger sacrifices now flow through
+// the unified deferred queue scheduler (riff_raff_process_pending).
 void ceremonial_dagger_process_pending(void)
 {
-    JokerObject* victim = s_dagger_pending_victim;
-    if (victim == NULL && !s_dagger_waiting_new_victim)
-        return;
-
-    // The victim may have been removed meanwhile (sold, expired...): verify
-    // it is still in the owned list and that a real dagger still exists.
-    bool victim_found = false;
-    JokerObject* dagger_object = NULL;
-    ListItr itr = list_itr_create(get_jokers_list());
-    JokerObject* cur;
-    while ((cur = list_itr_next(&itr)))
-    {
-        if (victim != NULL && cur == victim)
-            victim_found = true;
-        if (cur->joker != NULL && cur->joker->id == CEREMONIAL_DAGGER_ID)
-            dagger_object = cur;
-    }
-
-    if (dagger_object == NULL)
-    {
-        // Dagger is gone (sold/expired): nothing to do anymore
-        s_dagger_pending_victim = NULL;
-        s_dagger_waiting_new_victim = false;
-        return;
-    }
-
-    if (victim != NULL)
-    {
-        if (!victim_found)
-        {
-            s_dagger_pending_victim = NULL;
-            return;
-        }
-
-        // Wait until the victim has arrived at its slot
-        if (victim->x != victim->tx || victim->y != victim->ty)
-            return;
-
-        dagger_sacrifice(dagger_object, victim);
-        s_dagger_pending_victim = NULL;
-        return;
-    }
-
-    if (s_dagger_waiting_new_victim)
-    {
-        // Find the dagger's current right neighbor
-        ListItr itr2 = list_itr_create(get_jokers_list());
-        JokerObject* cur2;
-        JokerObject* neighbor = NULL;
-        while ((cur2 = list_itr_next(&itr2)))
-        {
-            if (cur2 == dagger_object)
-            {
-                neighbor = list_itr_next(&itr2);
-                break;
-            }
-        }
-
-        if (neighbor != NULL && neighbor->joker != NULL)
-        {
-            // Wait for it to settle, then sacrifice it
-            if (neighbor->x == neighbor->tx && neighbor->y == neighbor->ty)
-            {
-                dagger_sacrifice(dagger_object, neighbor);
-                s_dagger_waiting_new_victim = false;
-            }
-        }
-        else
-        {
-            // No neighbor yet. If the Riff-Raff spawn chain is done, nothing
-            // will ever appear to the right - give up quietly.
-            if (s_riff_raff_queue_count == 0)
-            {
-                s_dagger_waiting_new_victim = false;
-            }
-        }
-    }
 }
 static u32 ceremonial_dagger_joker_effect(
     Joker* joker,
@@ -3055,38 +3055,24 @@ static u32 ceremonial_dagger_joker_effect(
             if (s_is_copying_joker)
                 break;
 
-            // Find this Joker in the list; the next entry is the right neighbor
-            ListItr itr = list_itr_create(get_jokers_list());
-            JokerObject* cur;
-            while ((cur = list_itr_next(&itr)))
+            // Enqueue a deferred sacrifice at this dagger's list position:
+            // the unified scheduler runs the queue strictly left-to-right,
+            // so jokers LEFT of the dagger fire first (a Riff-Raff there may
+            // spawn new jokers that land to the dagger's right - the dagger
+            // then eats one when its own turn comes).
+            if (s_deferred_count < MAX_JOKERS_HELD_SIZE)
             {
-                if (cur->joker == joker)
+                ListItr itr = list_itr_create(get_jokers_list());
+                JokerObject* cur;
+                while ((cur = list_itr_next(&itr)))
                 {
-                    JokerObject* victim = list_itr_next(&itr);
-                    if (victim != NULL && victim->joker != NULL)
+                    if (cur->joker == joker)
                     {
-                        // If the victim is still playing its entry animation
-                        // (e.g. Riff-Raff just spawned it), defer the
-                        // sacrifice until it has reached its slot so its
-                        // animation plays out first.
-                        if (victim->x != victim->tx || victim->y != victim->ty)
-                        {
-                            s_dagger_pending_victim = victim;
-                        }
-                        else
-                        {
-                            dagger_sacrifice(cur, victim);
-                        }
+                        s_deferred_queue[s_deferred_count] = cur;
+                        s_deferred_kind[s_deferred_count] = DEFER_DAGGER;
+                        s_deferred_count++;
+                        break;
                     }
-                    else
-                    {
-                        // No right neighbor at dispatch: a Riff-Raff to the
-                        // left may spawn new jokers this blind - wait for one
-                        // to appear to the right and sacrifice it once it
-                        // settles (gives up when the spawn chain is done).
-                        s_dagger_waiting_new_victim = true;
-                    }
-                    break;
                 }
             }
             break;
@@ -3121,11 +3107,10 @@ static u32 ceremonial_dagger_joker_effect(
 }
 
 // Returns true while deferred blind-selected joker effects are still
-// running (Riff-Raff spawn chain / dagger waiting for a victim). The round
-// waits for these before dealing the hand, so all joker effects play out
-// first and cards are dealt after.
+// running (unified deferred action queue non-empty). The round waits for
+// these before dealing the hand, so all joker effects play out first and
+// cards are dealt after.
 bool joker_effects_busy(void)
 {
-    return s_riff_raff_queue_count > 0 || s_dagger_pending_victim != NULL ||
-           s_dagger_waiting_new_victim;
+    return s_deferred_count > 0;
 }

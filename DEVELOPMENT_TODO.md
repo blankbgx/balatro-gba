@@ -4,7 +4,16 @@
 
 ## 🎯 主线目标：完成全部小丑实装（当务之急）
 
-当前自定义小丑已实装 12 张（53-64）。原版 joker 注册表中还有注释掉的条目（"uncomment when sprites are added"）——逐步补齐：效果实现 → 精灵量化 → 注册 → 映射 → 测试。每个交付照常走：编译 → 命名时间戳 ROM → upload_rom.sh 上传。
+当前自定义小丑已实装 **13 张（53-65）**。原版 joker 注册表中还有注释掉的条目（"uncomment when sprites are added"）——逐步补齐：效果实现 → 精灵量化 → 注册 → 映射 → 测试。每个交付照常走：编译 → 命名时间戳 ROM → upload_rom.sh 上传。
+
+## 🔄 通用延迟动作队列（第 3 个开局触发 joker 前重构）
+
+**来源**：2026-08-04 架构讨论。开局触发（ON_BLIND_SELECTED）类 joker 效果会**修改 joker 集合**（生成/销毁），不能像对局内那样同步逐个触发，必须走"延迟链"。目前匕首（单目标 pending）+ Riff-Raff（队列）是**两套独立实现**——每加一个开局触发 joker 就要复制一套。
+
+- 统一抽象：`{source JokerObject*, fire_at 帧, action 枚举, param}` 的延迟动作队列 + 单一 per-frame 调度器（时间戳升序执行）
+- 每个动作执行前：验证 source 仍有效（在列表）+ 检查当时游戏状态（空位等）
+- 现有匕首/Riff-Raff 重构过去（语义不变）
+- **架构红线**（写死到注释）：ON_BLIND_SELECTED 效果函数**不得直接修改 jokers 列表**，只能入队/延迟；生效时刻检查状态，禁止分发时检查
 
 ## 💾 SaveMeta：成就系统 + joker 解锁进度（为将来预留）
 

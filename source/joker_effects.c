@@ -2296,6 +2296,19 @@ static u32 riff_raff_joker_effect(
                     }
                 }
             }
+
+            // Show the trigger animation "+N Jokers" when at least one joker
+            // was spawned (no message if there was no room). The spawned
+            // jokers' entry animations play after this effect returns.
+            if (generated_count > 0)
+            {
+                static const char* RIFF_RAFF_MESSAGES[] =
+                    {"+1 Jokers", "+2 Jokers"};
+                *joker_effect = &s_shared_joker_effect;
+                (*joker_effect)->message =
+                    (char*)RIFF_RAFF_MESSAGES[generated_count - 1];
+                return JOKER_EFFECT_FLAG_MESSAGE;
+            }
         }
     }
     else if (joker_event == JOKER_EVENT_ON_ROUND_END)

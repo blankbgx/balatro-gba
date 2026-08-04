@@ -2897,7 +2897,11 @@ static int ceremonial_dagger_joker_desc(Joker* joker, Rect dest_rect)
 // deferred: the victim is stored and consumed by
 // ceremonial_dagger_process_pending() once it has arrived at its slot, so
 // the entry animation always plays out first.
+// If there was no right neighbor at dispatch (e.g. a Riff-Raff to the left
+// will spawn new jokers this blind), the dagger waits for one to appear and
+// sacrifices it once it settles (s_dagger_waiting_new_victim).
 static JokerObject* s_dagger_pending_victim = NULL;
+static bool s_dagger_waiting_new_victim = false;
 
 // Sacrifice a victim: add double its sell value to the dagger's mult, shake
 // the dagger and the victim, show "+N Mult" over the dagger, and push the
@@ -2925,13 +2929,16 @@ static void dagger_sacrifice(JokerObject* dagger_object, JokerObject* victim)
     list_push_back(get_expired_jokers_list(), victim);
 }
 
-// Per-frame check for a deferred dagger sacrifice: once the pending victim
-// has finished its animation (reached its target slot), sacrifice it.
+// Per-frame check for a deferred dagger sacrifice:
+//  - fixed victim: sacrifice it once it has arrived at its slot
+//  - waiting-new-victim: a right neighbor will be spawned (Riff-Raff chain);
+//    sacrifice it once it appears and settles. Gives up when the Riff-Raff
+//    chain is done and still nothing showed up to the right.
 // Called every frame from game.c's jokers_update_loop().
 void ceremonial_dagger_process_pending(void)
 {
     JokerObject* victim = s_dagger_pending_victim;
-    if (victim == NULL)
+    if (victim == NULL && !s_dagger_waiting_new_victim)
         return;
 
     // The victim may have been removed meanwhile (sold, expired...): verify
@@ -2942,24 +2949,71 @@ void ceremonial_dagger_process_pending(void)
     JokerObject* cur;
     while ((cur = list_itr_next(&itr)))
     {
-        if (cur == victim)
+        if (victim != NULL && cur == victim)
             victim_found = true;
         if (cur->joker != NULL && cur->joker->id == CEREMONIAL_DAGGER_ID)
             dagger_object = cur;
     }
 
-    if (!victim_found || dagger_object == NULL)
+    if (dagger_object == NULL)
     {
+        // Dagger is gone (sold/expired): nothing to do anymore
+        s_dagger_pending_victim = NULL;
+        s_dagger_waiting_new_victim = false;
+        return;
+    }
+
+    if (victim != NULL)
+    {
+        if (!victim_found)
+        {
+            s_dagger_pending_victim = NULL;
+            return;
+        }
+
+        // Wait until the victim has arrived at its slot
+        if (victim->x != victim->tx || victim->y != victim->ty)
+            return;
+
+        dagger_sacrifice(dagger_object, victim);
         s_dagger_pending_victim = NULL;
         return;
     }
 
-    // Wait until the victim has arrived at its slot
-    if (victim->x != victim->tx || victim->y != victim->ty)
-        return;
+    if (s_dagger_waiting_new_victim)
+    {
+        // Find the dagger's current right neighbor
+        ListItr itr2 = list_itr_create(get_jokers_list());
+        JokerObject* cur2;
+        JokerObject* neighbor = NULL;
+        while ((cur2 = list_itr_next(&itr2)))
+        {
+            if (cur2 == dagger_object)
+            {
+                neighbor = list_itr_next(&itr2);
+                break;
+            }
+        }
 
-    dagger_sacrifice(dagger_object, victim);
-    s_dagger_pending_victim = NULL;
+        if (neighbor != NULL && neighbor->joker != NULL)
+        {
+            // Wait for it to settle, then sacrifice it
+            if (neighbor->x == neighbor->tx && neighbor->y == neighbor->ty)
+            {
+                dagger_sacrifice(dagger_object, neighbor);
+                s_dagger_waiting_new_victim = false;
+            }
+        }
+        else
+        {
+            // No neighbor yet. If the Riff-Raff spawn chain is done, nothing
+            // will ever appear to the right - give up quietly.
+            if (s_riff_raff_queue_count == 0)
+            {
+                s_dagger_waiting_new_victim = false;
+            }
+        }
+    }
 }
 static u32 ceremonial_dagger_joker_effect(
     Joker* joker,
@@ -3005,6 +3059,14 @@ static u32 ceremonial_dagger_joker_effect(
                             dagger_sacrifice(cur, victim);
                         }
                     }
+                    else
+                    {
+                        // No right neighbor at dispatch: a Riff-Raff to the
+                        // left may spawn new jokers this blind - wait for one
+                        // to appear to the right and sacrifice it once it
+                        // settles (gives up when the spawn chain is done).
+                        s_dagger_waiting_new_victim = true;
+                    }
                     break;
                 }
             }
@@ -3037,4 +3099,14 @@ static u32 ceremonial_dagger_joker_effect(
     }
 
     return effect_flags_ret;
+}
+
+// Returns true while deferred blind-selected joker effects are still
+// running (Riff-Raff spawn chain / dagger waiting for a victim). The round
+// waits for these before dealing the hand, so all joker effects play out
+// first and cards are dealt after.
+bool joker_effects_busy(void)
+{
+    return s_riff_raff_queue_count > 0 || s_dagger_pending_victim != NULL ||
+           s_dagger_waiting_new_victim;
 }

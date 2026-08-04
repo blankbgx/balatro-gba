@@ -113,6 +113,11 @@ void ceremonial_dagger_process_pending(void);
 // animation to play before new jokers enter). Called from game.c's update loop.
 void riff_raff_process_pending(void);
 
+// True while deferred blind-selected joker effects are still running
+// (Riff-Raff spawn chain / dagger waiting for a victim). The round holds off
+// dealing the hand until this returns false.
+bool joker_effects_busy(void);
+
 typedef struct
 {
     u8 id;       // Unique ID for the joker, used to identify different jokers

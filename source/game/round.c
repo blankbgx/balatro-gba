@@ -1198,6 +1198,12 @@ static inline void card_draw(void)
 
 static inline void game_round_process_card_draw(void)
 {
+    // Hold off dealing until deferred blind-selected joker effects have
+    // finished (Riff-Raff spawn chain, dagger sacrifice): all joker effects
+    // play out first, then the hand is dealt.
+    if (joker_effects_busy())
+        return;
+
     if (get_hand_state() == HAND_DRAW && s_cards_drawn < g_game_vars.hand_size)
     {
         if (g_game_vars.timer % FRAMES(10) == 0) // Draw a card every 10 frames

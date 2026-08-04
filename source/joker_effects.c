@@ -2120,7 +2120,8 @@ static int riff_raff_joker_desc(Joker* joker, Rect dest_rect)
 {
     static const char desc[] =
         TTE_BLACK_TAG "When blind starts, create " TTE_RED_TAG "2 " TTE_BLACK_TAG
-        "random Jokers (Must have room)";
+        "random " TTE_RED_TAG "Common " TTE_BLACK_TAG
+        "Jokers (Must have room)";
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
 
@@ -2236,8 +2237,8 @@ static u32 riff_raff_joker_effect(
 
             for (int i = 0; i < 2 && current_count < max_jokers; i++)
             {
-                // Random rarity: 70% common, 30% uncommon
-                u8 rarity = (rng_get_u32() % 100 < 70) ? COMMON_JOKER : UNCOMMON_JOKER;
+                // Riff-Raff only spawns Common Jokers
+                u8 rarity = COMMON_JOKER;
 
                 // Find a valid joker ID for this rarity (not owned, not duplicate of other generated)
                 u8 joker_id = 0;

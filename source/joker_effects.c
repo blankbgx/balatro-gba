@@ -2749,8 +2749,8 @@ static int ceremonial_dagger_joker_desc(Joker* joker, Rect dest_rect)
     snprintf(
         desc,
         sizeof(desc),
-        TTE_BLACK_TAG "When blind is selected, destroy " TTE_RED_TAG "Joker to the right"
-        TTE_BLACK_TAG " and add double its sell value to its " TTE_RED_TAG "Mult"
+        TTE_BLACK_TAG "On blind select, destroy " TTE_RED_TAG "Joker to the right"
+        TTE_BLACK_TAG " and add double its sell value to " TTE_RED_TAG "Mult"
         TTE_BLACK_TAG " (now " TTE_RED_TAG "+%ld " TTE_BLACK_TAG "Mult)",
         (long)joker->scoring_state
     );

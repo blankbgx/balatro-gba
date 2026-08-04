@@ -6,15 +6,18 @@
 
 当前自定义小丑已实装 **13 张（53-65）**。原版 joker 注册表中还有注释掉的条目（"uncomment when sprites are added"）——逐步补齐：效果实现 → 精灵量化 → 注册 → 映射 → 测试。每个交付照常走：编译 → 命名时间戳 ROM → upload_rom.sh 上传。
 
-## 🔄 通用延迟动作队列（第 3 个开局触发 joker 前重构）
+## ✅ 通用延迟动作队列（已完成 2026-08-04，7a2ce13 起）
 
-**来源**：2026-08-04 架构讨论。开局触发（ON_BLIND_SELECTED）类 joker 效果会**修改 joker 集合**（生成/销毁），不能像对局内那样同步逐个触发，必须走"延迟链"。目前匕首（单目标 pending）+ Riff-Raff（队列）是**两套独立实现**——每加一个开局触发 joker 就要复制一套。
+**状态**：✅ **已实装并全场景实测通过**（Riff-Raff 真身/复制 + 匕首 + 蓝图/脑暴复制，含卡死修复与节奏调优）。新开局触发 joker 直接 `schedule` 入队即可，无需复制队列。
 
-- 统一抽象：`{source JokerObject*, fire_at 帧, action 枚举, param}` 的延迟动作队列 + 单一 per-frame 调度器（时间戳升序执行）
-- **参数在分发时锁定**（2026-08-04 实证）：Riff-Raff 生成数量、匕首 victim 等参数必须在 ON_BLIND_SELECTED 触发瞬间锁定（free = MAX - 当时列表长度），执行时只用锁定值——保证从左到右的结算顺序语义（先触发者占当时的槽，后触发者享受前面释放的槽）
-- 每个动作执行前：验证 source 仍有效（在列表）+ 检查当时游戏状态（空位等）
-- 现有匕首/Riff-Raff 重构过去（语义不变）
+**最终设计**（与初版差异已修正）：
+- 统一队列：`{source JokerObject*, kind (RIFF_RAFF/DAGGER)}` 平行数组 + 单一 per-frame 调度器（`deferred_effects_process_pending`），严格左→右逐请求执行：激活（锁定参数 + 弹动画）→ 等 `DEFER_DELAY=FRAMES(30)` → 生效（spawn / 献祭）→ **等全员 settle（入场/重排动画播完）+ 30帧** → 下一个
+- **参数在激活时锁定**（非分发时，2026-08-04 实证修正）：Riff-Raff 生成数 = 激活瞬间 free（expired 排除）；匕首 victim = 激活瞬间右侧紧邻
+- **source 有效性**：`deferred_source_is_alive()` = 在 owned 且不在 expired；激活分支 do-while 统一跳过死请求（验证分支只管蓄力期）——**防卡死的关键**
+- **不超员**：fire 时按实际列表长度封顶；`add_joker()` 加容量保护（SPACING_LUT 越界防护）
+- 发牌门控：`joker_effects_busy()` = 队列非空；忙→闲转换后**有效果才** +30帧 缓冲再发牌（静默回合立即发牌）
 - **架构红线**（写死到注释）：ON_BLIND_SELECTED 效果函数**不得直接修改 jokers 列表**，只能入队/延迟；生效时刻检查状态，禁止分发时检查
+- 节奏对齐对局内：30帧/效果 ≈ 卡牌移动间隔；FRAMES() 随 game_speed 缩放
 
 ## 💾 SaveMeta：成就系统 + joker 解锁进度（为将来预留）
 

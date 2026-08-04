@@ -2248,6 +2248,14 @@ static int s_deferred_wait_frames = 0; // Dagger victim settle wait (with cap)
 #define DAGGER_MAX_WAIT FRAMES(90)     // ~1.5s max wait for victim to settle
 static u32 s_deferred_fire_at = 0;
 
+// After an effect fires (jokers spawned / victim sacrificed) the rack
+// re-lays-out: new jokers slide in and everyone shifts left. Wait for all
+// owned jokers to SETTLE (entry animation finished), then hold one more
+// DEFER_DELAY beat before activating the next request - so each trigger
+// animation plays against a still rack, like the in-round pacing.
+static bool s_deferred_settle_wait = false;
+static u32 s_deferred_next_beat_at = 0;
+
 // True once any queued request has actually shown its trigger animation or
 // locked a real effect this round (i.e. the queue wasn't entirely silent -
 // e.g. Riff-Raff found no free slot, Dagger found no right neighbor). The
@@ -2305,6 +2313,36 @@ void deferred_effects_process_pending(void)
 {
     if (s_deferred_count == 0)
         return;
+
+    // Post-fire pacing: after the last effect fired, wait for the rack to
+    // settle (entry/re-layout animations finished), then hold one beat
+    // before the next request activates.
+    if (s_deferred_settle_wait)
+    {
+        bool all_settled = true;
+        ListItr itr = list_itr_create(get_jokers_list());
+        JokerObject* cur;
+        while ((cur = list_itr_next(&itr)))
+        {
+            if (cur->x != cur->tx || cur->y != cur->ty)
+            {
+                all_settled = false;
+                break;
+            }
+        }
+        if (all_settled)
+        {
+            s_deferred_settle_wait = false;
+            s_deferred_next_beat_at = g_game_vars.timer + DEFER_DELAY;
+        }
+        return;
+    }
+    if (s_deferred_next_beat_at != 0)
+    {
+        if (g_game_vars.timer < s_deferred_next_beat_at)
+            return;
+        s_deferred_next_beat_at = 0;
+    }
 
     // Validate the ACTIVE request's source object is still alive (it may
     // have been sacrificed/removed meanwhile). If gone, skip it: clear the
@@ -2532,8 +2570,11 @@ void deferred_effects_process_pending(void)
 
         // Advance to the next request: just clear the timer so the
         // activation branch advances s_deferred_active next frame (never
-        // increment here - see note at the activation branch).
+        // increment here - see note at the activation branch). First wait
+        // for the rack to settle (spawned jokers' entry / re-layout) plus
+        // one beat, so the next trigger animation plays against a still rack.
         s_deferred_fire_at = 0;
+        s_deferred_settle_wait = true;
         if (s_deferred_active + 1 >= s_deferred_count)
         {
             s_deferred_count = 0;
@@ -2589,7 +2630,11 @@ static u32 riff_raff_joker_effect(
                 // spawn count when this request activates, from the list
                 // state at that moment - strict left-to-right order).
                 if (s_deferred_count == 0)
+                {
                     s_deferred_ran_animation = false;
+                    s_deferred_settle_wait = false;
+                    s_deferred_next_beat_at = 0;
+                }
                 s_deferred_queue[s_deferred_count] = self_object;
                 s_deferred_kind[s_deferred_count] = DEFER_RIFF_RAFF;
                 s_deferred_count++;
@@ -3134,7 +3179,11 @@ static u32 ceremonial_dagger_joker_effect(
                         s_deferred_queue[s_deferred_count] = cur;
                         s_deferred_kind[s_deferred_count] = DEFER_DAGGER;
                         if (s_deferred_count == 0)
+                        {
                             s_deferred_ran_animation = false;
+                            s_deferred_settle_wait = false;
+                            s_deferred_next_beat_at = 0;
+                        }
                         s_deferred_count++;
                         break;
                     }

@@ -740,7 +740,12 @@ static void game_shop_hide_card_desc(void)
         // Erase shop text and Joker Description frame if we had time to draw them
         if (s_show_description_anim_progress >= TM_SHOW_CARD_DESC_WAIT)
         {
-            main_bg_se_clear_rect(CARD_DESC_9_PTCH_TO_RECT);
+            // clear_rect's bottom is exclusive, but the 9-patch drew the
+            // panel inclusively down to CARD_DESC_9_PTCH_TO_RECT.bottom -
+            // pass bottom+1 so the last drawn row is cleared too.
+            Rect card_desc_clear_rect = CARD_DESC_9_PTCH_TO_RECT;
+            card_desc_clear_rect.bottom += 1;
+            main_bg_se_clear_rect(card_desc_clear_rect);
         }
         // Or clear the owned cards' panel that haven't finished moving up
         else

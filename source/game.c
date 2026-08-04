@@ -343,6 +343,34 @@ static inline void jokers_update_loop(void)
     ceremonial_dagger_process_pending();
 }
 
+// ---- One-shot event message auto-clear -------------------------------------
+// Messages shown by ON_ROUND_END / ON_BLIND_SELECTED effects (Egg "+$3",
+// Riff-Raff "+2 Jokers", ...) are written to the joker score text row but,
+// unlike scoring messages, nothing in the state machine erases them later.
+// Schedule an erase ~1.5s after the dispatch so they clear themselves.
+// Scored row where joker messages are drawn (mirrors PLAYED_CARDS_SCORES_RECT).
+#define JOKER_EVENT_TEXT_CLEAR_DELAY FRAMES(90)
+static u32 s_joker_event_text_clear_at = 0;
+
+void schedule_joker_event_text_clear(void)
+{
+    s_joker_event_text_clear_at = g_game_vars.timer + JOKER_EVENT_TEXT_CLEAR_DELAY;
+}
+
+static inline void joker_event_text_clear_update_loop(void)
+{
+    if (s_joker_event_text_clear_at == 0)
+        return;
+    if (g_game_vars.timer < s_joker_event_text_clear_at)
+        return;
+    // Scoring is in progress (scoring numbers are being drawn on the same
+    // text row): wait for it to finish instead of erasing them early.
+    if (get_hand_state() == HAND_PLAYING)
+        return;
+    tte_erase_rect_wrapper(PLAYED_CARDS_SCORES_RECT);
+    s_joker_event_text_clear_at = 0;
+}
+
 void game_update()
 {
     rng_update();
@@ -350,6 +378,7 @@ void game_update()
     g_game_vars.timer++;
 
     jokers_update_loop();
+    joker_event_text_clear_update_loop();
 
     state_machine_update();
 

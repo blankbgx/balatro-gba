@@ -84,6 +84,12 @@ List* get_jokers_list(void);
 List* get_expired_jokers_list(void);
 List* get_discarded_jokers_list(void);
 
+/**
+ * @brief Schedule an auto-clear of one-shot joker event messages
+ *        (ON_ROUND_END / ON_BLIND_SELECTED) after a short delay.
+ */
+void schedule_joker_event_text_clear(void);
+
 int deck_get_size(void);
 int get_deck_top(void);
 void deck_push(Card* card);

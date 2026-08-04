@@ -90,8 +90,6 @@ static const Rect     BOSS_BLIND_TITLE_SRC_RECT  = {0,       27,     8,      27 
 static const Rect     HAND_BG_RECT_SELECTING     = {9,       11,     24,     17  };
 static const Rect     HAND_SIZE_RECT_SELECT      = {120,     128,    160,    136 };
 static const Rect     HAND_SIZE_RECT_PLAYING     = {120,     152,    160,    160 };
-static const Rect     PLAYED_CARDS_SCORES_RECT   = {72,      48,     240,    56  };
-static const Rect     HELD_CARDS_SCORES_RECT     = {72,      108,    240,    116 };
 
 static const BG_POINT CARD_DRAW_POS              = {208,     110};
 static const BG_POINT CARD_DISCARD_PNT           = {240,     70};
@@ -781,6 +779,8 @@ static inline void game_round_handle_round_over(void)
         {
             joker_object_score(joker_obj, NULL, JOKER_EVENT_ON_ROUND_END);
         }
+        // Auto-clear the event messages after a short delay
+        schedule_joker_event_text_clear();
     }
 
     game_change_state(next_state);
@@ -2101,6 +2101,8 @@ void game_round_on_init(void)
         {
             joker_object_score(joker_obj, NULL, JOKER_EVENT_ON_BLIND_SELECTED);
         }
+        // Auto-clear the event messages after a short delay
+        schedule_joker_event_text_clear();
     }
 }
 

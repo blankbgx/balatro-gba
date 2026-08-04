@@ -25,6 +25,9 @@ static const Rect BLIND_REWARD_RECT                    = {40,      32,     64,  
 static const Rect BLIND_REQ_TEXT_RECT                  = {32,      24,     64,     32};
 static const Rect PLAYING_SCREEN_RECT                  = {72,      0,      240,    160};
 static const Rect HAND_SIZE_RECT                       = {128,     128,    152,    160}; // Seems to include both SELECT and PLAYING
+// Joker score text rows (y=48: below jokers; y=108: below held cards)
+static const Rect PLAYED_CARDS_SCORES_RECT             = {72,      48,     240,    56};
+static const Rect HELD_CARDS_SCORES_RECT               = {72,      108,    240,    116};
 // clang-format on
 
 #endif // LAYOUT_H

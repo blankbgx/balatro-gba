@@ -2344,49 +2344,42 @@ void deferred_effects_process_pending(void)
         s_deferred_next_beat_at = 0;
     }
 
-    // Validate the ACTIVE request's source object is still alive (it may
-    // have been sacrificed/removed meanwhile). If gone, skip it: clear the
-    // timer and let the activation branch advance next frame.
-    if (s_deferred_active >= 0 &&
+    // While an effect is armed (waiting to fire), re-validate its source
+    // every frame: if it was sacrificed/removed meanwhile, abandon the fire
+    // (clear the timer); the activation branch below then advances past it.
+    // NOTE: when the timer is already clear this branch is skipped - the
+    // activation branch owns all advancing and skips dead requests itself,
+    // so a dead request can never wedge the queue.
+    if (s_deferred_active >= 0 && s_deferred_fire_at != 0 &&
         !deferred_source_is_alive(s_deferred_queue[s_deferred_active]))
     {
         s_deferred_fire_at = 0;
         return;
     }
 
-    // Activate the next queued request. Active index advances ONLY here
-    // (first frame starts at 0; each fire completion clears the timer which
-    // brings us back here to advance) - the fire branch below must NOT
-    // increment it, or every request after the first would be skipped.
+    // Activate the next queued request, skipping any whose source is dead
+    // (sacrificed by a Dagger that fired earlier). Active index advances
+    // ONLY here (first frame starts at 0; each fire completion clears the
+    // timer which brings us back here to advance) - the fire branch below
+    // must NOT increment it, or every request after the first is skipped.
     if (s_deferred_fire_at == 0)
     {
-        if (s_deferred_active < 0)
-            s_deferred_active = 0;
-        else
-            s_deferred_active++;
-        if (s_deferred_active >= s_deferred_count)
+        JokerObject* source;
+        do
         {
-            s_deferred_count = 0;
-            s_deferred_active = -1;
-            return;
-        }
-
-        JokerObject* source = s_deferred_queue[s_deferred_active];
-        if (source == NULL || source->joker == NULL)
-        {
-            s_deferred_count = 0;
-            s_deferred_active = -1;
-            return;
-        }
-
-        // The newly advanced request must be validated too (it may have
-        // been sacrificed by a Dagger that fired before it): skip silently
-        // and let the next frame advance past it.
-        if (!deferred_source_is_alive(source))
-        {
-            s_deferred_fire_at = 0;
-            return;
-        }
+            if (s_deferred_active < 0)
+                s_deferred_active = 0;
+            else
+                s_deferred_active++;
+            if (s_deferred_active >= s_deferred_count)
+            {
+                s_deferred_count = 0;
+                s_deferred_active = -1;
+                return;
+            }
+            source = s_deferred_queue[s_deferred_active];
+        } while (source == NULL || source->joker == NULL ||
+                 !deferred_source_is_alive(source));
 
         switch (s_deferred_kind[s_deferred_active])
         {

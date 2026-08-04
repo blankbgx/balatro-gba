@@ -2264,6 +2264,40 @@ bool deferred_effects_ran_animation(void)
 // Defined below in the dagger section; used by the deferred scheduler.
 static void dagger_sacrifice(JokerObject* dagger_object, JokerObject* victim);
 
+// True if the source object is still an alive owned joker: present in the
+// owned list AND not currently in the expired list (a Dagger may have just
+// sacrificed it - it must not activate its spawn anymore).
+static bool deferred_source_is_alive(JokerObject* source)
+{
+    if (source == NULL)
+        return false;
+
+    bool alive = false;
+    ListItr itr = list_itr_create(get_jokers_list());
+    JokerObject* cur;
+    while ((cur = list_itr_next(&itr)))
+    {
+        if (cur == source)
+        {
+            alive = true;
+            break;
+        }
+    }
+    if (alive)
+    {
+        ListItr eitr = list_itr_create(get_expired_jokers_list());
+        while ((cur = list_itr_next(&eitr)))
+        {
+            if (cur == source)
+            {
+                alive = false;
+                break;
+            }
+        }
+    }
+    return alive;
+}
+
 // Called every frame from game.c's jokers_update_loop(). Advances the
 // deferred queue strictly left-to-right: activate next request (lock its
 // action) -> show animation -> wait DEFER_DELAY -> apply effect.
@@ -2272,43 +2306,14 @@ void deferred_effects_process_pending(void)
     if (s_deferred_count == 0)
         return;
 
-    // Validate the ACTIVE request's source object is still owned (it may
+    // Validate the ACTIVE request's source object is still alive (it may
     // have been sacrificed/removed meanwhile). If gone, skip it: clear the
     // timer and let the activation branch advance next frame.
-    // NOTE: an object still in the owned list but already in the EXPIRED
-    // list counts as gone (a Dagger may have just sacrificed it) - it must
-    // not activate its spawn anymore.
-    if (s_deferred_active >= 0)
+    if (s_deferred_active >= 0 &&
+        !deferred_source_is_alive(s_deferred_queue[s_deferred_active]))
     {
-        JokerObject* source = s_deferred_queue[s_deferred_active];
-        bool still_owned = false;
-        ListItr itr = list_itr_create(get_jokers_list());
-        JokerObject* cur;
-        while ((cur = list_itr_next(&itr)))
-        {
-            if (cur == source)
-            {
-                still_owned = true;
-                break;
-            }
-        }
-        if (still_owned)
-        {
-            ListItr eitr = list_itr_create(get_expired_jokers_list());
-            while ((cur = list_itr_next(&eitr)))
-            {
-                if (cur == source)
-                {
-                    still_owned = false;
-                    break;
-                }
-            }
-        }
-        if (!still_owned)
-        {
-            s_deferred_fire_at = 0;
-            return;
-        }
+        s_deferred_fire_at = 0;
+        return;
     }
 
     // Activate the next queued request. Active index advances ONLY here
@@ -2333,6 +2338,15 @@ void deferred_effects_process_pending(void)
         {
             s_deferred_count = 0;
             s_deferred_active = -1;
+            return;
+        }
+
+        // The newly advanced request must be validated too (it may have
+        // been sacrificed by a Dagger that fired before it): skip silently
+        // and let the next frame advance past it.
+        if (!deferred_source_is_alive(source))
+        {
+            s_deferred_fire_at = 0;
             return;
         }
 

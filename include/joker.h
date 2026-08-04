@@ -109,6 +109,12 @@ enum JokerEvent
 // spawns, Ceremonial Dagger sacrifice). Called from game.c's update loop.
 void deferred_effects_process_pending(void);
 
+// True if this round's deferred queue actually produced a visible effect
+// (trigger animation / sacrifice). Silent queues (Riff-Raff no free slot,
+// Dagger no right neighbor) return false so the round can skip the
+// post-effects beat.
+bool deferred_effects_ran_animation(void);
+
 // True while deferred blind-selected joker effects are still running
 // (Riff-Raff spawn chain / dagger waiting for a victim). The round holds off
 // dealing the hand until this returns false.

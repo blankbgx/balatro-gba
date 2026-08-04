@@ -1215,10 +1215,14 @@ static inline void game_round_process_card_draw(void)
         return;
     }
 
-    // Effects just finished: schedule the deal 30 frames later for pacing.
+    // Effects just finished: hold a 30-frame beat before dealing - but only
+    // if the queue actually produced a visible effect. Silent rounds
+    // (Riff-Raff found no room, Dagger had no right neighbor) deal the hand
+    // immediately, same as a round with no blind-selected jokers at all.
     if (s_effects_were_busy)
     {
-        s_deal_after_effects_at = g_game_vars.timer + FRAMES(30);
+        if (deferred_effects_ran_animation())
+            s_deal_after_effects_at = g_game_vars.timer + FRAMES(30);
         s_effects_were_busy = false;
         return;
     }

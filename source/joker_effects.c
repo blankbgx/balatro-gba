@@ -2248,6 +2248,19 @@ static int s_deferred_wait_frames = 0; // Dagger victim settle wait (with cap)
 #define DAGGER_MAX_WAIT FRAMES(90)     // ~1.5s max wait for victim to settle
 static u32 s_deferred_fire_at = 0;
 
+// True once any queued request has actually shown its trigger animation or
+// locked a real effect this round (i.e. the queue wasn't entirely silent -
+// e.g. Riff-Raff found no free slot, Dagger found no right neighbor). The
+// round uses this to skip the post-effects beat when nothing visibly
+// happened, so silent rounds deal the hand immediately.
+static bool s_deferred_ran_animation = false;
+
+// True if this round's deferred queue actually produced a visible effect.
+bool deferred_effects_ran_animation(void)
+{
+    return s_deferred_ran_animation;
+}
+
 // Defined below in the dagger section; used by the deferred scheduler.
 static void dagger_sacrifice(JokerObject* dagger_object, JokerObject* victim);
 
@@ -2339,6 +2352,7 @@ void deferred_effects_process_pending(void)
                 tte_write(anim_buffer);
                 joker_object_shake(source, UNDEFINED);
                 schedule_joker_event_text_clear();
+                s_deferred_ran_animation = true;
                 break;
             }
 
@@ -2365,6 +2379,7 @@ void deferred_effects_process_pending(void)
                     return;
                 }
                 s_deferred_victim = victim;
+                s_deferred_ran_animation = true;
                 break;
             }
         }
@@ -2541,6 +2556,8 @@ static u32 riff_raff_joker_effect(
                 // Enqueue (no count locking here: the scheduler locks the
                 // spawn count when this request activates, from the list
                 // state at that moment - strict left-to-right order).
+                if (s_deferred_count == 0)
+                    s_deferred_ran_animation = false;
                 s_deferred_queue[s_deferred_count] = self_object;
                 s_deferred_kind[s_deferred_count] = DEFER_RIFF_RAFF;
                 s_deferred_count++;
@@ -3084,6 +3101,8 @@ static u32 ceremonial_dagger_joker_effect(
                     {
                         s_deferred_queue[s_deferred_count] = cur;
                         s_deferred_kind[s_deferred_count] = DEFER_DAGGER;
+                        if (s_deferred_count == 0)
+                            s_deferred_ran_animation = false;
                         s_deferred_count++;
                         break;
                     }

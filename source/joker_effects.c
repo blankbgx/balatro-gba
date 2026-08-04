@@ -2230,7 +2230,7 @@ static u32 wee_joker_effect(
 //    its right at that moment (which may be a joker a Riff-Raff to its left
 //    just spawned - "right neighbor present => higher effective priority");
 //  - a Riff-Raff right of a Dagger sees the list after the sacrifice.
-#define DEFER_DELAY FRAMES(60) // ~1s pause after each trigger animation
+#define DEFER_DELAY FRAMES(30) // ~0.5s beat - matches in-round card-move pacing
 
 typedef enum
 {

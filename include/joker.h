@@ -109,6 +109,10 @@ enum JokerEvent
 // victim's entry animation to finish). Called from game.c's update loop.
 void ceremonial_dagger_process_pending(void);
 
+// Per-frame check for deferred Riff-Raff spawns (waits for the trigger
+// animation to play before new jokers enter). Called from game.c's update loop.
+void riff_raff_process_pending(void);
+
 typedef struct
 {
     u8 id;       // Unique ID for the joker, used to identify different jokers

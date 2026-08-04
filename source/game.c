@@ -339,8 +339,10 @@ static inline void jokers_update_loop(void)
     discarded_jokers_update_loop();
     expired_jokers_update_loop();
     // Deferred joker effects that need to wait for animations to finish
-    // (e.g. Ceremonial Dagger sacrificing a Riff-Raff-spawned Joker)
+    // (e.g. Ceremonial Dagger sacrificing a Riff-Raff-spawned Joker,
+    //  Riff-Raff spawning jokers after its trigger animation)
     ceremonial_dagger_process_pending();
+    riff_raff_process_pending();
 }
 
 // ---- One-shot event message auto-clear -------------------------------------

@@ -1663,10 +1663,7 @@ static inline bool play_scoring_cards_update(void)
             s_joker_scored_itr = list_itr_create(get_jokers_list());
             s_scored_card_index = get_hand_top();
 
-            // Independent jokers (Dagger mult application etc.) fire before
-            // held-card jokers so +mult effects resolve strictly left to
-            // right across both groups.
-            play_state = PLAY_SCORING_INDEPENDENT_JOKERS;
+            play_state = PLAY_SCORING_HELD_CARDS;
 
             return false;
         }
@@ -1771,10 +1768,6 @@ static inline bool play_scoring_held_cards_update(int played_idx)
     {
         tte_erase_rect_wrapper(HELD_CARDS_SCORES_RECT);
 
-        // Runs after the independent-jokers stage: restart the joker
-        // iterator (it was consumed there).
-        s_joker_scored_itr = list_itr_create(get_jokers_list());
-
         CardObject** hand = get_hand_array();
 
         // Go through all held cards and see if they activate Jokers
@@ -1794,8 +1787,7 @@ static inline bool play_scoring_held_cards_update(int played_idx)
 
         s_scored_card_index = 0;
         s_joker_round_end_itr = list_itr_create(get_jokers_list());
-        s_scored_card_index = get_played_size();
-        play_state = PLAY_SCORING_HAND_SCORED_END;
+        play_state = PLAY_SCORING_INDEPENDENT_JOKERS;
     }
 
     return false;
@@ -1819,9 +1811,10 @@ static inline bool play_scoring_independent_jokers_update(int played_idx)
             return true;
         }
 
-        // Hold-card jokers run next (kept here so +mult effects resolve
-        // strictly left to right: Dagger -> held-card jokers).
-        play_state = PLAY_SCORING_HELD_CARDS;
+        // Reset the scored card index to past the top of the played stack
+        s_scored_card_index = get_played_size();
+
+        play_state = PLAY_SCORING_HAND_SCORED_END;
     }
 
     return false;

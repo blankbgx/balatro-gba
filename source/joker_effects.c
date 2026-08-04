@@ -2265,23 +2265,26 @@ void riff_raff_process_pending(void)
         }
         if (!still_owned)
         {
-            // Source gone - skip this request entirely
-            s_riff_raff_active++;
+            // Source gone - skip this request entirely. Do NOT increment
+            // s_riff_raff_active here (the activation branch below owns all
+            // advancing); just clear the timer so we come back and advance.
             s_riff_raff_spawn_at = 0;
-            if (s_riff_raff_active >= s_riff_raff_queue_count)
-            {
-                s_riff_raff_queue_count = 0;
-                s_riff_raff_active = -1;
-            }
             return;
         }
     }
 
     // Activate the next queued instance: use the spawn count that was locked
     // at dispatch time, show its trigger animation, then schedule the spawn.
+    // Active index advances ONLY here (first frame starts at 0; afterwards
+    // each spawn completion sets spawn_at=0 which brings us back here to
+    // advance) - the spawn branch below must NOT increment it, or every
+    // queued request after the first would be skipped.
     if (s_riff_raff_spawn_at == 0)
     {
-        s_riff_raff_active++;
+        if (s_riff_raff_active < 0)
+            s_riff_raff_active = 0;
+        else
+            s_riff_raff_active++;
         if (s_riff_raff_active >= s_riff_raff_queue_count)
         {
             s_riff_raff_queue_count = 0;
@@ -2373,10 +2376,11 @@ void riff_raff_process_pending(void)
             current_count++;
         }
 
-        // Advance to the next queued instance
-        s_riff_raff_active++;
+        // Advance to the next queued instance: just clear the timer so the
+        // activation branch above advances s_riff_raff_active next frame
+        // (never increment here - see note at the activation branch).
         s_riff_raff_spawn_at = 0;
-        if (s_riff_raff_active >= s_riff_raff_queue_count)
+        if (s_riff_raff_active + 1 >= s_riff_raff_queue_count)
         {
             s_riff_raff_queue_count = 0;
             s_riff_raff_active = -1;

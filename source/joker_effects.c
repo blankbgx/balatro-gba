@@ -2226,10 +2226,16 @@ static u32 riff_raff_joker_effect(
 {
     if (joker_event == JOKER_EVENT_ON_BLIND_SELECTED)
     {
-        // Only trigger once per round (use persistent_state as flag)
-        if (joker->persistent_state == 0)
+        // Copies (Blueprint/Brainstorm) always trigger: the blueprint copy
+        // mechanism syncs persistent_state from the source (already 1 by the
+        // time the copy runs), so the flag check must be skipped for copies.
+        if (s_is_copying_joker || joker->persistent_state == 0)
         {
-            joker->persistent_state = 1;
+            if (!s_is_copying_joker)
+            {
+                // Only trigger once per round (use persistent_state as flag)
+                joker->persistent_state = 1;
+            }
 
             // Create 2 random common/uncommon jokers if slots available
             List* jokers = get_jokers_list();

@@ -1196,13 +1196,40 @@ static inline void card_draw(void)
     );
 }
 
+// When the deferred blind-selected joker effects (Riff-Raff spawn chain,
+// dagger sacrifice) finish, hold a beat before dealing the hand so the
+// transition matches the in-round pacing (30 frames per card move).
+// s_effects_were_busy remembers whether any effect ran this round, so plain
+// rounds (no Riff-Raff/Dagger) deal immediately with no added delay.
+static u32 s_deal_after_effects_at = 0;
+static bool s_effects_were_busy = false;
+
 static inline void game_round_process_card_draw(void)
 {
     // Hold off dealing until deferred blind-selected joker effects have
     // finished (Riff-Raff spawn chain, dagger sacrifice): all joker effects
     // play out first, then the hand is dealt.
     if (joker_effects_busy())
+    {
+        s_effects_were_busy = true;
         return;
+    }
+
+    // Effects just finished: schedule the deal 30 frames later for pacing.
+    if (s_effects_were_busy)
+    {
+        s_deal_after_effects_at = g_game_vars.timer + FRAMES(30);
+        s_effects_were_busy = false;
+        return;
+    }
+
+    // Wait out the beat before dealing the first card.
+    if (s_deal_after_effects_at != 0 &&
+        g_game_vars.timer < s_deal_after_effects_at)
+    {
+        return;
+    }
+    s_deal_after_effects_at = 0;
 
     if (get_hand_state() == HAND_DRAW && s_cards_drawn < g_game_vars.hand_size)
     {

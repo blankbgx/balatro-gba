@@ -2092,13 +2092,14 @@ void game_round_on_init(void)
 
     // Dispatch ON_BLIND_SELECTED to all jokers after blind selection,
     // before cards are dealt. Used by Riff-Raff, Dagger, Madness, etc.
+    // Uses joker_object_score (not joker_get_score_effect) so messages
+    // ("+2 Jokers"), shakes and display updates are shown for this event.
     {
         ListItr itr = list_itr_create(get_jokers_list());
         JokerObject* joker_obj;
         while ((joker_obj = list_itr_next(&itr)))
         {
-            JokerEffect* joker_effect = NULL;
-            joker_get_score_effect(joker_obj->joker, NULL, JOKER_EVENT_ON_BLIND_SELECTED, &joker_effect);
+            joker_object_score(joker_obj, NULL, JOKER_EVENT_ON_BLIND_SELECTED);
         }
     }
 }

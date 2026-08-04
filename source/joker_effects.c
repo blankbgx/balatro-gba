@@ -7,10 +7,14 @@
 #include "list.h"
 #include "pool.h"
 #include "random.h"
+#include "soundbank.h"
 #include "util.h"
 
 #include <stdio.h>
 #include <stdlib.h>
+
+// Score text display row for jokers (mirrors source/joker.c JOKER_SCORE_TEXT_Y)
+#define JOKER_SCORE_TEXT_Y 48
 #include <string.h>
 
 #define MISPRINT_MAX_MULT 23
@@ -2788,8 +2792,8 @@ static int ceremonial_dagger_joker_desc(Joker* joker, Rect dest_rect)
 static JokerObject* s_dagger_pending_victim = NULL;
 
 // Sacrifice a victim: add double its sell value to the dagger's mult, shake
-// it and push it to the expired list for the shrink-and-remove animation.
-// Returns true if a dagger (real, not a copy) was found to credit.
+// the dagger and the victim, show "+N Mult" over the dagger, and push the
+// victim to the expired list for the shrink-and-remove animation.
 static void dagger_sacrifice(JokerObject* dagger_object, JokerObject* victim)
 {
     if (dagger_object == NULL || dagger_object->joker == NULL ||
@@ -2798,9 +2802,17 @@ static void dagger_sacrifice(JokerObject* dagger_object, JokerObject* victim)
         return;
     }
 
-    dagger_object->joker->scoring_state +=
-        2 * joker_get_sell_value(victim->joker);
+    s32 gain = 2 * joker_get_sell_value(victim->joker);
+    dagger_object->joker->scoring_state += gain;
 
+    // Show "+N Mult" over the dagger (immediate and deferred sacrifices)
+    char gain_buffer[24];
+    snprintf(gain_buffer, sizeof(gain_buffer), "+%ld Mult", (long)gain);
+    tte_set_pos(fx2int(dagger_object->x) + TILE_SIZE, JOKER_SCORE_TEXT_Y);
+    tte_set_special(TTE_RED_PB * TTE_SPECIAL_PB_MULT_OFFSET);
+    tte_write(gain_buffer);
+
+    joker_object_shake(dagger_object, SFX_MULT);
     joker_object_shake(victim, UNDEFINED);
     list_push_back(get_expired_jokers_list(), victim);
 }

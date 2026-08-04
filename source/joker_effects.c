@@ -2765,6 +2765,68 @@ static int ceremonial_dagger_joker_desc(Joker* joker, Rect dest_rect)
 // is shaken and pushed to the expired list (rotating/shrinking animation,
 // then auto-removal - safe during list iteration since the owned list isn't
 // touched immediately). The mult applies at INDEPENDENT; copies mirror it.
+//
+// If the right neighbor is still playing its entry animation (e.g. a Joker
+// just spawned by Riff-Raff hasn't reached its slot yet), the sacrifice is
+// deferred: the victim is stored and consumed by
+// ceremonial_dagger_process_pending() once it has arrived at its slot, so
+// the entry animation always plays out first.
+static JokerObject* s_dagger_pending_victim = NULL;
+
+// Sacrifice a victim: add double its sell value to the dagger's mult, shake
+// it and push it to the expired list for the shrink-and-remove animation.
+// Returns true if a dagger (real, not a copy) was found to credit.
+static void dagger_sacrifice(JokerObject* dagger_object, JokerObject* victim)
+{
+    if (dagger_object == NULL || dagger_object->joker == NULL ||
+        victim == NULL || victim->joker == NULL)
+    {
+        return;
+    }
+
+    dagger_object->joker->scoring_state +=
+        2 * joker_get_sell_value(victim->joker);
+
+    joker_object_shake(victim, UNDEFINED);
+    list_push_back(get_expired_jokers_list(), victim);
+}
+
+// Per-frame check for a deferred dagger sacrifice: once the pending victim
+// has finished its animation (reached its target slot), sacrifice it.
+// Called every frame from game.c's jokers_update_loop().
+void ceremonial_dagger_process_pending(void)
+{
+    JokerObject* victim = s_dagger_pending_victim;
+    if (victim == NULL)
+        return;
+
+    // The victim may have been removed meanwhile (sold, expired...): verify
+    // it is still in the owned list and that a real dagger still exists.
+    bool victim_found = false;
+    JokerObject* dagger_object = NULL;
+    ListItr itr = list_itr_create(get_jokers_list());
+    JokerObject* cur;
+    while ((cur = list_itr_next(&itr)))
+    {
+        if (cur == victim)
+            victim_found = true;
+        if (cur->joker != NULL && cur->joker->id == CEREMONIAL_DAGGER_ID)
+            dagger_object = cur;
+    }
+
+    if (!victim_found || dagger_object == NULL)
+    {
+        s_dagger_pending_victim = NULL;
+        return;
+    }
+
+    // Wait until the victim has arrived at its slot
+    if (victim->x != victim->tx || victim->y != victim->ty)
+        return;
+
+    dagger_sacrifice(dagger_object, victim);
+    s_dagger_pending_victim = NULL;
+}
 static u32 ceremonial_dagger_joker_effect(
     Joker* joker,
     Card* scored_card,
@@ -2796,15 +2858,18 @@ static u32 ceremonial_dagger_joker_effect(
                     JokerObject* victim = list_itr_next(&itr);
                     if (victim != NULL && victim->joker != NULL)
                     {
-                        // Add double the victim's sell value to the mult
-                        (*p_accumulated_mult) +=
-                            2 * joker_get_sell_value(victim->joker);
-
-                        // Sacrifice: shake then expire (auto-removed after the
-                        // shrink animation; owned list is not modified now, so
-                        // the ongoing ON_BLIND_SELECTED iteration stays valid)
-                        joker_object_shake(victim, UNDEFINED);
-                        list_push_back(get_expired_jokers_list(), victim);
+                        // If the victim is still playing its entry animation
+                        // (e.g. Riff-Raff just spawned it), defer the
+                        // sacrifice until it has reached its slot so its
+                        // animation plays out first.
+                        if (victim->x != victim->tx || victim->y != victim->ty)
+                        {
+                            s_dagger_pending_victim = victim;
+                        }
+                        else
+                        {
+                            dagger_sacrifice(cur, victim);
+                        }
                     }
                     break;
                 }

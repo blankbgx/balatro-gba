@@ -105,6 +105,10 @@ enum JokerEvent
 #define RIDING_THE_BUS_ID     64
 #define CEREMONIAL_DAGGER_ID  65
 
+// Per-frame check for a deferred Ceremonial Dagger sacrifice (waits for the
+// victim's entry animation to finish). Called from game.c's update loop.
+void ceremonial_dagger_process_pending(void);
+
 typedef struct
 {
     u8 id;       // Unique ID for the joker, used to identify different jokers

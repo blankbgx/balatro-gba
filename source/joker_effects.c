@@ -2271,10 +2271,14 @@ void riff_raff_process_pending(void)
 
     // Activate the next queued instance: compute how many slots are free
     // right now, show its trigger animation, then schedule the spawn.
+    // Jokers currently in the expired list are about to be removed (e.g. a
+    // Dagger sacrificed them earlier in this dispatch), so they don't occupy
+    // a slot: their slots are usable right away.
     if (s_riff_raff_spawn_at == 0)
     {
-        int free_slots =
-            MAX_JOKERS_HELD_SIZE - list_get_len(get_jokers_list());
+        int occupied = list_get_len(get_jokers_list()) -
+                       list_get_len(get_expired_jokers_list());
+        int free_slots = MAX_JOKERS_HELD_SIZE - occupied;
         if (free_slots <= 0)
         {
             // No room - chain stops silently (and all remaining requests)
@@ -2324,7 +2328,10 @@ void riff_raff_process_pending(void)
     if (g_game_vars.timer >= s_riff_raff_spawn_at)
     {
         int to_spawn = s_riff_raff_anim_count;
-        int current_count = list_get_len(get_jokers_list());
+        // Same effective-occupancy rule as the activation check above:
+        // expired jokers are about to be removed, their slots are usable.
+        int current_count = list_get_len(get_jokers_list()) -
+                            list_get_len(get_expired_jokers_list());
         if (current_count + to_spawn > MAX_JOKERS_HELD_SIZE)
             to_spawn = MAX_JOKERS_HELD_SIZE - current_count;
 

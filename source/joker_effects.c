@@ -2217,52 +2217,170 @@ static u32 wee_joker_effect(
 }
 
 // Riff-Raff: When blind starts (cards dealt), create 2 random common/uncommon jokers
-// --- Riff-Raff delayed spawn queue -------------------------------------------
-// The spawn is deferred so the trigger animation ("+N Jokers" + shake) plays
-// first, then after a short pause the new jokers enter. ON_BLIND_SELECTED
-// only picks the IDs and schedules the spawn; the actual joker_new/add_joker
-// happens in riff_raff_process_pending() once the timer fires.
-#define RIFF_RAFF_SPAWN_DELAY FRAMES(60) // ~1s pause after the trigger anim
+// --- Riff-Raff serialized spawn chain ----------------------------------------
+// ON_BLIND_SELECTED dispatches left-to-right; each Riff-Raff instance (the
+// real one and any Blueprint/Brainstorm copies) queues itself. The queue is
+// then processed serially, one spawn per RIFF_RAFF_SPAWN_DELAY: each queued
+// instance shows its "+N Jokers" animation, waits a beat, then actually
+// spawns - checking the *current* free slots at spawn time (so a Dagger that
+// sacrificed a Joker earlier in the same dispatch frees a slot the Riff-Raff
+// can use). The chain stops silently when no slots are left.
+#define RIFF_RAFF_SPAWN_DELAY FRAMES(60) // ~1s pause after each trigger anim
 
-static u8  s_riff_raff_pending_ids[MAX_JOKERS_HELD_SIZE];
-static int s_riff_raff_pending_count = 0;
-static u32 s_riff_raff_spawn_at      = 0;
+static JokerObject* s_riff_raff_queue[MAX_JOKERS_HELD_SIZE];
+static int s_riff_raff_queue_count = 0;
+static int s_riff_raff_active = -1;
+static int s_riff_raff_anim_count = 0;
+static u32 s_riff_raff_spawn_at = 0;
 
-// Called every frame from game.c's jokers_update_loop(). When the delay has
-// elapsed, actually create the queued jokers (entry animations start here).
+// Called every frame from game.c's jokers_update_loop(). Advances the spawn
+// chain: activate next queued instance -> show animation -> wait -> spawn.
 void riff_raff_process_pending(void)
 {
-    if (s_riff_raff_pending_count == 0)
-        return;
-    if (g_game_vars.timer < s_riff_raff_spawn_at)
+    if (s_riff_raff_queue_count == 0)
         return;
 
-    List* jokers = get_jokers_list();
-    int current_count = list_get_len(jokers);
-
-    for (int i = 0; i < s_riff_raff_pending_count && current_count < MAX_JOKERS_HELD_SIZE; i++)
+    // Validate the active request's source object is still owned (it may
+    // have been sacrificed by a Dagger meanwhile).
+    if (s_riff_raff_active >= 0)
     {
-        Joker* new_joker = joker_new(s_riff_raff_pending_ids[i]);
-        if (new_joker == NULL)
-            continue;
-
-        JokerObject* new_joker_object = joker_object_new(new_joker);
-        if (new_joker_object == NULL)
+        bool still_owned = false;
+        ListItr itr = list_itr_create(get_jokers_list());
+        JokerObject* cur;
+        while ((cur = list_itr_next(&itr)))
         {
-            joker_destroy(&new_joker);
-            continue;
+            if (cur == s_riff_raff_queue[s_riff_raff_active])
+            {
+                still_owned = true;
+                break;
+            }
         }
-
-        // Set Y position to match other held jokers
-        new_joker_object->ty = int2fx(HELD_JOKERS_POS.y);
-        add_joker(new_joker_object);
-        // Mark as non-rollable so shop won't generate the same joker
-        joker_set_rollable(s_riff_raff_pending_ids[i], false);
-        current_count++;
+        if (!still_owned)
+        {
+            // Source gone - skip this request entirely
+            s_riff_raff_active++;
+            s_riff_raff_spawn_at = 0;
+            if (s_riff_raff_active >= s_riff_raff_queue_count)
+            {
+                s_riff_raff_queue_count = 0;
+                s_riff_raff_active = -1;
+            }
+            return;
+        }
     }
 
-    s_riff_raff_pending_count = 0;
-    s_riff_raff_spawn_at = 0;
+    // Activate the next queued instance: compute how many slots are free
+    // right now, show its trigger animation, then schedule the spawn.
+    if (s_riff_raff_spawn_at == 0)
+    {
+        int free_slots =
+            MAX_JOKERS_HELD_SIZE - list_get_len(get_jokers_list());
+        if (free_slots <= 0)
+        {
+            // No room - chain stops silently (and all remaining requests)
+            s_riff_raff_queue_count = 0;
+            s_riff_raff_active = -1;
+            return;
+        }
+
+        s_riff_raff_active++;
+        if (s_riff_raff_active >= s_riff_raff_queue_count)
+        {
+            s_riff_raff_queue_count = 0;
+            s_riff_raff_active = -1;
+            return;
+        }
+
+        JokerObject* source = s_riff_raff_queue[s_riff_raff_active];
+        if (source == NULL || source->joker == NULL)
+        {
+            s_riff_raff_queue_count = 0;
+            s_riff_raff_active = -1;
+            return;
+        }
+
+        s_riff_raff_anim_count = free_slots < 2 ? free_slots : 2;
+
+        // Show the trigger animation "+N Jokers" over this instance
+        char anim_buffer[16];
+        snprintf(
+            anim_buffer,
+            sizeof(anim_buffer),
+            "+%d Jokers",
+            s_riff_raff_anim_count
+        );
+        tte_set_pos(fx2int(source->x) + TILE_SIZE, JOKER_SCORE_TEXT_Y);
+        tte_set_special(TTE_WHITE_PB * TTE_SPECIAL_PB_MULT_OFFSET);
+        tte_write(anim_buffer);
+        joker_object_shake(source, UNDEFINED);
+        // Keep the event message auto-clear timer from wiping this text early
+        schedule_joker_event_text_clear();
+
+        s_riff_raff_spawn_at = g_game_vars.timer + RIFF_RAFF_SPAWN_DELAY;
+        return;
+    }
+
+    // Time to spawn the queued instance's jokers
+    if (g_game_vars.timer >= s_riff_raff_spawn_at)
+    {
+        int to_spawn = s_riff_raff_anim_count;
+        int current_count = list_get_len(get_jokers_list());
+        if (current_count + to_spawn > MAX_JOKERS_HELD_SIZE)
+            to_spawn = MAX_JOKERS_HELD_SIZE - current_count;
+
+        for (int i = 0; i < to_spawn; i++)
+        {
+            // Riff-Raff only spawns Common Jokers
+            u8 rarity = COMMON_JOKER;
+            u8 joker_id = 0;
+            bool found = false;
+            for (int attempt = 0; attempt < 50; attempt++)
+            {
+                u8 candidate = rng_get_u32() % get_joker_registry_size();
+                const JokerInfo* info = get_joker_registry_entry(candidate);
+                if (info && info->rarity == rarity && !is_joker_owned(candidate))
+                {
+                    if (candidate == GROS_MICHEL_ID && is_gros_michel_destroyed())
+                        continue;
+                    if (candidate == CAVENDISH_ID && !is_gros_michel_destroyed())
+                        continue;
+                    joker_id = candidate;
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+                continue;
+
+            Joker* new_joker = joker_new(joker_id);
+            if (new_joker == NULL)
+                continue;
+
+            JokerObject* new_joker_object = joker_object_new(new_joker);
+            if (new_joker_object == NULL)
+            {
+                joker_destroy(&new_joker);
+                continue;
+            }
+
+            // Set Y position to match other held jokers
+            new_joker_object->ty = int2fx(HELD_JOKERS_POS.y);
+            add_joker(new_joker_object);
+            // Mark as non-rollable so shop won't generate the same joker
+            joker_set_rollable(joker_id, false);
+            current_count++;
+        }
+
+        // Advance to the next queued instance
+        s_riff_raff_active++;
+        s_riff_raff_spawn_at = 0;
+        if (s_riff_raff_active >= s_riff_raff_queue_count)
+        {
+            s_riff_raff_queue_count = 0;
+            s_riff_raff_active = -1;
+        }
+    }
 }
 
 static u32 riff_raff_joker_effect(
@@ -2285,81 +2403,24 @@ static u32 riff_raff_joker_effect(
                 joker->persistent_state = 1;
             }
 
-            // Pick up to 2 random Common jokers (IDs only - the actual spawn
-            // is deferred to riff_raff_process_pending() so the trigger
-            // animation plays before the new jokers enter)
-            List* jokers = get_jokers_list();
-            int max_jokers = MAX_JOKERS_HELD_SIZE;
-            int current_count = list_get_len(jokers);
-
-            int queued = 0;
-            for (int i = 0; i < 2 && current_count < max_jokers; i++)
+            // Queue this instance for the serialized spawn chain (processed
+            // left-to-right by riff_raff_process_pending()).
+            ListItr itr = list_itr_create(get_jokers_list());
+            JokerObject* self_object = NULL;
+            JokerObject* cur;
+            while ((cur = list_itr_next(&itr)))
             {
-                // Riff-Raff only spawns Common Jokers
-                u8 rarity = COMMON_JOKER;
-
-                // Find a valid joker ID for this rarity (not owned, not duplicate of other queued)
-                u8 joker_id = 0;
-                bool found = false;
-                for (int attempt = 0; attempt < 50; attempt++)
+                if (cur->joker == joker)
                 {
-                    u8 candidate = rng_get_u32() % get_joker_registry_size();
-                    const JokerInfo* info = get_joker_registry_entry(candidate);
-                    if (info && info->rarity == rarity && !is_joker_owned(candidate))
-                    {
-                        // Exclude food jokers from Riff-Raff based on pool state
-                        if (candidate == GROS_MICHEL_ID && is_gros_michel_destroyed())
-                            continue;
-                        if (candidate == CAVENDISH_ID && !is_gros_michel_destroyed())
-                            continue;
-
-                        // Check not duplicate with anything already queued
-                        // this round (covers both the real Riff-Raff's picks
-                        // and a copying Blueprint/Brainstorm's picks)
-                        bool dup = false;
-                        for (int g = 0; g < s_riff_raff_pending_count; g++)
-                        {
-                            if (s_riff_raff_pending_ids[g] == candidate)
-                            {
-                                dup = true;
-                                break;
-                            }
-                        }
-                        if (!dup)
-                        {
-                            joker_id = candidate;
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (found)
-                {
-                    s_riff_raff_pending_ids[s_riff_raff_pending_count] = joker_id;
-                    s_riff_raff_pending_count++;
-                    queued++;
-                    current_count++;
+                    self_object = cur;
+                    break;
                 }
             }
 
-            // Schedule the actual spawn after a short pause so the trigger
-            // animation plays first, then the new jokers enter.
-            if (queued > 0)
+            if (self_object != NULL &&
+                s_riff_raff_queue_count < MAX_JOKERS_HELD_SIZE)
             {
-                s_riff_raff_spawn_at = g_game_vars.timer + RIFF_RAFF_SPAWN_DELAY;
-            }
-
-            // Show the trigger animation "+N Jokers" when at least one joker
-            // was queued (no message if there was no room).
-            if (queued > 0)
-            {
-                static const char* RIFF_RAFF_MESSAGES[] =
-                    {"+1 Jokers", "+2 Jokers"};
-                *joker_effect = &s_shared_joker_effect;
-                (*joker_effect)->message =
-                    (char*)RIFF_RAFF_MESSAGES[queued - 1];
-                return JOKER_EFFECT_FLAG_MESSAGE;
+                s_riff_raff_queue[s_riff_raff_queue_count++] = self_object;
             }
         }
     }

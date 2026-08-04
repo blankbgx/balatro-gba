@@ -105,13 +105,9 @@ enum JokerEvent
 #define RIDING_THE_BUS_ID     64
 #define CEREMONIAL_DAGGER_ID  65
 
-// Per-frame check for a deferred Ceremonial Dagger sacrifice (waits for the
-// victim's entry animation to finish). Called from game.c's update loop.
-void ceremonial_dagger_process_pending(void);
-
-// Per-frame check for deferred Riff-Raff spawns (waits for the trigger
-// animation to play before new jokers enter). Called from game.c's update loop.
-void riff_raff_process_pending(void);
+// Per-frame scheduler for deferred blind-selected joker effects (Riff-Raff
+// spawns, Ceremonial Dagger sacrifice). Called from game.c's update loop.
+void deferred_effects_process_pending(void);
 
 // True while deferred blind-selected joker effects are still running
 // (Riff-Raff spawn chain / dagger waiting for a victim). The round holds off

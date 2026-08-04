@@ -2244,6 +2244,8 @@ static int s_deferred_count = 0;
 static int s_deferred_active = -1;
 static int s_deferred_anim_count = 0; // Riff-Raff spawn count (locked at activation)
 static JokerObject* s_deferred_victim = NULL; // Dagger victim (locked at activation)
+static int s_deferred_wait_frames = 0; // Dagger victim settle wait (with cap)
+#define DAGGER_MAX_WAIT FRAMES(90)     // ~1.5s max wait for victim to settle
 static u32 s_deferred_fire_at = 0;
 
 // Defined below in the dagger section; used by the deferred scheduler.
@@ -2252,7 +2254,7 @@ static void dagger_sacrifice(JokerObject* dagger_object, JokerObject* victim);
 // Called every frame from game.c's jokers_update_loop(). Advances the
 // deferred queue strictly left-to-right: activate next request (lock its
 // action) -> show animation -> wait DEFER_DELAY -> apply effect.
-void riff_raff_process_pending(void)
+void deferred_effects_process_pending(void)
 {
     if (s_deferred_count == 0)
         return;
@@ -2309,11 +2311,14 @@ void riff_raff_process_pending(void)
         {
             case DEFER_RIFF_RAFF:
             {
-                // Lock the spawn count from the CURRENT list length: in the
-                // strict left-to-right order, slots freed by a Dagger that
-                // dispatched BEFORE this Riff-Raff are already visible.
-                int free_slots =
-                    MAX_JOKERS_HELD_SIZE - list_get_len(get_jokers_list());
+                // Lock the spawn count from the CURRENT effective occupancy
+                // (expired jokers are about to be removed, their slots are
+                // usable - same rule as the fire branch below). In the strict
+                // left-to-right order, slots freed by a Dagger that fired
+                // BEFORE this Riff-Raff are already visible here.
+                int free_slots = MAX_JOKERS_HELD_SIZE -
+                                 (list_get_len(get_jokers_list()) -
+                                  list_get_len(get_expired_jokers_list()));
                 if (free_slots <= 0)
                 {
                     // No room right now - skip silently (no animation)
@@ -2435,31 +2440,45 @@ void riff_raff_process_pending(void)
             case DEFER_DAGGER:
             {
                 JokerObject* victim = s_deferred_victim;
-                // Verify the victim is still in the owned list (it may have
-                // been sold/expired meanwhile)
-                bool victim_found = false;
+                // Verify the victim is still in the owned list AND still
+                // immediately right of the dagger (it may have been
+                // sold/expired, or the rack reordered meanwhile).
+                bool victim_still_right = false;
                 ListItr itr = list_itr_create(get_jokers_list());
                 JokerObject* cur;
                 while ((cur = list_itr_next(&itr)))
                 {
-                    if (cur == victim)
+                    if (cur == source)
                     {
-                        victim_found = true;
+                        if (list_itr_next(&itr) == victim)
+                            victim_still_right = true;
                         break;
                     }
                 }
-                if (victim_found)
+                if (!victim_still_right)
                 {
-                    // Wait for its entry animation to finish so it settles
-                    // into its slot first
-                    if (victim->x != victim->tx || victim->y != victim->ty)
+                    // Victim no longer sacrificeable - skip silently
+                    s_deferred_victim = NULL;
+                    s_deferred_wait_frames = 0;
+                    break;
+                }
+
+                // Wait for its entry animation to finish so it settles into
+                // its slot first. Cap the wait so a stuck animation can't
+                // wedge the queue (and hand dealing) forever.
+                if (victim->x != victim->tx || victim->y != victim->ty)
+                {
+                    s_deferred_wait_frames += DEFER_DELAY;
+                    if (s_deferred_wait_frames < DAGGER_MAX_WAIT)
                     {
                         s_deferred_fire_at = g_game_vars.timer + DEFER_DELAY;
                         return;
                     }
-                    dagger_sacrifice(source, victim);
+                    // Timed out waiting - sacrifice it where it stands
                 }
+                dagger_sacrifice(source, victim);
                 s_deferred_victim = NULL;
+                s_deferred_wait_frames = 0;
                 break;
             }
         }
@@ -3029,11 +3048,6 @@ static void dagger_sacrifice(JokerObject* dagger_object, JokerObject* victim)
     list_push_back(get_expired_jokers_list(), victim);
 }
 
-// Kept as the historical entry point name; dagger sacrifices now flow through
-// the unified deferred queue scheduler (riff_raff_process_pending).
-void ceremonial_dagger_process_pending(void)
-{
-}
 static u32 ceremonial_dagger_joker_effect(
     Joker* joker,
     Card* scored_card,

@@ -482,6 +482,15 @@ int get_straight_and_flush_size(void)
 
 void add_joker(JokerObject* joker_object)
 {
+    // Defensive: never let the owned rack exceed its capacity. Deferred
+    // spawns (Riff-Raff) cap their own count, but other callers exist -
+    // an overfull rack would index SPACING_LUT out of bounds.
+    if (joker_object == NULL ||
+        list_get_len(&s_owned_jokers_list) >= MAX_JOKERS_HELD_SIZE)
+    {
+        return;
+    }
+
     list_push_back(&s_owned_jokers_list, joker_object);
 
     // Owned jokers can't be rolled again in the shop

@@ -2275,17 +2275,33 @@ void deferred_effects_process_pending(void)
     // Validate the ACTIVE request's source object is still owned (it may
     // have been sacrificed/removed meanwhile). If gone, skip it: clear the
     // timer and let the activation branch advance next frame.
+    // NOTE: an object still in the owned list but already in the EXPIRED
+    // list counts as gone (a Dagger may have just sacrificed it) - it must
+    // not activate its spawn anymore.
     if (s_deferred_active >= 0)
     {
+        JokerObject* source = s_deferred_queue[s_deferred_active];
         bool still_owned = false;
         ListItr itr = list_itr_create(get_jokers_list());
         JokerObject* cur;
         while ((cur = list_itr_next(&itr)))
         {
-            if (cur == s_deferred_queue[s_deferred_active])
+            if (cur == source)
             {
                 still_owned = true;
                 break;
+            }
+        }
+        if (still_owned)
+        {
+            ListItr eitr = list_itr_create(get_expired_jokers_list());
+            while ((cur = list_itr_next(&eitr)))
+            {
+                if (cur == source)
+                {
+                    still_owned = false;
+                    break;
+                }
             }
         }
         if (!still_owned)
@@ -2397,9 +2413,11 @@ void deferred_effects_process_pending(void)
             case DEFER_RIFF_RAFF:
             {
                 int to_spawn = s_deferred_anim_count;
-                // Expired jokers are about to be removed, their slots usable.
-                int current_count = list_get_len(get_jokers_list()) -
-                                    list_get_len(get_expired_jokers_list());
+                // NEVER overfill: cap by the ACTUAL list length (including
+                // expired-but-not-yet-removed jokers, which still occupy
+                // their list slot and would push us past the rack size if
+                // counted out - add_joker() has no capacity check).
+                int current_count = list_get_len(get_jokers_list());
                 if (current_count + to_spawn > MAX_JOKERS_HELD_SIZE)
                     to_spawn = MAX_JOKERS_HELD_SIZE - current_count;
 

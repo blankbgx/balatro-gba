@@ -19,6 +19,15 @@
 - **架构红线**（写死到注释）：ON_BLIND_SELECTED 效果函数**不得直接修改 jokers 列表**，只能入队/延迟；生效时刻检查状态，禁止分发时检查
 - 节奏对齐对局内：30帧/效果 ≈ 卡牌移动间隔；FRAMES() 随 game_speed 缩放
 
+## 🎨 Negative/版本小丑调色板约束（2026-08-04 设计定稿）
+
+**来源**：2026-08-04 讨论。GBA OBJ 4BPP 共 16 个调色板 bank（`pal_obj_mem`），分配：卡牌 0-3 区、盲注 boss 1 区（运行时换写）、小丑 `JOKER_BASE_PB=4` 起。每个 spritesheet 分配 1 个 bank（`s_joker_spritesheet_pb_map`），sheet 内所有小丑共享——改 bank 颜色整个 sheet 一起变。
+
+- **预算**：同屏普通小丑按 sheet 共享 ≤5 bank；盲注/卡牌/粒子 ≤3-5——普通情况充裕
+- **Negative 方案（定稿）**：**不做每张独立反色**（全量反转版在 6 张不同 sheet 负片同屏时会爆预算）——走**共享 1 个"负版"bank + 黑框/暗底覆盖层**（小 OBJ 叠加），全局只多 1 bank
+- Foil/Holo/Poly 同思路：共享 bank + 覆盖层；Holo 可每帧换 bank 做流光
+- 兜底已存在：`s_get_unused_joker_pb()` 耗尽 fallback 到 JOKER_BASE_PB（不崩，颜色可能串）
+
 ## 💾 SaveMeta：成就系统 + joker 解锁进度（为将来预留）
 
 **来源**：2026-08-03 设计讨论。GBAlatro 已有三段式 SRAM 存档（Header@0x00 / Options@0x10 / Game@0x30，magic+hash 校验），缺元进度段。

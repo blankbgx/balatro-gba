@@ -19,29 +19,18 @@
 - **架构红线**（写死到注释）：ON_BLIND_SELECTED 效果函数**不得直接修改 jokers 列表**，只能入队/延迟；生效时刻检查状态，禁止分发时检查
 - 节奏对齐对局内：30帧/效果 ≈ 卡牌移动间隔；FRAMES() 随 game_speed 缩放
 
-## 🎨 Negative/版本小丑调色板约束（2026-08-04 设计定稿）
+## 🎨 Negative/版本小丑调色板约束（2026-08-04 评审定稿）
 
-**来源**：2026-08-04 讨论。GBA OBJ 4BPP 共 16 个调色板 bank（`pal_obj_mem`）。当前分配：卡牌 hand/face/back 占 0-2，boss 盲注占 3（运行时换写），小丑 `JOKER_BASE_PB=4` 起按需分配（`s_joker_spritesheet_pb_map`，sheet 内共享）。
+**来源**：2026-08-04 讨论 + MoA 评审（桌面端跑通）。GBA OBJ 4BPP 共 16 个调色板 bank（`pal_obj_mem`）。当前分配：卡牌 0-2、boss 盲注 3（运行时换写）、小丑 `JOKER_BASE_PB=4` 起按需分配（`s_joker_spritesheet_pb_map` + 引用计数，sheet 内共享）。
 
-**关键澄清**：
-- **Negative 不加 joker 上限**——"Negative joker 卡"效果是"下一商店必出"，不是上限叠加；editions 是属性叠加，**同屏 6 张小丑带 edition 是常态**（原版 Balatro 机制）
-- **Negative 是全反相霓虹**（FOIL=闪蓝、HOLO=彩虹脉动、NEGATIVE=反相）——黑框/暗底覆盖层做不出来，必须真反色
+**评审结论：运行时 XOR 生成负片 bank 可行，但只占"负片系统"的 1/3**：
 
-**预算（深挖版）**：
-| 占用 | bank |
-|------|------|
-| 卡牌 hand/face/back | 0-2 |
-| boss 盲注 | 3 |
-| 小丑 sheet（6 张全不同 sheet） | ≤6 |
-| 负版 3 个（FOIL/HOLO/NEGATIVE） | 3 |
-| **合计** | **12-13/16，剩 3-4** |
+- ✅ **tile 零成本**：负片只改 sprite ATTR2 的 pb 字段，复用原 tiles；`entry ^ 0x7FFF` 反转（BGR15），16 半字写入忽略不计；不占 gfx 资产配额（gfx0 已满 15/16）
+- ⚠️ **透明索引保护**：`palette_neg[i] = (i == 0) ? 0x0000 : (src_pal[i] ^ 0x7FFF)`——index 0 是透明色，取反变白底
+- ⚠️ **bank 预算最坏会爆**：持有 5 joker + 商店预览 + 描述卡 ≈ 8 sheet 同屏，全负片 = 8+8=16 无余量（还没算牌面/盲注）——**必须定义溢出降级**（掷 edition 前查负片 bank 可用性，不足降级普通版）
+- ⚠️ **不是孤立改动**：依赖 `Joker.edition` 字段（用 enum：FOIL/HOLO/POLY/NEGATIVE 将来都要）、+1 槽位动态化（`MAX_JOKERS_HELD_SIZE=5` 牵连 SPACING_LUT 手写 5×5 间距表、MAX_JOKER_OBJECTS 层池、存档数组）、描述卡 edge case（换显示对象时 pb 随 edition 刷新）
 
-**定稿方案**：
-- **原版三 edition 银行**（FOIL/HOLO/NEGATIVE）各 1 个全局 bank
-- sheet 调度：`s_joker_spritesheet_pb_map` + **卸载池**（耗尽时扫描 sheet 引用计数，卸载最旧腾位）
-- **实现**：joker 加 edition 字段 → `s_allocate_pb_if_needed` 按 edition 选银行 → sprite `ATTR2_PALBANK(edition_pb)` 覆盖；FOIL/HOLO 动态换 pal（HOLO 每帧偏色）
-- **sheet 设计分散**（13 张小丑分布多个 sheet）保证同屏 sheet 数低
-- 兜底：`s_get_unused_joker_pb()` 耗尽 fallback 到 base（颜色串不崩）
+**里程碑（排期）**：① edition 字段 + 存档（enum）→ ② 动态槽位（含间距表，UI 活，最大风险）→ ③ 负片 pb（本方案）→ ④ 商店/pack 掷率
 
 ## 💾 SaveMeta：成就系统 + joker 解锁进度（为将来预留）
 

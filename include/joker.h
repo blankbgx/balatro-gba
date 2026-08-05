@@ -106,14 +106,14 @@ enum JokerEvent
 #define CEREMONIAL_DAGGER_ID  65
 #define CREDIT_CARD_ID        66
 
-// Credit Card: shop purchases may go into debt down to -20$ per active
-// Credit Card effect (real card + each Blueprint/Brainstorm copying it).
+// Credit Card: shop purchases may go into debt down to -20$ per REAL
+// Credit Card held. Blueprint/Brainstorm cannot copy this passive effect
+// (no event trigger - copies invoke a no-op), so only real cards count.
 #define CREDIT_CARD_DEBT_LIMIT 20
 
-// Count of active Credit Card effects this moment (real + copies resolved
-// through Blueprint/Brainstorm). Called by the shop when checking whether
-// a purchase is affordable - re-evaluated per purchase so repositioning
-// Blueprint/Brainstorm updates the debt limit dynamically.
+// Count of REAL Credit Cards held. Called by the shop when checking
+// whether a purchase is affordable - re-evaluated per purchase so buying
+// (or losing) a card updates the debt limit immediately.
 int count_credit_card_effects(void);
 
 // Per-frame scheduler for deferred blind-selected joker effects (Riff-Raff

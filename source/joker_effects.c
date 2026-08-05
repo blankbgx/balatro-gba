@@ -3227,11 +3227,12 @@ bool joker_effects_busy(void)
 
 // --------------------------------------------------------------------------
 // Credit Card (66)
-// Shop purchases may go into debt down to -20$ per active effect. The debt
-// limit is QUERIED by the shop at purchase time (not cached), so moving a
-// Blueprint/Brainstorm updates the limit immediately - and the count
-// includes both the real card and each copying Joker whose resolved target
-// is a Credit Card.
+// Shop purchases may go into debt down to -20$ per REAL Credit Card held.
+// NOTE: Blueprint/Brainstorm CANNOT copy this effect - it is a passive
+// state (no event trigger), so a copying Joker invoking its (no-op) effect
+// function produces nothing. Only actual Credit Cards count. Passive
+// effects like this, Flower Pot, Smeared Joker etc. are not copyable;
+// only jokers with active outputs (mult/chips/Riff-Raff spawns) are.
 // --------------------------------------------------------------------------
 
 static int credit_card_joker_desc(Joker* joker, Rect dest_rect)
@@ -3244,7 +3245,7 @@ static int credit_card_joker_desc(Joker* joker, Rect dest_rect)
 
 // The card has no per-event effect: its power is the passive debt limit
 // queried by count_credit_card_effects(). Kept as a real function so the
-// registry entry is uniform (copies resolve through the normal path).
+// registry entry is uniform.
 static u32 credit_card_joker_effect(
     Joker* joker,
     Card* scored_card,
@@ -3259,54 +3260,8 @@ static u32 credit_card_joker_effect(
     return JOKER_EFFECT_FLAG_NONE;
 }
 
-// Resolve which Joker a Blueprint/Brainstorm finally copies (mirrors the
-// walk in blueprint_brainstorm_joker_effect: Blueprint moves right, a
-// Brainstorm restarts from the leftmost Joker; bail after two Brainstorms
-// to avoid loops). Returns the copied Joker's ID, or 0 if it ends up
-// copying nothing (e.g. Blueprint at the end of the list).
-static u8 credit_card_resolve_copy_target_id(JokerObject* copier)
-{
-    if (copier == NULL || copier->joker == NULL)
-        return 0;
-
-    List* jokers = get_jokers_list();
-    ListItr itr = list_itr_create(jokers);
-    JokerObject* cur;
-
-    // Find the copier itself in the list
-    while ((cur = list_itr_next(&itr)))
-    {
-        if (cur == copier)
-            break;
-    }
-    if (cur == NULL)
-        return 0;
-
-    u8 brainstorm_counter = 0;
-    do
-    {
-        switch (cur->joker->id)
-        {
-            case BLUEPRINT_JOKER_ID:
-                // Copy the next (right-hand) Joker
-                cur = list_itr_next(&itr);
-                break;
-
-            case BRAINSTORM_JOKER_ID:
-                // Copy the leftmost Joker
-                brainstorm_counter++;
-                itr = list_itr_create(jokers);
-                cur = list_itr_next(&itr);
-                break;
-
-            default:
-                return cur->joker->id;
-        }
-    } while (cur != NULL && brainstorm_counter < 2);
-
-    return 0;
-}
-
+// Count REAL Credit Cards in the held jokers list. Queried live by the
+// shop at purchase time; each real card adds 20$ of debt headroom.
 int count_credit_card_effects(void)
 {
     int count = 0;
@@ -3319,19 +3274,7 @@ int count_credit_card_effects(void)
             continue;
 
         if (cur->joker->id == CREDIT_CARD_ID)
-        {
-            // Real Credit Card
             count++;
-        }
-        else if (cur->joker->id == BLUEPRINT_JOKER_ID ||
-                 cur->joker->id == BRAINSTORM_JOKER_ID)
-        {
-            // Copying Joker: counts only if it is currently copying a
-            // Credit Card (resolved live, so repositioning takes effect
-            // immediately on the next purchase check)
-            if (credit_card_resolve_copy_target_id(cur) == CREDIT_CARD_ID)
-                count++;
-        }
     }
 
     return count;

@@ -122,6 +122,8 @@ REGISTER_JOKER_DESC_FUNC(flower_pot_desc)
 REGISTER_JOKER_DESC_FUNC(loyalty_card_joker_desc)
 REGISTER_JOKER_DESC_FUNC(riding_the_bus_joker_desc)
 REGISTER_JOKER_DESC_FUNC(ceremonial_dagger_joker_desc)
+REGISTER_JOKER_DESC_FUNC(credit_card_joker_desc)
+REGISTER_JOKER_EFFECT_FUNC(credit_card_joker_effect)
 
 // Joker Effect functions
 
@@ -292,6 +294,7 @@ const JokerInfo joker_registry[] =
         { "Loyalty Card",  UNCOMMON_JOKER,  5, false, loyalty_card_joker_desc, loyalty_card_joker_effect }, // 63 Loyalty Card
         { "Riding the Bus", COMMON_JOKER,   6, false, riding_the_bus_joker_desc, riding_the_bus_joker_effect }, // 64 Riding the Bus
         { "Ceremonial Dagger", UNCOMMON_JOKER, 6, false, ceremonial_dagger_joker_desc, ceremonial_dagger_joker_effect }, // 65 Ceremonial Dagger
+        { "Credit Card",      COMMON_JOKER,    1, false, credit_card_joker_desc,      credit_card_joker_effect      }, // 66 Credit Card
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -3220,4 +3223,116 @@ static u32 ceremonial_dagger_joker_effect(
 bool joker_effects_busy(void)
 {
     return s_deferred_count > 0;
+}
+
+// --------------------------------------------------------------------------
+// Credit Card (66)
+// Shop purchases may go into debt down to -20$ per active effect. The debt
+// limit is QUERIED by the shop at purchase time (not cached), so moving a
+// Blueprint/Brainstorm updates the limit immediately - and the count
+// includes both the real card and each copying Joker whose resolved target
+// is a Credit Card.
+// --------------------------------------------------------------------------
+
+static int credit_card_joker_desc(Joker* joker, Rect dest_rect)
+{
+    (void)joker;
+    static const char desc[] =
+        TTE_BLUE_TAG "Go up to -20$" TTE_BLACK_TAG " in debt";
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+// The card has no per-event effect: its power is the passive debt limit
+// queried by count_credit_card_effects(). Kept as a real function so the
+// registry entry is uniform (copies resolve through the normal path).
+static u32 credit_card_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    (void)joker;
+    (void)scored_card;
+    (void)joker_event;
+    (void)joker_effect;
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// Resolve which Joker a Blueprint/Brainstorm finally copies (mirrors the
+// walk in blueprint_brainstorm_joker_effect: Blueprint moves right, a
+// Brainstorm restarts from the leftmost Joker; bail after two Brainstorms
+// to avoid loops). Returns the copied Joker's ID, or 0 if it ends up
+// copying nothing (e.g. Blueprint at the end of the list).
+static u8 credit_card_resolve_copy_target_id(JokerObject* copier)
+{
+    if (copier == NULL || copier->joker == NULL)
+        return 0;
+
+    List* jokers = get_jokers_list();
+    ListItr itr = list_itr_create(jokers);
+    JokerObject* cur;
+
+    // Find the copier itself in the list
+    while ((cur = list_itr_next(&itr)))
+    {
+        if (cur == copier)
+            break;
+    }
+    if (cur == NULL)
+        return 0;
+
+    u8 brainstorm_counter = 0;
+    do
+    {
+        switch (cur->joker->id)
+        {
+            case BLUEPRINT_JOKER_ID:
+                // Copy the next (right-hand) Joker
+                cur = list_itr_next(&itr);
+                break;
+
+            case BRAINSTORM_JOKER_ID:
+                // Copy the leftmost Joker
+                brainstorm_counter++;
+                itr = list_itr_create(jokers);
+                cur = list_itr_next(&itr);
+                break;
+
+            default:
+                return cur->joker->id;
+        }
+    } while (cur != NULL && brainstorm_counter < 2);
+
+    return 0;
+}
+
+int count_credit_card_effects(void)
+{
+    int count = 0;
+    ListItr itr = list_itr_create(get_jokers_list());
+    JokerObject* cur;
+
+    while ((cur = list_itr_next(&itr)))
+    {
+        if (cur->joker == NULL)
+            continue;
+
+        if (cur->joker->id == CREDIT_CARD_ID)
+        {
+            // Real Credit Card
+            count++;
+        }
+        else if (cur->joker->id == BLUEPRINT_JOKER_ID ||
+                 cur->joker->id == BRAINSTORM_JOKER_ID)
+        {
+            // Copying Joker: counts only if it is currently copying a
+            // Credit Card (resolved live, so repositioning takes effect
+            // immediately on the next purchase check)
+            if (credit_card_resolve_copy_target_id(cur) == CREDIT_CARD_ID)
+                count++;
+        }
+    }
+
+    return count;
 }

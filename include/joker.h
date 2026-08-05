@@ -104,6 +104,17 @@ enum JokerEvent
 #define LOYALTY_CARD_ID       63
 #define RIDING_THE_BUS_ID     64
 #define CEREMONIAL_DAGGER_ID  65
+#define CREDIT_CARD_ID        66
+
+// Credit Card: shop purchases may go into debt down to -20$ per active
+// Credit Card effect (real card + each Blueprint/Brainstorm copying it).
+#define CREDIT_CARD_DEBT_LIMIT 20
+
+// Count of active Credit Card effects this moment (real + copies resolved
+// through Blueprint/Brainstorm). Called by the shop when checking whether
+// a purchase is affordable - re-evaluated per purchase so repositioning
+// Blueprint/Brainstorm updates the debt limit dynamically.
+int count_credit_card_effects(void);
 
 // Per-frame scheduler for deferred blind-selected joker effects (Riff-Raff
 // spawns, Ceremonial Dagger sacrifice). Called from game.c's update loop.

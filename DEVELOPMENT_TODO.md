@@ -21,12 +21,27 @@
 
 ## 🎨 Negative/版本小丑调色板约束（2026-08-04 设计定稿）
 
-**来源**：2026-08-04 讨论。GBA OBJ 4BPP 共 16 个调色板 bank（`pal_obj_mem`），分配：卡牌 0-3 区、盲注 boss 1 区（运行时换写）、小丑 `JOKER_BASE_PB=4` 起。每个 spritesheet 分配 1 个 bank（`s_joker_spritesheet_pb_map`），sheet 内所有小丑共享——改 bank 颜色整个 sheet 一起变。
+**来源**：2026-08-04 讨论。GBA OBJ 4BPP 共 16 个调色板 bank（`pal_obj_mem`）。当前分配：卡牌 hand/face/back 占 0-2，boss 盲注占 3（运行时换写），小丑 `JOKER_BASE_PB=4` 起按需分配（`s_joker_spritesheet_pb_map`，sheet 内共享）。
 
-- **预算**：同屏普通小丑按 sheet 共享 ≤5 bank；盲注/卡牌/粒子 ≤3-5——普通情况充裕
-- **Negative 方案（定稿）**：**不做每张独立反色**（全量反转版在 6 张不同 sheet 负片同屏时会爆预算）——走**共享 1 个"负版"bank + 黑框/暗底覆盖层**（小 OBJ 叠加），全局只多 1 bank
-- Foil/Holo/Poly 同思路：共享 bank + 覆盖层；Holo 可每帧换 bank 做流光
-- 兜底已存在：`s_get_unused_joker_pb()` 耗尽 fallback 到 JOKER_BASE_PB（不崩，颜色可能串）
+**关键澄清**：
+- **Negative 不加 joker 上限**——"Negative joker 卡"效果是"下一商店必出"，不是上限叠加；editions 是属性叠加，**同屏 6 张小丑带 edition 是常态**（原版 Balatro 机制）
+- **Negative 是全反相霓虹**（FOIL=闪蓝、HOLO=彩虹脉动、NEGATIVE=反相）——黑框/暗底覆盖层做不出来，必须真反色
+
+**预算（深挖版）**：
+| 占用 | bank |
+|------|------|
+| 卡牌 hand/face/back | 0-2 |
+| boss 盲注 | 3 |
+| 小丑 sheet（6 张全不同 sheet） | ≤6 |
+| 负版 3 个（FOIL/HOLO/NEGATIVE） | 3 |
+| **合计** | **12-13/16，剩 3-4** |
+
+**定稿方案**：
+- **原版三 edition 银行**（FOIL/HOLO/NEGATIVE）各 1 个全局 bank
+- sheet 调度：`s_joker_spritesheet_pb_map` + **卸载池**（耗尽时扫描 sheet 引用计数，卸载最旧腾位）
+- **实现**：joker 加 edition 字段 → `s_allocate_pb_if_needed` 按 edition 选银行 → sprite `ATTR2_PALBANK(edition_pb)` 覆盖；FOIL/HOLO 动态换 pal（HOLO 每帧偏色）
+- **sheet 设计分散**（13 张小丑分布多个 sheet）保证同屏 sheet 数低
+- 兜底：`s_get_unused_joker_pb()` 耗尽 fallback 到 base（颜色串不崩）
 
 ## 💾 SaveMeta：成就系统 + joker 解锁进度（为将来预留）
 

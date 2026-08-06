@@ -551,6 +551,12 @@ static void set_and_shift_text(char* str, int* cursor_pos_x, int* cursor_pos_y, 
     // + 1 For space
     const int joker_score_display_offset_px = (MAX_CARD_SCORE_STR_LEN + 1) * TTE_CHAR_SIZE;
     *cursor_pos_x += joker_score_display_offset_px;
+
+    // Self-clearing: any joker message written through here schedules its
+    // own auto-erase, so callers never need to remember (works in every
+    // phase - round, blind select, shop). Safe during scoring: the clear
+    // timer skips while HAND_PLAYING and waits 90 frames anyway.
+    schedule_joker_event_text_clear();
 }
 
 bool joker_object_score(
@@ -620,9 +626,13 @@ bool joker_object_score(
         {
             // Fractional path: mult *= xmult / xmult_den (e.g. 3/2 = X1.5).
             // Multiply first, then divide - keeps precision; u32_protected_mult
-            // guards overflow. Rendered as "X1.5" (red).
+            // guards overflow. ROUND to nearest integer (add den/2 before
+            // dividing) so small mults don't truncate to nothing:
+            //   mult=1, X1.5 -> (1*3 + 1)/2 = 2  (was: 1*3/2 = 1, no-op!)
+            // Rendered as "X1.5" (red).
             g_game_vars.mult =
-                u32_protected_mult(g_game_vars.mult, joker_effect->xmult) /
+                (u32_protected_mult(g_game_vars.mult, joker_effect->xmult) +
+                 joker_effect->xmult_den / 2) /
                 joker_effect->xmult_den;
 
             char score_buffer[INT_MAX_DIGITS + 2];

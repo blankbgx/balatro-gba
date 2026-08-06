@@ -2140,6 +2140,12 @@ void game_round_on_init(void)
         }
         // Auto-clear the event messages after a short delay
         schedule_joker_event_text_clear();
+
+        // Jokers may mutate hands/discards on this event (Burglar: +3 hands,
+        // lose all discards) - refresh the HUD so the new values show
+        // immediately instead of waiting for the first play/discard.
+        display_hands();
+        display_discards();
     }
 }
 

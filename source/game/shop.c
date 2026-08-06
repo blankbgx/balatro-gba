@@ -524,6 +524,10 @@ static inline void game_shop_reroll(void)
         {
             joker_object_score(joker_obj, NULL, JOKER_EVENT_ON_SHOP_REROLL);
         }
+        // Self-clearing timer: shop phase has no round loop to clear
+        // joker messages, so schedule an auto-erase like the other
+        // non-round dispatches (blind select / round end).
+        schedule_joker_event_text_clear();
     }
 
 #ifndef DEBUG_SHOP_FREE

@@ -3323,14 +3323,18 @@ static u32 flash_card_joker_effect(
 
     if (joker_event == JOKER_EVENT_ON_SHOP_REROLL)
     {
-        // Accumulate +2 (real card only; copies read the original's state).
-        // Show a FIXED message ("+2 Mult") - NOT the running total, which
-        // would be misleading when spamming rerolls. The running total is
-        // only shown in the description screen.
-        if (!s_is_copying_joker)
+        // Real card: accumulate +2, show a FIXED white "Upgrade!" message
+        // (NOT the running total - misleading when spamming rerolls; the
+        // running total lives in the description screen).
+        // Copies (Blueprint/Brainstorm): stay SILENT - they do not
+        // accumulate (mirror-only), so no upgrade message either. This is
+        // the general Blueprint rule: copies mirror at settlement, they
+        // never participate in accumulation.
+        if (s_is_copying_joker)
         {
-            joker->scoring_state += 2;
+            return JOKER_EFFECT_FLAG_NONE;
         }
+        joker->scoring_state += 2;
         *joker_effect = &s_shared_joker_effect;
         (*joker_effect)->message = "Upgrade!";
         return JOKER_EFFECT_FLAG_MESSAGE;

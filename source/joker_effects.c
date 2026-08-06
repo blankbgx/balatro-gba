@@ -2666,6 +2666,12 @@ static u32 baron_joker_effect(
     {
         // x1.5 as fraction 3/2 via the fractional XMULT channel - no float.
         // Renders red "X1.5" (colored settlement value, not an upgrade).
+        // MUST publish the shared instance via *joker_effect first: the
+        // caller (joker_object_score) reads the effect through THIS pointer,
+        // which starts NULL. Setting the shared struct directly without
+        // publishing it leaves the caller dereferencing NULL (reads 0) and
+        // the whole XMULT is skipped - mult never changes at all.
+        *joker_effect = &s_shared_joker_effect;
         joker_effect_set_xmult_den(&s_shared_joker_effect, 3, 2);
         return JOKER_EFFECT_FLAG_XMULT;
     }

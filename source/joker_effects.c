@@ -2924,26 +2924,53 @@ static u32 loyalty_card_joker_effect(
 )
 {
     u32 effect_flags_ret = JOKER_EFFECT_FLAG_NONE;
-    s32* p_remaining = &(joker->persistent_state);
+
+    // In copy mode (Blueprint/Brainstorm) the counter MUST be shared with
+    // the source joker: the copy reads and decrements the SOURCE's
+    // persistent_state, so both trigger on the same hand and stay in sync.
+    // (Otherwise the copy counts independently and fires on a different
+    // hand than the real card - Brainstorm in particular, which copies the
+    // leftmost joker, would desync.)
+    s32* p_remaining =
+        s_is_copying_joker && s_copied_joker_source != NULL
+            ? &(s_copied_joker_source->persistent_state)
+            : &(joker->persistent_state);
 
     switch (joker_event)
     {
         case JOKER_EVENT_ON_JOKER_CREATED:
-            *p_remaining = LOYALTY_CARD_HANDS_REQUIRED - 1; // 5 hands remaining
+            if (!s_is_copying_joker)
+                *p_remaining = LOYALTY_CARD_HANDS_REQUIRED - 1; // 5 hands remaining
             break;
 
         case JOKER_EVENT_INDEPENDENT:
             // Remaining == 0 means this hand gets the X4, then the cycle resets.
             if (*p_remaining == 0)
             {
-                *p_remaining = LOYALTY_CARD_HANDS_REQUIRED - 1;
-                *joker_effect = &s_shared_joker_effect;
-                (*joker_effect)->xmult = 4;
-                effect_flags_ret = JOKER_EFFECT_FLAG_XMULT;
+                if (s_is_copying_joker)
+                {
+                    // Copy mirrors the source's X4 on the same hand, but the
+                    // reset happens on the real card's pass (below) - the
+                    // copy must NOT reset or the shared counter would be
+                    // re-armed mid-cycle.
+                    *joker_effect = &s_shared_joker_effect;
+                    (*joker_effect)->xmult = 4;
+                    effect_flags_ret = JOKER_EFFECT_FLAG_XMULT;
+                }
+                else
+                {
+                    *p_remaining = LOYALTY_CARD_HANDS_REQUIRED - 1;
+                    *joker_effect = &s_shared_joker_effect;
+                    (*joker_effect)->xmult = 4;
+                    effect_flags_ret = JOKER_EFFECT_FLAG_XMULT;
+                }
             }
             else
             {
-                (*p_remaining)--;
+                // Only the real card decrements the shared counter; a copy
+                // triggering on the same hand must not double-decrement.
+                if (!s_is_copying_joker)
+                    (*p_remaining)--;
             }
             break;
 
@@ -3343,12 +3370,16 @@ static u32 flash_card_joker_effect(
     {
         // During hand scoring, report the accumulated mult (copy mode reads
         // the original's accumulated value - no accumulation on the copy).
-        if (joker->scoring_state > 0)
+        // NOTE: the copy's own scoring_state is always 0 (it never
+        // accumulates), so the >0 check must look at the SOURCE when copying
+        // - otherwise Blueprint/Brainstorm would silently report nothing.
+        u32 accumulated =
+            s_is_copying_joker ? s_copied_joker_source->scoring_state
+                               : joker->scoring_state;
+        if (accumulated > 0)
         {
             *joker_effect = &s_shared_joker_effect;
-            (*joker_effect)->mult = s_is_copying_joker
-                                        ? s_copied_joker_source->scoring_state
-                                        : joker->scoring_state;
+            (*joker_effect)->mult = accumulated;
             return JOKER_EFFECT_FLAG_MULT;
         }
     }

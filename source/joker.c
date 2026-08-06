@@ -630,10 +630,20 @@ bool joker_object_score(
             // dividing) so small mults don't truncate to nothing:
             //   mult=1, X1.5 -> (1*3 + 1)/2 = 2  (was: 1*3/2 = 1, no-op!)
             // Rendered as "X1.5" (red).
-            g_game_vars.mult =
-                (u32_protected_mult(g_game_vars.mult, joker_effect->xmult) +
-                 joker_effect->xmult_den / 2) /
-                joker_effect->xmult_den;
+            u32 mult_times_num = u32_protected_mult(g_game_vars.mult, joker_effect->xmult);
+            if (mult_times_num > UINT32_MAX - joker_effect->xmult_den / 2)
+            {
+                // Saturation: (mult*num + den/2) would overflow u32 and
+                // wrap to ~0, ZEROING the multiplier. Clamp to UINT32_MAX
+                // instead of wrapping.
+                g_game_vars.mult = UINT32_MAX;
+            }
+            else
+            {
+                g_game_vars.mult =
+                    (mult_times_num + joker_effect->xmult_den / 2) /
+                    joker_effect->xmult_den;
+            }
 
             char score_buffer[INT_MAX_DIGITS + 2];
             u32 whole = joker_effect->xmult / joker_effect->xmult_den;

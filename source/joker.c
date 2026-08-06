@@ -104,7 +104,7 @@ static const int JOKER_ID_TO_SPRITE_MAP[] = {
     // ID 65=Ceremonial Dagger(0,26)
         0,
     // Placeholder for IDs 66-70
-    // 66=Credit Card(15,1), 67=Thief(15,2), 68-70 still unassigned (fallback 19)
+    // 66=Credit Card(15,1), 67=Burglar(15,2), 68-70 still unassigned (fallback 19)
         15, 15, 19, 19, 19,
 };
 
@@ -166,7 +166,7 @@ static const int JOKER_ID_TO_SPRITE_IDX_IN_SHEET[] = {
         26,
         // ID 66 (Credit Card) -> sheet 15, sprite 1 (merged into gfx15)
         1,
-        // ID 67 (Thief) -> sheet 15, sprite 2 (placeholder sprite, art pending)
+        // ID 67 (Burglar) -> sheet 15, sprite 2 (placeholder sprite, art pending)
         2,
     };
 

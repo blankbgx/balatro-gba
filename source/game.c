@@ -79,6 +79,11 @@ static const Rect MULT_TEXT_RECT            = {40,      80,     64,     88  };
 // to be used with tte_erase_rect_wrapper()
 static const Rect HANDS_TEXT_RECT           = {16,      104,    UNDEFINED, UNDEFINED };
 static const Rect DISCARDS_TEXT_RECT        = {48,      104,    UNDEFINED, UNDEFINED };
+// Erase area for hands/discards: fixed 3-char width so a value shrinking
+// from 2-3 digits to 1 digit (e.g. 10 -> 9) fully clears the old digits
+// instead of leaving a stale char ("90" after "10"->"9"). Height = 1 char.
+static const Rect HANDS_TEXT_ERASE_RECT     = {16,      104,    16 + 3 * TTE_CHAR_SIZE, 104 + TTE_CHAR_SIZE };
+static const Rect DISCARDS_TEXT_ERASE_RECT  = {48,      104,    48 + 3 * TTE_CHAR_SIZE, 104 + TTE_CHAR_SIZE };
 static const Rect DECK_SIZE_RECT            = {200,     152,    240,       160       };
 static const Rect ROUND_TEXT_RECT           = {48,      144,    UNDEFINED, UNDEFINED };
 static const Rect ANTE_TEXT_RECT            = {8,       144,    UNDEFINED, UNDEFINED };
@@ -399,6 +404,7 @@ static inline void hud_pulse_update_loop(void)
         if (g_game_vars.timer < s_hud_pulse_hands_until)
         {
             bool flash_white = (g_game_vars.timer / HUD_PULSE_TOGGLE) % 2 == 0;
+            tte_erase_rect_wrapper(HANDS_TEXT_ERASE_RECT);
             tte_printf(
                 "#{P:%d,%d; cx:0x%X000}%ld",
                 HANDS_TEXT_RECT.left,
@@ -418,6 +424,7 @@ static inline void hud_pulse_update_loop(void)
         if (g_game_vars.timer < s_hud_pulse_discards_until)
         {
             bool flash_white = (g_game_vars.timer / HUD_PULSE_TOGGLE) % 2 == 0;
+            tte_erase_rect_wrapper(DISCARDS_TEXT_ERASE_RECT);
             tte_printf(
                 "#{P:%d,%d; cx:0x%X000}%ld",
                 DISCARDS_TEXT_RECT.left,
@@ -778,6 +785,10 @@ void display_round(void)
 
 void display_hands(void)
 {
+    // Erase first: tte_printf overwrites but does NOT clear stale digits,
+    // so 10 -> 9 would render "90" (the '0' lingers). Fixed-width erase
+    // area covers up to 3 digits.
+    tte_erase_rect_wrapper(HANDS_TEXT_ERASE_RECT);
     tte_printf(
         "#{P:%d,%d; cx:0x%X000}%ld",
         HANDS_TEXT_RECT.left,
@@ -789,6 +800,7 @@ void display_hands(void)
 
 void display_discards(void)
 {
+    tte_erase_rect_wrapper(DISCARDS_TEXT_ERASE_RECT);
     tte_printf(
         "#{P:%d,%d; cx:0x%X000}%ld",
         DISCARDS_TEXT_RECT.left,

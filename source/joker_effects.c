@@ -2986,6 +2986,12 @@ static u32 loyalty_card_joker_effect(
 
         case JOKER_EVENT_INDEPENDENT:
             // Remaining == 0 means this hand gets the X4, then the cycle resets.
+            // Decrementing happens in ON_HAND_SCORED_END (AFTER this event),
+            // so at INDEPENDENT time every joker - real card AND copies -
+            // sees the counter value from when this hand started. If the
+            // decrement ran here, a copy to the RIGHT of the real card would
+            // see the just-decremented 0 and fire one hand early (the real
+            // card fires next hand) - the desync the user reported.
             if (*p_remaining == 0)
             {
                 if (s_is_copying_joker)
@@ -3006,19 +3012,18 @@ static u32 loyalty_card_joker_effect(
                     effect_flags_ret = JOKER_EFFECT_FLAG_XMULT;
                 }
             }
-            else
-            {
-                // Only the real card decrements the shared counter; a copy
-                // triggering on the same hand must not double-decrement.
-                if (!s_is_copying_joker)
-                    (*p_remaining)--;
-            }
             break;
 
         case JOKER_EVENT_ON_HAND_SCORED_END:
             // Show remaining hands until next X4 (real joker only, not copies)
             if (!s_is_copying_joker)
             {
+                // Decrement here, after the trigger check ran: at this point
+                // no other joker (real or copy) will re-read the counter this
+                // hand, so ordering can never desync the trigger.
+                if (*p_remaining > 0)
+                    (*p_remaining)--;
+
                 *joker_effect = &s_shared_joker_effect;
                 effect_flags_ret = JOKER_EFFECT_FLAG_MESSAGE;
 

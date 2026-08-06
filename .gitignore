@@ -14,3 +14,19 @@ doc
 tests/util/.vscode
 tests/util/build
 audio/*.bak
+
+# --- Local dev scratch files (not part of the project) ---
+.omc/
+build.bat
+generate_guide.py
+joker_guide.html
+Jokers _ Balatro Wiki _ Fandom.html
+# test17 / joker_gfx17/18 sprite-scratch artifacts
+test17.h
+test17.s
+graphics/test17.h
+graphics/test17.s
+include/joker_gfx17.h
+joker_gfx18.h
+joker_gfx18.s
+tools/

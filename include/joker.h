@@ -171,24 +171,28 @@ typedef struct // These jokers are triggered after the played hand has finished 
 } JokerEffect;
 
 // ---------------------------------------------------------------------------
-// Fractional multiplicative-mult entry point.
+// Fractional multiplicative-mult entry points.
 //
-// Set a XMULT value as an exact fraction (num/den) using pure integer math
-// - no float on the GBA. den == 1 keeps the classic integer path (X2, X3...);
-// den > 1 renders like "X1.5" and applies mult * num / den (multiply-first,
-// overflow-guarded, then divide).
-//
-// Usage inside a *_joker_effect:
-//     joker_effect_set_xmult(&s_shared_joker_effect, 3, 2); // X1.5
+// Two independent setters sharing the same JokerEffect instance:
+//     joker_effect_set_xmult(e, 3);      // numerator 3
+//     joker_effect_set_xmult_den(e, 2);  // denominator 2  -> X1.5
 //     return JOKER_EFFECT_FLAG_XMULT;
+//
+// Pure integer math - no float on the GBA. den == 1 (or unset, 0) keeps the
+// classic integer path (X2, X3...); den > 1 renders like "X1.5" and applies
+// mult * num / den (multiply-first, overflow-guarded, then divide).
 //
 // NOTE: s_shared_joker_effect is reused across jokers each frame, so the
 // denominator is consumed and reset by joker_object_score after use -
 // existing integer-XMULT jokers need NO changes (den stays 0 for them).
 // ---------------------------------------------------------------------------
-static inline void joker_effect_set_xmult(JokerEffect* joker_effect, u32 num, u32 den)
+static inline void joker_effect_set_xmult(JokerEffect* joker_effect, u32 num)
 {
     joker_effect->xmult = num;
+}
+
+static inline void joker_effect_set_xmult_den(JokerEffect* joker_effect, u32 den)
+{
     joker_effect->xmult_den = den;
 }
 

@@ -2666,7 +2666,8 @@ static u32 baron_joker_effect(
     {
         // x1.5 as fraction 3/2 via the fractional XMULT channel - no float.
         // Renders red "X1.5" (colored settlement value, not an upgrade).
-        joker_effect_set_xmult(&s_shared_joker_effect, 3, 2);
+        joker_effect_set_xmult(&s_shared_joker_effect, 3);
+        joker_effect_set_xmult_den(&s_shared_joker_effect, 2);
         return JOKER_EFFECT_FLAG_XMULT;
     }
 

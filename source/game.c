@@ -371,6 +371,69 @@ static inline void joker_event_text_clear_update_loop(void)
     s_joker_event_text_clear_at = 0;
 }
 
+// ---- HUD value pulse animation --------------------------------------------
+// Jokers that mutate hands/discards on blind select (Burglar: +3 hands,
+// 0 discards) can request a brief visual pulse: the number alternates
+// between its normal color and white a few times (~1.2s), drawing the
+// player's eye to the changed value. Text has no scale/affine support on
+// GBA, so a color flash is the cheapest readable "jump" animation.
+#define HUD_PULSE_DELAY FRAMES(70)
+#define HUD_PULSE_TOGGLE FRAMES(6)
+static u32 s_hud_pulse_hands_until = 0;
+static u32 s_hud_pulse_discards_until = 0;
+
+void hud_pulse_hands(void)
+{
+    s_hud_pulse_hands_until = g_game_vars.timer + HUD_PULSE_DELAY;
+}
+
+void hud_pulse_discards(void)
+{
+    s_hud_pulse_discards_until = g_game_vars.timer + HUD_PULSE_DELAY;
+}
+
+static inline void hud_pulse_update_loop(void)
+{
+    if (s_hud_pulse_hands_until != 0)
+    {
+        if (g_game_vars.timer < s_hud_pulse_hands_until)
+        {
+            bool flash_white = (g_game_vars.timer / HUD_PULSE_TOGGLE) % 2 == 0;
+            tte_printf(
+                "#{P:%d,%d; cx:0x%X000}%ld",
+                HANDS_TEXT_RECT.left,
+                HANDS_TEXT_RECT.top,
+                flash_white ? TTE_WHITE_PB : TTE_BLUE_PB,
+                g_game_vars.hands
+            );
+        }
+        else
+        {
+            s_hud_pulse_hands_until = 0;
+            display_hands();
+        }
+    }
+    if (s_hud_pulse_discards_until != 0)
+    {
+        if (g_game_vars.timer < s_hud_pulse_discards_until)
+        {
+            bool flash_white = (g_game_vars.timer / HUD_PULSE_TOGGLE) % 2 == 0;
+            tte_printf(
+                "#{P:%d,%d; cx:0x%X000}%ld",
+                DISCARDS_TEXT_RECT.left,
+                DISCARDS_TEXT_RECT.top,
+                flash_white ? TTE_WHITE_PB : TTE_RED_PB,
+                g_game_vars.discards
+            );
+        }
+        else
+        {
+            s_hud_pulse_discards_until = 0;
+            display_discards();
+        }
+    }
+}
+
 void game_update()
 {
     rng_update();
@@ -379,6 +442,7 @@ void game_update()
 
     jokers_update_loop();
     joker_event_text_clear_update_loop();
+    hud_pulse_update_loop();
 
     state_machine_update();
 

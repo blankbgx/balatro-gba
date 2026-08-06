@@ -90,6 +90,17 @@ List* get_discarded_jokers_list(void);
  */
 void schedule_joker_event_text_clear(void);
 
+/**
+ * @brief Briefly flash the hands HUD number (white/blue toggle) to draw
+ *        the player's eye to a joker-mutated value (e.g. Burglar +3).
+ */
+void hud_pulse_hands(void);
+
+/**
+ * @brief Briefly flash the discards HUD number (white/red toggle).
+ */
+void hud_pulse_discards(void);
+
 int deck_get_size(void);
 int get_deck_top(void);
 void deck_push(Card* card);

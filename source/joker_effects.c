@@ -452,7 +452,8 @@ static int stencil_joker_desc(Joker* joker, Rect dest_rect)
     const u32 desc_max_size = 130;
 
     List* jokers = get_jokers_list();
-    u32 stencil_bonus = MAX_JOKERS_HELD_SIZE - list_get_len(jokers);
+    int empty_slots = MAX_JOKERS_HELD_SIZE - list_get_len(jokers);
+    u32 stencil_bonus = empty_slots > 0 ? (u32)empty_slots : 0;
 
     ListItr itr = list_itr_create(jokers);
     JokerObject* joker_object;
@@ -1129,7 +1130,12 @@ static u32 stencil_joker_effect(
     // +1 xmult per empty joker slot...
     int num_jokers = list_get_len(jokers);
 
-    (*joker_effect)->xmult = (MAX_JOKERS_HELD_SIZE)-num_jokers;
+    // CLAMP: if the list somehow exceeds MAX_JOKERS_HELD_SIZE (e.g. pending
+    // expired jokers still present), the int would go negative and, assigned
+    // to a u32, wrap to ~4.29e9 - poisoning mult via protected_mult's
+    // overflow (everything after it becomes UINT32_MAX garbage).
+    int empty_slots = (MAX_JOKERS_HELD_SIZE)-num_jokers;
+    (*joker_effect)->xmult = empty_slots > 0 ? (u32)empty_slots : 0;
 
     // ...and also each stencil_joker adds +1 xmult
     ListItr itr = list_itr_create(jokers);

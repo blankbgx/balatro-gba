@@ -123,7 +123,9 @@ REGISTER_JOKER_DESC_FUNC(loyalty_card_joker_desc)
 REGISTER_JOKER_DESC_FUNC(riding_the_bus_joker_desc)
 REGISTER_JOKER_DESC_FUNC(ceremonial_dagger_joker_desc)
 REGISTER_JOKER_DESC_FUNC(credit_card_joker_desc)
+REGISTER_JOKER_DESC_FUNC(thief_joker_desc)
 REGISTER_JOKER_EFFECT_FUNC(credit_card_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(thief_joker_effect)
 
 // Joker Effect functions
 
@@ -295,6 +297,7 @@ const JokerInfo joker_registry[] =
         { "Riding the Bus", COMMON_JOKER,   6, false, riding_the_bus_joker_desc, riding_the_bus_joker_effect }, // 64 Riding the Bus
         { "Ceremonial Dagger", UNCOMMON_JOKER, 6, false, ceremonial_dagger_joker_desc, ceremonial_dagger_joker_effect }, // 65 Ceremonial Dagger
         { "Credit Card",      COMMON_JOKER,    1, false, credit_card_joker_desc,      credit_card_joker_effect      }, // 66 Credit Card
+        { "Thief",            UNCOMMON_JOKER,  6, false, thief_joker_desc,            thief_joker_effect            }, // 67 Thief
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -3278,4 +3281,45 @@ int count_credit_card_effects(void)
     }
 
     return count;
+}
+
+// --------------------------------------------------------------------------
+// Thief (67)
+// When a Blind is chosen: lose all discards, gain +3 hands this round.
+// This is an EVENT-TRIGGERED ACTION (explicit trigger point on
+// ON_BLIND_SELECTED), so Blueprint/Brainstorm copies DO re-execute it
+// (each copy grants another +3 hands). Distinct from passive/quiet cards
+// (Credit Card) whose copies produce nothing.
+// --------------------------------------------------------------------------
+
+static int thief_joker_desc(Joker* joker, Rect dest_rect)
+{
+    (void)joker;
+    static const char desc[] =
+        TTE_BLUE_TAG "Lose all discards" TTE_BLACK_TAG ",\n"
+        TTE_BLUE_TAG "gain +3 hands" TTE_BLACK_TAG " this round";
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 thief_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    (void)joker;
+    (void)scored_card;
+    (void)joker_effect;
+
+    if (joker_event == JOKER_EVENT_ON_BLIND_SELECTED)
+    {
+        // Explicit trigger action: lose all discards, gain +3 hands.
+        // Copies (Blueprint/Brainstorm) arrive here through the same event
+        // dispatch and re-execute - which is the intended behavior.
+        g_game_vars.discards = 0;
+        g_game_vars.hands += 3;
+    }
+
+    return JOKER_EFFECT_FLAG_NONE;
 }

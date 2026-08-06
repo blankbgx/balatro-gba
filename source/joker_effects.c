@@ -3040,9 +3040,11 @@ static u32 riding_the_bus_joker_effect(
                 effect_flags_ret = JOKER_EFFECT_FLAG_MULT;
 
                 // Only the real joker pops the message (copies stay silent)
+                // Unify with Wee Joker pattern: white "Upgrade!" message;
+                // the red +N (MULT flag) is the colored settlement value.
                 if (!is_copy)
                 {
-                    (*joker_effect)->message = "Mult!";
+                    (*joker_effect)->message = "Upgrade!";
                     effect_flags_ret |= JOKER_EFFECT_FLAG_MESSAGE;
                 }
             }
@@ -3332,7 +3334,7 @@ static u32 flash_card_joker_effect(
             joker->scoring_state += 2;
         }
         *joker_effect = &s_shared_joker_effect;
-        (*joker_effect)->message = "+2 Mult";
+        (*joker_effect)->message = "Upgrade!";
         return JOKER_EFFECT_FLAG_MESSAGE;
     }
     else if (joker_event == JOKER_EVENT_INDEPENDENT)

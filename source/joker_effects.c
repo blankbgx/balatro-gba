@@ -3323,19 +3323,28 @@ static u32 flash_card_joker_effect(
 
     if (joker_event == JOKER_EVENT_ON_SHOP_REROLL)
     {
-        if (s_is_copying_joker)
+        // Accumulate +2 (real card only; copies read the original's state).
+        // Show a FIXED message ("+2 Mult") - NOT the running total, which
+        // would be misleading when spamming rerolls. The running total is
+        // only shown in the description screen.
+        if (!s_is_copying_joker)
         {
-            // Copy mode: read original's accumulated value (no accumulation)
-            *joker_effect = &s_shared_joker_effect;
-            (*joker_effect)->mult = s_copied_joker_source->scoring_state;
-            return JOKER_EFFECT_FLAG_MULT;
-        }
-        else
-        {
-            // Normal mode: accumulate +2 and show the value
             joker->scoring_state += 2;
+        }
+        *joker_effect = &s_shared_joker_effect;
+        (*joker_effect)->message = "+2 Mult";
+        return JOKER_EFFECT_FLAG_MESSAGE;
+    }
+    else if (joker_event == JOKER_EVENT_INDEPENDENT)
+    {
+        // During hand scoring, report the accumulated mult (copy mode reads
+        // the original's accumulated value - no accumulation on the copy).
+        if (joker->scoring_state > 0)
+        {
             *joker_effect = &s_shared_joker_effect;
-            (*joker_effect)->mult = joker->scoring_state;
+            (*joker_effect)->mult = s_is_copying_joker
+                                        ? s_copied_joker_source->scoring_state
+                                        : joker->scoring_state;
             return JOKER_EFFECT_FLAG_MULT;
         }
     }

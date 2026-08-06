@@ -150,14 +150,14 @@
 | 143 | Astronomer | 天文学家 | All Planet cards and Celestial Packs in the shop are free | 商店中的所有星球牌和天体补充包免费 | $8 | Uncommon | Discover all Planet cards. | !! | N/A |
 | 144 | Burnt Joker | 烧焦小丑 | Upgrade the level of the first discarded poker hand each round | 每个回合升级你第一次弃牌弃掉的牌型 | $8 | Rare | Sell 50 cards. | !! | On Discard |
 | 145 | Bootstraps | 提靴带 | +2 Mult for every $5 you have (Currently +0 Mult) | 每持有 $5 这个小丑就获得 +2 倍率 | $7 | Uncommon | Have at least 2 Polychrome Jokers at the same time. | +m | Indep. |
-| 146 | Canio | 卡尼奥 | This Joker gains X1 Mult when a face card is destroyed (Currently X1 Mult) |  | N/A | Legendary | Find this Joker from the Soul card. | Xm | Indep. |
-| 147 | Triboulet | 特里布莱 | Played Kings and Queens each give X2 Mult when scored |  | N/A | Legendary | Find this Joker from the Soul card. | Xm | On Scored |
-| 148 | Yorick | 约里克 | This Joker gains X1 Mult every 23 [23] cards discarded(Currently X1 Mult) |  | N/A | Legendary | Find this Joker from the Soul card. | Xm | Mixed |
-| 149 | Chicot | 希科 | Disables effect of every Boss Blind |  | N/A | Legendary | Find this Joker from the Soul card. | !! | N/A |
-| 150 | Perkeo | 帕奇欧 | Creates a Negative copy of 1 random consumable card in your possession at the end of the shop |  | N/A | Legendary | Find this Joker from the Soul card. | !! | N/A |
+| 146 | Canio | 卡尼奥 | This Joker gains X1 Mult when a face card is destroyed (Currently X1 Mult) | 每当1张人头牌被摧毁时，这个小丑获得 ×1 倍率（起始 ×1 倍率） | N/A | Legendary | Find this Joker from the Soul card. | Xm | Indep. |
+| 147 | Triboulet | 特里布莱 | Played Kings and Queens each give X2 Mult when scored | 打出的K和Q在计分时给予 ×2 倍率 | N/A | Legendary | Find this Joker from the Soul card. | Xm | On Scored |
+| 148 | Yorick | 约里克 | This Joker gains X1 Mult every 23 [23] cards discarded(Currently X1 Mult) | 每弃掉23张牌后，这个小丑获得 ×1 倍率（起始 ×1 倍率） | N/A | Legendary | Find this Joker from the Soul card. | Xm | Mixed |
+| 149 | Chicot | 希科 | Disables effect of every Boss Blind | 所有boss盲注效果消失 | N/A | Legendary | Find this Joker from the Soul card. | !! | N/A |
+| 150 | Perkeo | 帕奇欧 | Creates a Negative copy of 1 random consumable card in your possession at the end of the shop | 离开商店时，随机复制1张拥有的消耗牌，并给予其负片效果 | N/A | Legendary | Find this Joker from the Soul card. | !! | N/A |
 
 ---
 
 ## 统计
-- fandom: 150 张 / bwiki: 145 张 / 成功匹配: 145
+- fandom: 150 张 / bwiki: 150 张 / 成功匹配: 150
 - 未匹配中文: 0 张

@@ -3131,20 +3131,12 @@ static void dagger_sacrifice(JokerObject* dagger_object, JokerObject* victim)
     s32 gain = 2 * joker_get_sell_value(victim->joker);
     dagger_object->joker->scoring_state += gain;
 
-    // Upgrade message (white, Wee Joker pattern) then settlement value
-    // (red +N Mult). Both render at the dagger's fixed position - the
-    // white "Upgrade!" first, red "+N Mult" shifted right by the same
-    // offset joker.c uses (MAX_CARD_SCORE_STR_LEN + 1 chars).
-    const int joker_score_display_offset_px = 3 * TTE_CHAR_SIZE;
+    // Upgrade message only (white, Wee Joker pattern). The red "+N Mult"
+    // settlement value is reported at INDEPENDENT during hand scoring -
+    // showing it here too would duplicate the settlement display.
     tte_set_pos(fx2int(dagger_object->x) + TILE_SIZE, JOKER_SCORE_TEXT_Y);
     tte_set_special(TTE_WHITE_PB * TTE_SPECIAL_PB_MULT_OFFSET);
     tte_write("Upgrade!");
-    tte_set_pos(fx2int(dagger_object->x) + TILE_SIZE + joker_score_display_offset_px, JOKER_SCORE_TEXT_Y);
-
-    char gain_buffer[24];
-    snprintf(gain_buffer, sizeof(gain_buffer), "+%ld Mult", (long)gain);
-    tte_set_special(TTE_RED_PB * TTE_SPECIAL_PB_MULT_OFFSET);
-    tte_write(gain_buffer);
     schedule_joker_event_text_clear();
 
     joker_object_shake(dagger_object, SFX_MULT);

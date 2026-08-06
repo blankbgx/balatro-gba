@@ -3394,6 +3394,14 @@ static u32 burglar_joker_effect(
         // dispatch and re-execute - which is the intended behavior.
         g_game_vars.hands += 3;
         g_game_vars.discards = 0;
+
+        // Same event group as Riff-Raff / Dagger (round-start triggers):
+        // return MESSAGE so joker_object_score shows the white "Upgrade!"
+        // text and runs the shake animation (returning NONE would skip
+        // both - the effect would be completely invisible).
+        *joker_effect = &s_shared_joker_effect;
+        (*joker_effect)->message = "Upgrade!";
+        return JOKER_EFFECT_FLAG_MESSAGE;
     }
 
     return JOKER_EFFECT_FLAG_NONE;

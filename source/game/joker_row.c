@@ -117,6 +117,15 @@ void jokers_sel_row_on_key_transit(SelectionGrid* selection_grid, Selection* sel
 
     if (key_hit(SELL_KEY))
     {
+        // Selling is only allowed in the shop. KEY_L is shared (TAB_LEFT in
+        // run setup, PLAY_HAND_KEY in round), and this callback is registered
+        // for BOTH the shop row and the in-round joker row - without this
+        // guard, L would sell a joker mid-round (original Balatro never does).
+        if (game_get_state() != GAME_STATE_SHOP)
+        {
+            return;
+        }
+
         int sold_joker_idx = selection->x;
 
         // Move the selection away from the jokers so it doesn't point to an invalid place

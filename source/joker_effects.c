@@ -2664,12 +2664,12 @@ static u32 baron_joker_effect(
 
     if (scored_card->rank == KING)
     {
-        // x1.5: mult = mult * 3 / 2 (applied directly since xmult only supports integers)
-        g_game_vars.mult = u32_protected_mult(g_game_vars.mult, 3) / 2;
-
+        // x1.5 as fraction 3/2 via the fractional XMULT path - no float.
+        // Renders red "X1.5" (colored settlement value, not an upgrade).
         *joker_effect = &s_shared_joker_effect;
-        (*joker_effect)->message = "X1.5";
-        return JOKER_EFFECT_FLAG_MESSAGE;
+        (*joker_effect)->xmult = 3;
+        (*joker_effect)->xmult_den = 2;
+        return JOKER_EFFECT_FLAG_XMULT;
     }
 
     return JOKER_EFFECT_FLAG_NONE;

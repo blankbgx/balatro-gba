@@ -157,7 +157,11 @@ typedef struct // These jokers are triggered after the played hand has finished 
 {
     u32 chips;
     u32 mult;
-    u32 xmult;
+    u32 xmult;     // Multiplicative mult, expressed as a fraction: xmult / xmult_den.
+                   // xmult_den == 1 keeps the classic integer path (X2, X3...).
+                   // xmult=3, xmult_den=2 -> X1.5 (fraction avoids float entirely).
+    u32 xmult_den; // Denominator for the multiplicative mult fraction (default 1).
+                   // Only checked when xmult > 0. Rendered as "X1.5" when > 1.
     int money;
     bool retrigger; // Retrigger played hand (e.g. "Dusk" joker, even though on the wiki it says "On
                     // Scored" it makes more sense to have it here)

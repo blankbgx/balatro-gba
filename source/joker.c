@@ -616,11 +616,44 @@ bool joker_object_score(
     // if xmult is zero, DO NOT multiply by it
     if (effect_flags_ret & JOKER_EFFECT_FLAG_XMULT && joker_effect->xmult > 0)
     {
-        g_game_vars.mult = u32_protected_mult(g_game_vars.mult, joker_effect->xmult);
-        char score_buffer[INT_MAX_DIGITS + 2];
-        snprintf(score_buffer, sizeof(score_buffer), "X%lu", joker_effect->xmult);
-        set_and_shift_text(score_buffer, &cursorPosX, &cursorPosY, TTE_RED_PB);
+        if (joker_effect->xmult_den > 1)
+        {
+            // Fractional path: mult *= xmult / xmult_den (e.g. 3/2 = X1.5).
+            // Multiply first, then divide - keeps precision; u32_protected_mult
+            // guards overflow. Rendered as "X1.5" (red).
+            g_game_vars.mult =
+                u32_protected_mult(g_game_vars.mult, joker_effect->xmult) /
+                joker_effect->xmult_den;
+
+            char score_buffer[INT_MAX_DIGITS + 2];
+            u32 whole = joker_effect->xmult / joker_effect->xmult_den;
+            u32 frac  = (joker_effect->xmult % joker_effect->xmult_den) * 10 /
+                        joker_effect->xmult_den;
+            if (frac == 0)
+            {
+                snprintf(score_buffer, sizeof(score_buffer), "X%lu", (unsigned long)whole);
+            }
+            else
+            {
+                snprintf(score_buffer, sizeof(score_buffer), "X%lu.%lu", (unsigned long)whole, (unsigned long)frac);
+            }
+            set_and_shift_text(score_buffer, &cursorPosX, &cursorPosY, TTE_RED_PB);
+        }
+        else
+        {
+            // Classic integer path (X2, X3...)
+            g_game_vars.mult = u32_protected_mult(g_game_vars.mult, joker_effect->xmult);
+            char score_buffer[INT_MAX_DIGITS + 2];
+            snprintf(score_buffer, sizeof(score_buffer), "X%lu", (unsigned long)joker_effect->xmult);
+            set_and_shift_text(score_buffer, &cursorPosX, &cursorPosY, TTE_RED_PB);
+        }
         sfx_id = SFX_XMULT;
+
+        // Consume the denominator immediately: s_shared_joker_effect is a
+        // shared instance reused by every joker each frame, so a fractional
+        // card (Baron: den=2) must not leak into the next joker's integer
+        // XMULT. Resetting here means new jokers never need to remember.
+        joker_effect->xmult_den = 0;
     }
     if (effect_flags_ret & JOKER_EFFECT_FLAG_MONEY)
     {

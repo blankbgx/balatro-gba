@@ -3300,10 +3300,15 @@ int count_credit_card_effects(void)
 
 static int flash_card_joker_desc(Joker* joker, Rect dest_rect)
 {
-    (void)joker;
-    static const char desc[] =
-        TTE_BLUE_TAG "Gains +2 Mult" TTE_BLACK_TAG " per\n"
-        TTE_BLUE_TAG "reroll" TTE_BLACK_TAG " in the shop";
+    char desc[200];
+    snprintf(
+        desc,
+        sizeof(desc),
+        TTE_BLACK_TAG "Gains " TTE_RED_TAG "+2 Mult" TTE_BLACK_TAG
+        " per " TTE_BLUE_TAG "reroll" TTE_BLACK_TAG
+        " in the shop (currently " TTE_RED_TAG "+%ld Mult" TTE_BLACK_TAG ")",
+        (long)joker->scoring_state
+    );
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
 

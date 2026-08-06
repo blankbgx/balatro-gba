@@ -2245,6 +2245,7 @@ typedef enum
 {
     DEFER_RIFF_RAFF, // activate: lock spawn count; fire: spawn jokers
     DEFER_DAGGER,    // activate: lock right neighbor; fire: sacrifice it
+    DEFER_BURGLAR,   // activate: lock nothing; fire: +3 hands, 0 discards + HUD pulse
 } DeferredKind;
 
 static JokerObject* s_deferred_queue[MAX_JOKERS_HELD_SIZE];
@@ -2452,6 +2453,22 @@ void deferred_effects_process_pending(void)
                 s_deferred_ran_animation = true;
                 break;
             }
+
+            case DEFER_BURGLAR:
+            {
+                // Activate: show the white "+3 hands!" message and shake
+                // NOW (this instance's turn). The actual hands/discards
+                // mutation happens in the fire branch one beat later.
+                char anim_buffer[16];
+                snprintf(anim_buffer, sizeof(anim_buffer), "+3 hands!");
+                tte_set_pos(fx2int(source->x) + TILE_SIZE, JOKER_SCORE_TEXT_Y);
+                tte_set_special(TTE_WHITE_PB * TTE_SPECIAL_PB_MULT_OFFSET);
+                tte_write(anim_buffer);
+                joker_object_shake(source, UNDEFINED);
+                schedule_joker_event_text_clear();
+                s_deferred_ran_animation = true;
+                break;
+            }
         }
 
         s_deferred_fire_at = g_game_vars.timer + DEFER_DELAY;
@@ -2566,6 +2583,18 @@ void deferred_effects_process_pending(void)
                 dagger_sacrifice(source, victim);
                 s_deferred_victim = NULL;
                 s_deferred_wait_frames = 0;
+                break;
+            }
+
+            case DEFER_BURGLAR:
+            {
+                // Fire: apply +3 hands, lose all discards, pulse both HUD
+                // numbers. Each queued instance (real card + Blueprint +
+                // Brainstorm copies) fires one beat apart.
+                g_game_vars.hands += 3;
+                g_game_vars.discards = 0;
+                hud_pulse_hands();
+                hud_pulse_discards();
                 break;
             }
         }
@@ -3428,19 +3457,33 @@ static u32 burglar_joker_effect(
     {
         // Explicit trigger action: gain +3 hands, lose all discards.
         // Copies (Blueprint/Brainstorm) arrive here through the same event
-        // dispatch and re-execute - which is the intended behavior.
-        g_game_vars.hands += 3;
-        g_game_vars.discards = 0;
+        // dispatch and each queues its OWN instance, so real card + copies
+        // fire sequentially (one beat apart) instead of all at once.
+        ListItr itr = list_itr_create(get_jokers_list());
+        JokerObject* self_object = NULL;
+        JokerObject* cur;
+        while ((cur = list_itr_next(&itr)))
+        {
+            if (cur->joker == joker)
+            {
+                self_object = cur;
+                break;
+            }
+        }
 
-        // Same event group as Riff-Raff / Dagger (round-start triggers):
-        // return MESSAGE so joker_object_score shows the white "+3 hands!"
-        // text and runs the shake animation (returning NONE would skip
-        // both - the effect would be completely invisible).
-        *joker_effect = &s_shared_joker_effect;
-        (*joker_effect)->message = "+3 hands!";
-        hud_pulse_hands();
-        hud_pulse_discards();
-        return JOKER_EFFECT_FLAG_MESSAGE;
+        if (self_object != NULL &&
+            s_deferred_count < MAX_JOKERS_HELD_SIZE)
+        {
+            if (s_deferred_count == 0)
+            {
+                s_deferred_ran_animation = false;
+                s_deferred_settle_wait = false;
+                s_deferred_next_beat_at = 0;
+            }
+            s_deferred_queue[s_deferred_count] = self_object;
+            s_deferred_kind[s_deferred_count] = DEFER_BURGLAR;
+            s_deferred_count++;
+        }
     }
 
     return JOKER_EFFECT_FLAG_NONE;

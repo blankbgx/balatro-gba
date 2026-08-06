@@ -170,6 +170,28 @@ typedef struct // These jokers are triggered after the played hand has finished 
     char* message;  // Used to send custom messages e.g. "Extinct!" or "Again!"
 } JokerEffect;
 
+// ---------------------------------------------------------------------------
+// Fractional multiplicative-mult entry point.
+//
+// Set a XMULT value as an exact fraction (num/den) using pure integer math
+// - no float on the GBA. den == 1 keeps the classic integer path (X2, X3...);
+// den > 1 renders like "X1.5" and applies mult * num / den (multiply-first,
+// overflow-guarded, then divide).
+//
+// Usage inside a *_joker_effect:
+//     joker_effect_set_xmult(&s_shared_joker_effect, 3, 2); // X1.5
+//     return JOKER_EFFECT_FLAG_XMULT;
+//
+// NOTE: s_shared_joker_effect is reused across jokers each frame, so the
+// denominator is consumed and reset by joker_object_score after use -
+// existing integer-XMULT jokers need NO changes (den stays 0 for them).
+// ---------------------------------------------------------------------------
+static inline void joker_effect_set_xmult(JokerEffect* joker_effect, u32 num, u32 den)
+{
+    joker_effect->xmult = num;
+    joker_effect->xmult_den = den;
+}
+
 // JokerEffectFuncs take in a joker that will be scored, a scored_card that is not NULL when related
 // to the given joker_event, and output a joker_effect storing the effects of the scored joker They
 // return a set of flags indicating what fields of the joker_effect are valid to access

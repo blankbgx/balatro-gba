@@ -513,6 +513,19 @@ static inline void game_shop_reroll(void)
         }
     }
 
+    // Dispatch ON_SHOP_REROLL to all jokers after items are refreshed.
+    // Uses joker_object_score so effect messages (Flash Card "+2 Mult")
+    // are shown. Reroll can be spammed: texts render at each joker's fixed
+    // position, overwriting the previous frame's - no queue buildup.
+    {
+        ListItr jitr = list_itr_create(get_jokers_list());
+        JokerObject* joker_obj;
+        while ((joker_obj = list_itr_next(&jitr)))
+        {
+            joker_object_score(joker_obj, NULL, JOKER_EVENT_ON_SHOP_REROLL);
+        }
+    }
+
 #ifndef DEBUG_SHOP_FREE
     s_reroll_cost++;
 #endif

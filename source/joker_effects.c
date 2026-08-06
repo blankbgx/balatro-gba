@@ -124,8 +124,10 @@ REGISTER_JOKER_DESC_FUNC(riding_the_bus_joker_desc)
 REGISTER_JOKER_DESC_FUNC(ceremonial_dagger_joker_desc)
 REGISTER_JOKER_DESC_FUNC(credit_card_joker_desc)
 REGISTER_JOKER_DESC_FUNC(burglar_joker_desc)
+REGISTER_JOKER_DESC_FUNC(flash_card_joker_desc)
 REGISTER_JOKER_EFFECT_FUNC(credit_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(burglar_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(flash_card_joker_effect)
 
 // Joker Effect functions
 
@@ -298,6 +300,7 @@ const JokerInfo joker_registry[] =
         { "Ceremonial Dagger", UNCOMMON_JOKER, 6, false, ceremonial_dagger_joker_desc, ceremonial_dagger_joker_effect }, // 65 Ceremonial Dagger
         { "Credit Card",      COMMON_JOKER,    1, false, credit_card_joker_desc,      credit_card_joker_effect      }, // 66 Credit Card
         { "Burglar",          UNCOMMON_JOKER,  6, false, burglar_joker_desc,        burglar_joker_effect            }, // 67 Burglar
+        { "Flash Card",       UNCOMMON_JOKER,  5, false, flash_card_joker_desc,     flash_card_joker_effect         }, // 68 Flash Card
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -3281,6 +3284,58 @@ int count_credit_card_effects(void)
     }
 
     return count;
+}
+
+// --------------------------------------------------------------------------
+// Flash Card (68)
+// Gains +2 Mult every time the shop is rerolled.
+// Triggers on JOKER_EVENT_ON_SHOP_REROLL (dispatched from shop.c after
+// reroll). Blueprint/Brainstorm copies DO re-execute (event-triggered
+// action), each copy grants another +2.
+// High-frequency (reroll spam): the "+2" text is rendered immediately on
+// top of the previous one (same fixed joker position) via joker_object_score
+// -> tte_write, so rapid rerolls overwrite instead of queueing - no
+// animation backlog. This matches how shop items shake on reroll.
+// --------------------------------------------------------------------------
+
+static int flash_card_joker_desc(Joker* joker, Rect dest_rect)
+{
+    (void)joker;
+    static const char desc[] =
+        TTE_BLUE_TAG "Gains +2 Mult" TTE_BLACK_TAG " per\n"
+        TTE_BLUE_TAG "reroll" TTE_BLACK_TAG " in the shop";
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 flash_card_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    (void)scored_card;
+
+    if (joker_event == JOKER_EVENT_ON_SHOP_REROLL)
+    {
+        if (s_is_copying_joker)
+        {
+            // Copy mode: read original's accumulated value (no accumulation)
+            *joker_effect = &s_shared_joker_effect;
+            (*joker_effect)->mult = s_copied_joker_source->scoring_state;
+            return JOKER_EFFECT_FLAG_MULT;
+        }
+        else
+        {
+            // Normal mode: accumulate +2 and show the value
+            joker->scoring_state += 2;
+            *joker_effect = &s_shared_joker_effect;
+            (*joker_effect)->mult = joker->scoring_state;
+            return JOKER_EFFECT_FLAG_MULT;
+        }
+    }
+
+    return JOKER_EFFECT_FLAG_NONE;
 }
 
 // --------------------------------------------------------------------------

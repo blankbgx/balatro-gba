@@ -74,6 +74,7 @@ enum JokerEvent
     JOKER_EVENT_ON_ROUND_END,       // Triggers at the end of the round (e.g. Rocket)
     JOKER_EVENT_ON_BLIND_SELECTED,  // Triggers when selecting a blind (e.g. Dagger, Riff Raff,
                                     // Madness..)
+    JOKER_EVENT_ON_SHOP_REROLL,     // Triggers when the shop is rerolled (e.g. Flash Card)
 };
 
 // These are flags that can be combined into a single u32 and returned by
@@ -106,6 +107,7 @@ enum JokerEvent
 #define CEREMONIAL_DAGGER_ID  65
 #define CREDIT_CARD_ID        66
 #define BURGLAR_ID            67
+#define FLASH_CARD_ID         68
 
 // Credit Card: shop purchases may go into debt down to -20$ per REAL
 // Credit Card held. Blueprint/Brainstorm cannot copy this passive effect

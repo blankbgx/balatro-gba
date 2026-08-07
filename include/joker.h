@@ -120,7 +120,13 @@ enum JokerEvent
 // whether a purchase is affordable - re-evaluated per purchase so buying
 // (or losing) a card updates the debt limit immediately.
 int count_credit_card_effects(void);
-
+// Resolve what a Blueprint/Brainstorm copying joker ultimately copies,
+// bouncing through other copying jokers (Blueprint -> right neighbor,
+// Brainstorm -> leftmost) until a non-copying joker is found, or NULL
+// (copy at list edge / infinite Brainstorm loop). Chain copies are valid
+// (Brainstorm -> Blueprint -> any non-passive joker, user-ratified
+// 2026-08-07). Uses the same walk as blueprint_brainstorm_joker_effect.
+JokerObject* resolve_copy_target(JokerObject* copying_joker);
 // Per-frame scheduler for deferred blind-selected joker effects (Riff-Raff
 // spawns, Ceremonial Dagger sacrifice). Called from game.c's update loop.
 void deferred_effects_process_pending(void);

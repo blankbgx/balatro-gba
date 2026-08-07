@@ -16,6 +16,24 @@
 
 ## 已修复 Bug 清单（按时间倒序）
 
+### M12. Mime 链式复制计数 + "Again!" 位置轮换（P1）— 2026-08-07
+
+**背景**：`count_mime_effects()` 和 Again 定位用单跳解析（只认"直接复制 Mime"），而运行时 `blueprint_brainstorm_joker_effect` 已支持链式复制（脑暴→蓝图→任意非被动小丑）。导致：
+1. **计数错误**：`[蓝图, Mime, 脑暴, 男爵]` 脑暴→蓝图→Mime 链未计数 → 只生效 2 次（应 3 次）
+2. **Again 位置错误**：每次 pass 都显示在第一个 Mime 复制体上（"被第一个发动mime效果的复制体抢走"），未按 pass 轮换
+
+**修复**：
+1. 新增导出函数 `resolve_copy_target(JokerObject*)`（joker_effects.c，复现运行时链式解析：蓝图→右邻、脑暴→最左，`brainstorm_counter < 2` 防环）——声明在 include/joker.h
+2. `count_mime_effects()` 改用链式解析 → 场景3 计数 3
+3. Again 定位改为收集所有 Mime 效果源（真身+链解析到 Mime 的复制体，按列表序），pass_idx 轮换取源
+
+**复测步骤**：
+1. `[蓝图, Mime, 脑暴, 男爵]` + 手牌 K：应 3 次重触发（蓝图/真身/脑暴各驱动 1 次 pass），"Again!" 依次显示在蓝图→真身→脑暴
+2. `[Mime, 脑暴, 蓝图, 男爵]` + 手牌 K："Again!" 依次在真身→脑暴（蓝图复制男爵不参与 Mime）
+3. `[男爵, 脑暴, 蓝图, Mime]` + 手牌 K："Again!" 依次在蓝图→真身
+
+**边界**：脑暴复制蓝图、蓝图右邻无卡（蓝图在末尾）→ 链解析返回 NULL，不计数；两个脑暴互指 → brainstorm_counter 防环退出。
+
 ### M11. Mime 与 Raised Fist / Reserved Parking 联动缺失（P1）— 2026-08-07
 
 **背景**：`held_hand_has_retrigger_target()` 只检测 K/Q（覆盖 Baron/Shoot the Moon），漏掉 Raised Fist（最低点数牌触发）和 Reserved Parking（任意面牌 J/Q/K 触发）——手里有最低牌或 J 但无 K/Q 时，Mime 不重跑 held walk，这两张卡失去 Mime 联动。

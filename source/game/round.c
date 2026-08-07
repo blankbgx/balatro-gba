@@ -1791,25 +1791,12 @@ static int count_mime_effects(void)
         }
         else if (id == BLUEPRINT_JOKER_ID || id == BRAINSTORM_JOKER_ID)
         {
-            // Find what this copying joker is copying.
-            JokerObject* target = NULL;
-            ListItr itr2 = list_itr_create(jokers);
-            JokerObject* probe;
-            while ((probe = list_itr_next(&itr2)))
-            {
-                if (probe == cur)
-                {
-                    if (id == BLUEPRINT_JOKER_ID)
-                        target = list_itr_next(&itr2); // next right
-                    else
-                    {
-                        // Brainstorm: leftmost joker. Rewind to the front.
-                        itr2 = list_itr_create(jokers);
-                        target = list_itr_next(&itr2);
-                    }
-                    break;
-                }
-            }
+            // Chain-aware resolution (Brainstorm -> Blueprint -> Mime is
+            // a valid chain, user-ratified 2026-08-07). The single-hop
+            // check below was the bug: it missed chained copies, so
+            // [Blueprint, Mime, Brainstorm, Baron] counted 2 Mime effects
+            // instead of 3.
+            JokerObject* target = resolve_copy_target(cur);
             if (target != NULL && target->joker != NULL &&
                 target->joker->id == MIME_JOKER_ID)
             {
@@ -1915,56 +1902,44 @@ static inline bool play_scoring_held_cards_update(int played_idx)
         }
         if (s_mime_passes_left > 0 && held_hand_has_retrigger_target())
         {
+            // Which pass is this (0-based)? After the decrement below,
+            // remaining = N - k - 1, so k = N - 1 - remaining.
+            int total_passes = s_mime_passes_left;
             s_mime_passes_left--;
+            int pass_idx = total_passes - 1 - s_mime_passes_left;
 
-            // Show "Again!" on the card that drove this pass. Priority:
-            // 1. A Blueprint/Brainstorm currently copying Mime (the copy
-            //    IS the retriggering effect - "Again!" belongs on it).
-            // 2. The real Mime card (only when no copy is present).
+            // Collect the Mime effect sources in left-to-right order:
+            // the real Mime plus every Blueprint/Brainstorm whose chain
+            // resolves to Mime. "Again!" rotates to the k-th source so a
+            // multi-copy setup shows one "Again!" per effect (user report
+            // 2026-08-07: it was always stolen by the FIRST Mime copy).
             List* jokers = get_jokers_list();
             ListItr itr = list_itr_create(jokers);
             JokerObject* joker_object;
-            JokerObject* real_mime = NULL;
-            JokerObject* again_target = NULL;
+            JokerObject* mime_sources[MAX_JOKERS_HELD_SIZE];
+            int mime_sources_count = 0;
             while ((joker_object = list_itr_next(&itr)))
             {
                 u8 id = joker_object->joker->id;
                 if (id == MIME_JOKER_ID)
                 {
-                    real_mime = joker_object; // remember, use as fallback
+                    mime_sources[mime_sources_count++] = joker_object;
                 }
                 else if (id == BLUEPRINT_JOKER_ID || id == BRAINSTORM_JOKER_ID)
                 {
-                    // Is this copy targeting a Mime?
-                    JokerObject* target = NULL;
-                    ListItr itr2 = list_itr_create(jokers);
-                    JokerObject* probe;
-                    while ((probe = list_itr_next(&itr2)))
-                    {
-                        if (probe == joker_object)
-                        {
-                            if (id == BLUEPRINT_JOKER_ID)
-                                target = list_itr_next(&itr2); // next right
-                            else
-                            {
-                                // Brainstorm: leftmost joker
-                                itr2 = list_itr_create(jokers);
-                                target = list_itr_next(&itr2);
-                            }
-                            break;
-                        }
-                    }
+                    JokerObject* target = resolve_copy_target(joker_object);
                     if (target != NULL && target->joker != NULL &&
                         target->joker->id == MIME_JOKER_ID)
                     {
-                        again_target = joker_object; // copy of Mime found
-                        break;
+                        mime_sources[mime_sources_count++] = joker_object;
                     }
                 }
             }
-            if (again_target == NULL)
+
+            JokerObject* again_target = NULL;
+            if (mime_sources_count > 0)
             {
-                again_target = real_mime; // no copy -> real card
+                again_target = mime_sources[pass_idx % mime_sources_count];
             }
             if (again_target != NULL)
             {

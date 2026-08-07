@@ -1875,6 +1875,56 @@ static u32 dusk_joker_effect(
     return effect_flags_ret;
 }
 
+JokerObject* resolve_copy_target(JokerObject* copying_joker)
+{
+    if (copying_joker == NULL || copying_joker->joker == NULL)
+        return NULL;
+
+    List* jokers = get_jokers_list();
+    ListItr itr = list_itr_create(jokers);
+    JokerObject* cur = NULL;
+
+    // find ourselves in the Jokers list
+    while ((cur = list_itr_next(&itr)))
+    {
+        if (cur == copying_joker)
+        {
+            break;
+        }
+    }
+    if (cur != copying_joker)
+    {
+        return NULL;
+    }
+
+    // Bounce through copying jokers like blueprint_brainstorm_joker_effect:
+    // Blueprint -> right neighbor, Brainstorm -> leftmost. Chain copies are
+    // valid (Brainstorm -> Blueprint -> target). Guard against a Brainstorm
+    // loop (two Brainstorms circling each other) with a counter.
+    u8 brainstorm_counter = 0;
+    do
+    {
+        switch (cur->joker->id)
+        {
+            case BLUEPRINT_JOKER_ID:
+                cur = list_itr_next(&itr); // next right
+                break;
+
+            case BRAINSTORM_JOKER_ID:
+                brainstorm_counter++;
+                itr = list_itr_create(jokers);
+                cur = list_itr_next(&itr); // leftmost
+                break;
+
+            default:
+                // Non-copying joker: this is what the copy resolves to.
+                return cur;
+        }
+    } while (cur != NULL && brainstorm_counter < 2);
+
+    return cur; // may be NULL (blueprint at edge) or loop-guard exit
+}
+
 static u32 blueprint_brainstorm_joker_effect(
     Joker* joker,
     Card* scored_card,

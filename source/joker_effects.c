@@ -2512,7 +2512,8 @@ void deferred_effects_process_pending(void)
                     bool found = false;
                     for (int attempt = 0; attempt < 50; attempt++)
                     {
-                        u8 candidate = rng_get_u32() % get_joker_registry_size();
+                        u8 candidate = rng_get_u32(RNG_SEQ_JOKER_RIFF_RAFF) %
+                                        get_joker_registry_size();
                         const JokerInfo* info = get_joker_registry_entry(candidate);
                         if (info && info->rarity == rarity &&
                             (is_showman_joker_active() || !is_joker_owned(candidate)))
@@ -2854,7 +2855,7 @@ static u32 gros_michel_joker_effect(
     if (joker_event == JOKER_EVENT_ON_HAND_SCORED_END)
     {
         // Don't self-destruct when being copied by Blueprint/Brainstorm
-        if (!s_is_copying_joker && (rng_get_u32() % 6) == 0)
+        if (!s_is_copying_joker && (rng_get_u32(RNG_SEQ_JOKER_GROS_MICHEL) % 6) == 0)
         {
             // Self-destruct! Demake-specific rule: extinction is GLOBAL -
             // every Gros Michel in play dies together (the player may hold
@@ -2889,7 +2890,7 @@ static u32 cavendish_joker_effect(
     if (joker_event == JOKER_EVENT_ON_HAND_SCORED_END)
     {
         // Don't self-destruct when being copied by Blueprint/Brainstorm
-        if (!s_is_copying_joker && (rng_get_u32() % 1000) == 0)
+        if (!s_is_copying_joker && (rng_get_u32(RNG_SEQ_JOKER_CAVENDISH) % 1000) == 0)
         {
             // Self-destruct!
             *joker_effect = &s_shared_joker_effect;

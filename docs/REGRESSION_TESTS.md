@@ -20,7 +20,9 @@
 
 **背景**：Burglar 触发时 hands/discards HUD 是"白↔本色闪烁"（~1.2s），用户希望像筹码结算那样**数字滚动**（从旧值逐级跳到新值）。
 
-**修复**：`hud_pulse_hands(int from_value)` / `hud_pulse_discards(int from_value)` 改为滚动计数——调用方（DEFER_BURGLAR fire 分支）在修改 `g_game_vars.hands/discards` **前**捕获旧值传入；`hud_pulse_update_loop` 按 `HUD_ROLL_STEPS 12` 步 × `FRAMES(2)` 线性插值重绘（白色数字，~0.4s），结束后恢复 `display_hands()/display_discards()`。废弃的 HUD_PULSE_DELAY/TOGGLE 常量与 pulse 状态变量已删除。
+**修复**：`hud_pulse_hands(int from_value)` / `hud_pulse_discards(int from_value)` 改为滚动计数——调用方（DEFER_BURGLAR fire 分支）在修改 `g_game_vars.hands/discards` **前**捕获旧值传入；`hud_pulse_update_loop` 按 `HUD_ROLL_STEPS 12` 步 × `FRAMES(2)` 线性插值重绘（~0.4s），结束后恢复 `display_hands()/display_discards()`。废弃的 HUD_PULSE_DELAY/TOGGLE 常量与 pulse 状态变量已删除。
+
+**2026-08-07 二次调整（用户反馈）**：① 去掉白色数字（白↔本色切换观感像闪烁）——滚动数字用**本色**（hands 蓝 / discards 红）；② 滚动带**方向**——增加值从下方滑入向上滚（dy: +HUD_ROLL_DY→0）、减少值从上方滑入向下滚（dy: -HUD_ROLL_DY→0），`HUD_ROLL_DY 5`px；③ erase rect 扩展 ±DY 覆盖滑动轨迹（`HANDS/DISCARDS_TEXT_ROLL_ERASE_RECT`）；④ 节奏不变（12 步 × 2 帧）。⚠️ 注意 HUD_ROLL_DY 定义在 rect 常量之前（rect 初始化需要它），且只能定义一次。
 
 **复测步骤**：
 1. 持有窃贼 → 选盲注 → 手数数字从旧值**逐级滚动**到 +3 后的值（不是闪烁）

@@ -82,8 +82,15 @@ static const Rect DISCARDS_TEXT_RECT        = {48,      104,    UNDEFINED, UNDEF
 // Erase area for hands/discards: fixed 3-char width so a value shrinking
 // from 2-3 digits to 1 digit (e.g. 10 -> 9) fully clears the old digits
 // instead of leaving a stale char ("90" after "10"->"9"). Height = 1 char.
+// Vertical slide distance (px) for the directional roll: increasing
+// values slide in from below (up), decreasing from above (down).
+#define HUD_ROLL_DY 5
 static const Rect HANDS_TEXT_ERASE_RECT     = {16,      104,    16 + 3 * TTE_CHAR_SIZE, 104 + TTE_CHAR_SIZE };
 static const Rect DISCARDS_TEXT_ERASE_RECT  = {48,      104,    48 + 3 * TTE_CHAR_SIZE, 104 + TTE_CHAR_SIZE };
+// Roll animation erase area: extends HUD_ROLL_DY px above/below the text
+// so the sliding digit (directional roll) never leaves a stale trail.
+static const Rect HANDS_TEXT_ROLL_ERASE_RECT = {16,      104 - HUD_ROLL_DY, 16 + 3 * TTE_CHAR_SIZE, 104 + TTE_CHAR_SIZE + HUD_ROLL_DY };
+static const Rect DISCARDS_TEXT_ROLL_ERASE_RECT = {48,   104 - HUD_ROLL_DY, 48 + 3 * TTE_CHAR_SIZE, 104 + TTE_CHAR_SIZE + HUD_ROLL_DY };
 static const Rect DECK_SIZE_RECT            = {200,     152,    240,       160       };
 static const Rect ROUND_TEXT_RECT           = {48,      144,    UNDEFINED, UNDEFINED };
 static const Rect ANTE_TEXT_RECT            = {8,       144,    UNDEFINED, UNDEFINED };
@@ -380,13 +387,11 @@ static inline void joker_event_text_clear_update_loop(void)
 
 // ---- HUD value roll animation ---------------------------------------------
 // Jokers that mutate hands/discards on blind select (Burglar: +3 hands,
-// 0 discards) animate the HUD number as a rolling count-up from its
-// pre-mutation value to the new value (12 steps x 2 frames ~0.4s), the
-// same reading as the chips/mult settlement roll. Text has no scale/affine
-// support on GBA, so a digit roll is the cheapest readable "jump" animation.
-// Rolling-digit count-up (Burglar +3 hands / discards to 0), like the
-// chips/mult settlement roll: the HUD number steps from its pre-trigger
-// value to the new value in fixed increments instead of flashing.
+// 0 discards) animate the HUD number as a directional roll (12 steps x
+// 2 frames ~0.4s): increasing values slide up from below, decreasing
+// slide down from above, in the number's normal color. Text has no
+// scale/affine support on GBA, so a digit roll is the cheapest readable
+// "jump" animation.
 #define HUD_ROLL_STEPS 12
 #define HUD_ROLL_INTERVAL FRAMES(2)
 typedef struct
@@ -436,17 +441,22 @@ static inline void hud_pulse_update_loop(void)
             }
             else
             {
-                // Linear interp from_value -> to_value; draw in white so the
-                // rolling number reads as an active change (like chips roll).
+                // Directional roll: increasing value slides in from below
+                // (dy: +DY -> 0), decreasing from above (dy: -DY -> 0).
+                // Normal color (blue), not white - the white flash read as
+                // flicker and was removed per user.
                 int delta = s_hud_roll_hands.to_value - s_hud_roll_hands.from_value;
                 int cur = s_hud_roll_hands.from_value +
                           (delta * s_hud_roll_hands.step) / HUD_ROLL_STEPS;
-                tte_erase_rect_wrapper(HANDS_TEXT_ERASE_RECT);
+                int dy = (delta >= 0)
+                             ? (HUD_ROLL_DY * (HUD_ROLL_STEPS - s_hud_roll_hands.step)) / HUD_ROLL_STEPS
+                             : -(HUD_ROLL_DY * (HUD_ROLL_STEPS - s_hud_roll_hands.step)) / HUD_ROLL_STEPS;
+                tte_erase_rect_wrapper(HANDS_TEXT_ROLL_ERASE_RECT);
                 tte_printf(
                     "#{P:%d,%d; cx:0x%X000}%d",
                     HANDS_TEXT_RECT.left,
-                    HANDS_TEXT_RECT.top,
-                    TTE_WHITE_PB,
+                    HANDS_TEXT_RECT.top + dy,
+                    TTE_BLUE_PB,
                     cur
                 );
             }
@@ -466,15 +476,19 @@ static inline void hud_pulse_update_loop(void)
             }
             else
             {
+                // Directional roll, red (normal discards color).
                 int delta = s_hud_roll_discards.to_value - s_hud_roll_discards.from_value;
                 int cur = s_hud_roll_discards.from_value +
                           (delta * s_hud_roll_discards.step) / HUD_ROLL_STEPS;
-                tte_erase_rect_wrapper(DISCARDS_TEXT_ERASE_RECT);
+                int dy = (delta >= 0)
+                             ? (HUD_ROLL_DY * (HUD_ROLL_STEPS - s_hud_roll_discards.step)) / HUD_ROLL_STEPS
+                             : -(HUD_ROLL_DY * (HUD_ROLL_STEPS - s_hud_roll_discards.step)) / HUD_ROLL_STEPS;
+                tte_erase_rect_wrapper(DISCARDS_TEXT_ROLL_ERASE_RECT);
                 tte_printf(
                     "#{P:%d,%d; cx:0x%X000}%d",
                     DISCARDS_TEXT_RECT.left,
-                    DISCARDS_TEXT_RECT.top,
-                    TTE_WHITE_PB,
+                    DISCARDS_TEXT_RECT.top + dy,
+                    TTE_RED_PB,
                     cur
                 );
             }

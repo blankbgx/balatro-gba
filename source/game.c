@@ -378,67 +378,106 @@ static inline void joker_event_text_clear_update_loop(void)
     s_joker_event_text_clear_at = 0;
 }
 
-// ---- HUD value pulse animation --------------------------------------------
+// ---- HUD value roll animation ---------------------------------------------
 // Jokers that mutate hands/discards on blind select (Burglar: +3 hands,
-// 0 discards) can request a brief visual pulse: the number alternates
-// between its normal color and white a few times (~1.2s), drawing the
-// player's eye to the changed value. Text has no scale/affine support on
-// GBA, so a color flash is the cheapest readable "jump" animation.
-#define HUD_PULSE_DELAY FRAMES(70)
-#define HUD_PULSE_TOGGLE FRAMES(6)
-static u32 s_hud_pulse_hands_until = 0;
-static u32 s_hud_pulse_discards_until = 0;
-
-void hud_pulse_hands(void)
+// 0 discards) animate the HUD number as a rolling count-up from its
+// pre-mutation value to the new value (12 steps x 2 frames ~0.4s), the
+// same reading as the chips/mult settlement roll. Text has no scale/affine
+// support on GBA, so a digit roll is the cheapest readable "jump" animation.
+// Rolling-digit count-up (Burglar +3 hands / discards to 0), like the
+// chips/mult settlement roll: the HUD number steps from its pre-trigger
+// value to the new value in fixed increments instead of flashing.
+#define HUD_ROLL_STEPS 12
+#define HUD_ROLL_INTERVAL FRAMES(2)
+typedef struct
 {
-    s_hud_pulse_hands_until = g_game_vars.timer + HUD_PULSE_DELAY;
+    bool active;
+    int from_value;
+    int to_value;
+    int step;
+    u32 next_tick_at;
+} HudRollState;
+static HudRollState s_hud_roll_hands = {0};
+static HudRollState s_hud_roll_discards = {0};
+
+void hud_pulse_hands(int from_value)
+{
+    // Rolling count-up: from the PRE-mutation value to the new hands count.
+    // Caller captures from_value BEFORE mutating g_game_vars.hands.
+    s_hud_roll_hands.active = true;
+    s_hud_roll_hands.from_value = from_value;
+    s_hud_roll_hands.to_value = g_game_vars.hands;
+    s_hud_roll_hands.step = 0;
+    s_hud_roll_hands.next_tick_at = g_game_vars.timer + HUD_ROLL_INTERVAL;
 }
 
-void hud_pulse_discards(void)
+void hud_pulse_discards(int from_value)
 {
-    s_hud_pulse_discards_until = g_game_vars.timer + HUD_PULSE_DELAY;
+    s_hud_roll_discards.active = true;
+    s_hud_roll_discards.from_value = from_value;
+    s_hud_roll_discards.to_value = g_game_vars.discards;
+    s_hud_roll_discards.step = 0;
+    s_hud_roll_discards.next_tick_at = g_game_vars.timer + HUD_ROLL_INTERVAL;
 }
 
 static inline void hud_pulse_update_loop(void)
 {
-    if (s_hud_pulse_hands_until != 0)
+    if (s_hud_roll_hands.active)
     {
-        if (g_game_vars.timer < s_hud_pulse_hands_until)
+        if (g_game_vars.timer >= s_hud_roll_hands.next_tick_at)
         {
-            bool flash_white = (g_game_vars.timer / HUD_PULSE_TOGGLE) % 2 == 0;
-            tte_erase_rect_wrapper(HANDS_TEXT_ERASE_RECT);
-            tte_printf(
-                "#{P:%d,%d; cx:0x%X000}%ld",
-                HANDS_TEXT_RECT.left,
-                HANDS_TEXT_RECT.top,
-                flash_white ? TTE_WHITE_PB : TTE_BLUE_PB,
-                g_game_vars.hands
-            );
-        }
-        else
-        {
-            s_hud_pulse_hands_until = 0;
-            display_hands();
+            s_hud_roll_hands.step++;
+            s_hud_roll_hands.next_tick_at = g_game_vars.timer + HUD_ROLL_INTERVAL;
+
+            if (s_hud_roll_hands.step >= HUD_ROLL_STEPS)
+            {
+                s_hud_roll_hands.active = false;
+                display_hands();
+            }
+            else
+            {
+                // Linear interp from_value -> to_value; draw in white so the
+                // rolling number reads as an active change (like chips roll).
+                int delta = s_hud_roll_hands.to_value - s_hud_roll_hands.from_value;
+                int cur = s_hud_roll_hands.from_value +
+                          (delta * s_hud_roll_hands.step) / HUD_ROLL_STEPS;
+                tte_erase_rect_wrapper(HANDS_TEXT_ERASE_RECT);
+                tte_printf(
+                    "#{P:%d,%d; cx:0x%X000}%d",
+                    HANDS_TEXT_RECT.left,
+                    HANDS_TEXT_RECT.top,
+                    TTE_WHITE_PB,
+                    cur
+                );
+            }
         }
     }
-    if (s_hud_pulse_discards_until != 0)
+    if (s_hud_roll_discards.active)
     {
-        if (g_game_vars.timer < s_hud_pulse_discards_until)
+        if (g_game_vars.timer >= s_hud_roll_discards.next_tick_at)
         {
-            bool flash_white = (g_game_vars.timer / HUD_PULSE_TOGGLE) % 2 == 0;
-            tte_erase_rect_wrapper(DISCARDS_TEXT_ERASE_RECT);
-            tte_printf(
-                "#{P:%d,%d; cx:0x%X000}%ld",
-                DISCARDS_TEXT_RECT.left,
-                DISCARDS_TEXT_RECT.top,
-                flash_white ? TTE_WHITE_PB : TTE_RED_PB,
-                g_game_vars.discards
-            );
-        }
-        else
-        {
-            s_hud_pulse_discards_until = 0;
-            display_discards();
+            s_hud_roll_discards.step++;
+            s_hud_roll_discards.next_tick_at = g_game_vars.timer + HUD_ROLL_INTERVAL;
+
+            if (s_hud_roll_discards.step >= HUD_ROLL_STEPS)
+            {
+                s_hud_roll_discards.active = false;
+                display_discards();
+            }
+            else
+            {
+                int delta = s_hud_roll_discards.to_value - s_hud_roll_discards.from_value;
+                int cur = s_hud_roll_discards.from_value +
+                          (delta * s_hud_roll_discards.step) / HUD_ROLL_STEPS;
+                tte_erase_rect_wrapper(DISCARDS_TEXT_ERASE_RECT);
+                tte_printf(
+                    "#{P:%d,%d; cx:0x%X000}%d",
+                    DISCARDS_TEXT_RECT.left,
+                    DISCARDS_TEXT_RECT.top,
+                    TTE_WHITE_PB,
+                    cur
+                );
+            }
         }
     }
 }

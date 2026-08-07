@@ -16,6 +16,20 @@
 
 ## 已修复 Bug 清单（按时间倒序）
 
+### M14. 窃贼手数/弃牌 HUD 动画改为数字滚动（原为颜色闪烁）（P2）— 2026-08-07
+
+**背景**：Burglar 触发时 hands/discards HUD 是"白↔本色闪烁"（~1.2s），用户希望像筹码结算那样**数字滚动**（从旧值逐级跳到新值）。
+
+**修复**：`hud_pulse_hands(int from_value)` / `hud_pulse_discards(int from_value)` 改为滚动计数——调用方（DEFER_BURGLAR fire 分支）在修改 `g_game_vars.hands/discards` **前**捕获旧值传入；`hud_pulse_update_loop` 按 `HUD_ROLL_STEPS 12` 步 × `FRAMES(2)` 线性插值重绘（白色数字，~0.4s），结束后恢复 `display_hands()/display_discards()`。废弃的 HUD_PULSE_DELAY/TOGGLE 常量与 pulse 状态变量已删除。
+
+**复测步骤**：
+1. 持有窃贼 → 选盲注 → 手数数字从旧值**逐级滚动**到 +3 后的值（不是闪烁）
+2. 弃牌数从旧值滚到 0
+3. 蓝图/脑暴复制窃贼（多个实例逐个触发）→ 每个实例触发时都滚动一次
+4. 回归：普通打出/弃牌时 HUD 数字正常（无残留动画）
+
+**边界**：滚动期间若玩家快速操作（打出/弃牌），`display_*` 可能被常规显示覆盖——滚动状态在下次触发时重置，无累积。
+
 ### M13. Showman 无法刷出重复卡（reroll 未重建 rollable 池）（P0）— 2026-08-07
 
 **背景**：购买小丑时 `add_joker` 无条件 `joker_set_rollable(id, false)`；但 `game_shop_reroll()` 不调用 `joker_reset_rollable_jokers()`（只在进商店的 `game_shop_reset` 调用）→ 购买过的卡在后续 reroll 中保持 false，**持有 Showman 也刷不出重复卡**。

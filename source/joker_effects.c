@@ -2657,13 +2657,17 @@ void deferred_effects_process_pending(void)
 
             case DEFER_BURGLAR:
             {
-                // Fire: apply +3 hands, lose all discards, pulse both HUD
-                // numbers. Each queued instance (real card + Blueprint +
-                // Brainstorm copies) fires one beat apart.
+                // Fire: apply +3 hands, lose all discards, roll both HUD
+                // numbers from their pre-mutation values to the new ones
+                // (rolling-digit count-up, not a color flash). Each queued
+                // instance (real card + Blueprint + Brainstorm copies) fires
+                // one beat apart.
+                int old_hands = g_game_vars.hands;
+                int old_discards = g_game_vars.discards;
                 g_game_vars.hands += 3;
                 g_game_vars.discards = 0;
-                hud_pulse_hands();
-                hud_pulse_discards();
+                hud_pulse_hands(old_hands);
+                hud_pulse_discards(old_discards);
                 break;
             }
         }

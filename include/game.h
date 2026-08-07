@@ -91,15 +91,18 @@ List* get_discarded_jokers_list(void);
 void schedule_joker_event_text_clear(void);
 
 /**
- * @brief Briefly flash the hands HUD number (white/blue toggle) to draw
- *        the player's eye to a joker-mutated value (e.g. Burglar +3).
+ * @brief Animate the hands HUD number as a rolling count-up from the
+ *        pre-mutation value to the current hands count (white digits,
+ *        like the chips settlement roll). Caller must capture from_value
+ *        BEFORE mutating g_game_vars.hands.
  */
-void hud_pulse_hands(void);
+void hud_pulse_hands(int from_value);
 
 /**
- * @brief Briefly flash the discards HUD number (white/red toggle).
+ * @brief Animate the discards HUD number as a rolling count-up from the
+ *        pre-mutation value to the current discards count.
  */
-void hud_pulse_discards(void);
+void hud_pulse_discards(int from_value);
 
 int deck_get_size(void);
 int get_deck_top(void);

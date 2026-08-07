@@ -39,16 +39,26 @@ if [ -f "$COUNT_FILE" ]; then
 fi
 COUNT=$((COUNT + 1))
 
+# --- pick a python that has bypy (hermes venv on PATH may shadow it) ---------
+BYPY_PY=""
+for candidate in python /c/Python313/python; do
+    if $candidate -m bypy --help >/dev/null 2>&1; then
+        BYPY_PY=$candidate
+        break
+    fi
+done
+[ -n "$BYPY_PY" ] || { echo "error: no python with bypy found" >&2; exit 1; }
+
 # --- clean old ROMs when counter hits the threshold --------------------------
 if [ "$COUNT" -ge "$CLEAN_EVERY" ]; then
     echo "== upload #$COUNT: cleaning old ROMs in /gbalatro/ =="
     # List remote .gba files and delete each one (tolerate transient errors)
-    python -m bypy list /gbalatro 2>/dev/null \
-        | grep '\.gba' \
+    $BYPY_PY -m bypy list /gbalatro 2>/dev/null \
+        | grep '\\.gba' \
         | awk '{print $2}' \
         | while read -r f; do
             echo "   deleting $f"
-            python -m bypy delete "/gbalatro/$f" >/dev/null 2>&1 || true
+            $BYPY_PY -m bypy delete "/gbalatro/$f" >/dev/null 2>&1 || true
         done
     COUNT=1
 fi
@@ -59,7 +69,7 @@ ROM_DIR=$(cd "$(dirname "$ROM")" && pwd)
 ROM_NAME=$(basename "$ROM")
 (
     cd "$ROM_DIR" || exit 1
-    python -m bypy upload "$ROM_NAME" /gbalatro/ 2>/dev/null || {
+    $BYPY_PY -m bypy upload "$ROM_NAME" /gbalatro/ 2>/dev/null || {
         echo "error: upload failed" >&2
         exit 1
     }

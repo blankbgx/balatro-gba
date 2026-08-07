@@ -498,6 +498,13 @@ static inline void game_shop_reroll(void)
     list_clear(shop_items_list);
     *shop_items_list = list_init();
 
+    // Rebuild the rollable pool BEFORE rolling new items. Buying a joker
+    // marks it non-rollable (add_joker -> joker_set_rollable(false)); without
+    // this reset every purchased card stays excluded from subsequent rerolls
+    // even while Showman (马戏团长) is held. game_shop_reset() does this on
+    // shop entry; reroll must too (bug: "马戏团长无法刷出重复卡").
+    joker_reset_rollable_jokers();
+
     game_shop_create_top_row_items();
 
     itr = list_itr_create(shop_items_list);

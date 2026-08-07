@@ -16,6 +16,20 @@
 
 ## 已修复 Bug 清单（按时间倒序）
 
+### M13. Showman 无法刷出重复卡（reroll 未重建 rollable 池）（P0）— 2026-08-07
+
+**背景**：购买小丑时 `add_joker` 无条件 `joker_set_rollable(id, false)`；但 `game_shop_reroll()` 不调用 `joker_reset_rollable_jokers()`（只在进商店的 `game_shop_reset` 调用）→ 购买过的卡在后续 reroll 中保持 false，**持有 Showman 也刷不出重复卡**。
+
+**修复**：`game_shop_reroll()` 生成新物品前调用 `joker_reset_rollable_jokers()`（与进商店一致；有 Showman 时跳过 owned 排除循环，全部卡可 roll）。
+
+**复测步骤**：
+1. 持有 Showman → 买一张任意小丑 → reroll → 该小丑可再次出现在商店
+2. 持有 Showman → reroll 多次 → Showman 自己也偶尔出现
+3. 无 Showman → 买卡后 reroll → 已持有卡不出现（去重仍生效）
+4. 卖出卡后 reroll → 该卡可再刷出
+
+**边界**：Cavendish 初始不可 roll 不受影响（reset 后仍 false）；Gros Michel 销毁后不入池（joker_update_food_pool 在 roll 时处理）。
+
 ### M12. Mime 链式复制计数 + "Again!" 位置轮换（P1）— 2026-08-07
 
 **背景**：`count_mime_effects()` 和 Again 定位用单跳解析（只认"直接复制 Mime"），而运行时 `blueprint_brainstorm_joker_effect` 已支持链式复制（脑暴→蓝图→任意非被动小丑）。导致：

@@ -2722,14 +2722,24 @@ static u32 mime_joker_effect(
     JokerEffect** joker_effect
 )
 {
-    if (joker_event == JOKER_EVENT_ON_HAND_SCORED_END)
-    {
-        // Signal that held cards should be retriggered
-        // This would need integration with the scoring system
-        *joker_effect = &s_shared_joker_effect;
-        (*joker_effect)->message = "Again!";
-        return JOKER_EFFECT_FLAG_MESSAGE;
-    }
+    // Mime retriggers the whole "held in hand" scoring pass: when held cards
+    // are walked (JOKER_EVENT_ON_CARD_HELD per card), EVERY joker that hooks
+    // that pass runs again - Baron (Kings x1.5), Shoot the Moon (Queens +13
+    // mult), Steel/Gold/Blue Seals (card abilities). It does NOT retrigger
+    // the normal joker scoring order (Blackboard, Riding the Bus etc.).
+    //
+    // Implementation lives in round.c (play_scoring_held_cards_update):
+    // after the walk finishes, it counts Mime effects present (real card +
+    // Blueprint/Brainstorm copies) and re-runs the whole walk that many
+    // times. Each extra pass re-triggers Baron/Shoot the Moon for every
+    // qualifying held card, and shows "Again!" on the Mime (with an actual
+    // retrigger target, like Sock and Buskin).
+    //
+    // This effect function itself does nothing: the retrigger is driven by
+    // the round loop, not by a per-card effect return.
+    (void)joker;
+    (void)scored_card;
+    (void)joker_effect;
 
     return JOKER_EFFECT_FLAG_NONE;
 }
@@ -2985,32 +2995,21 @@ static u32 loyalty_card_joker_effect(
             break;
 
         case JOKER_EVENT_INDEPENDENT:
-            // Remaining == 0 means this hand gets the X4, then the cycle resets.
-            // Decrementing happens in ON_HAND_SCORED_END (AFTER this event),
-            // so at INDEPENDENT time every joker - real card AND copies -
-            // sees the counter value from when this hand started. If the
-            // decrement ran here, a copy to the RIGHT of the real card would
-            // see the just-decremented 0 and fire one hand early (the real
-            // card fires next hand) - the desync the user reported.
+            // Remaining == 0 means this hand gets the X4. Trigger check ONLY
+            // here - no reset, no decrement: those happen in
+            // ON_HAND_SCORED_END. This guarantees every joker (real card AND
+            // copies) sees the SAME counter value during this event regardless
+            // of list order. If the real card reset here, a copy to its RIGHT
+            // would read 5 instead of 0 and never fire on the trigger hand;
+            // if it decremented here, a copy to its right would read the
+            // just-decremented 0 and fire one hand early.
             if (*p_remaining == 0)
             {
-                if (s_is_copying_joker)
-                {
-                    // Copy mirrors the source's X4 on the same hand, but the
-                    // reset happens on the real card's pass (below) - the
-                    // copy must NOT reset or the shared counter would be
-                    // re-armed mid-cycle.
-                    *joker_effect = &s_shared_joker_effect;
-                    (*joker_effect)->xmult = 4;
-                    effect_flags_ret = JOKER_EFFECT_FLAG_XMULT;
-                }
-                else
-                {
-                    *p_remaining = LOYALTY_CARD_HANDS_REQUIRED - 1;
-                    *joker_effect = &s_shared_joker_effect;
-                    (*joker_effect)->xmult = 4;
-                    effect_flags_ret = JOKER_EFFECT_FLAG_XMULT;
-                }
+                *joker_effect = &s_shared_joker_effect;
+                (*joker_effect)->xmult = 4;
+                effect_flags_ret = JOKER_EFFECT_FLAG_XMULT;
+                // Copy or real card: both fire X4 on the trigger hand. The
+                // real card alone resets the cycle in ON_HAND_SCORED_END.
             }
             break;
 
@@ -3018,10 +3017,12 @@ static u32 loyalty_card_joker_effect(
             // Show remaining hands until next X4 (real joker only, not copies)
             if (!s_is_copying_joker)
             {
-                // Decrement here, after the trigger check ran: at this point
-                // no other joker (real or copy) will re-read the counter this
-                // hand, so ordering can never desync the trigger.
-                if (*p_remaining > 0)
+                // End of the trigger hand: reset the cycle. Otherwise just
+                // decrement. Runs AFTER the trigger check, so no joker will
+                // re-read the counter this hand - ordering can't desync.
+                if (*p_remaining == 0)
+                    *p_remaining = LOYALTY_CARD_HANDS_REQUIRED - 1; // 5
+                else
                     (*p_remaining)--;
 
                 *joker_effect = &s_shared_joker_effect;

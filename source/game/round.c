@@ -18,6 +18,9 @@
 #include "selection_grid.h"
 #include "soundbank.h"
 #include "timer.h"
+
+// Score text display row for jokers (mirrors source/joker.c JOKER_SCORE_TEXT_Y)
+#define JOKER_SCORE_TEXT_Y 48
 #include "util.h"
 
 #include <stdlib.h>
@@ -1762,8 +1765,93 @@ static inline bool play_scoring_card_jokers_update(void)
  * @return true if the Joker scoring loop has returned early
  * @sa check_and_score_joker_for_event
  */
+/**
+ * @brief Count Mime effects in play: the real Mime card plus every
+ *        Blueprint/Brainstorm that is currently copying a Mime.
+ *
+ * Blueprint copies the joker immediately to its RIGHT; Brainstorm copies
+ * the LEFTMOST joker. Both count as one Mime effect each (original Balatro:
+ * a Blueprint copying Mime is effectively a second Mime).
+ *
+ * @return number of Mime effects (0 if none)
+ */
+static int count_mime_effects(void)
+{
+    List* jokers = get_jokers_list();
+    int mime_count = 0;
+
+    ListItr itr = list_itr_create(jokers);
+    JokerObject* cur;
+    while ((cur = list_itr_next(&itr)))
+    {
+        u8 id = cur->joker->id;
+        if (id == MIME_JOKER_ID)
+        {
+            mime_count++;
+        }
+        else if (id == BLUEPRINT_JOKER_ID || id == BRAINSTORM_JOKER_ID)
+        {
+            // Find what this copying joker is copying.
+            JokerObject* target = NULL;
+            ListItr itr2 = list_itr_create(jokers);
+            JokerObject* probe;
+            while ((probe = list_itr_next(&itr2)))
+            {
+                if (probe == cur)
+                {
+                    if (id == BLUEPRINT_JOKER_ID)
+                        target = list_itr_next(&itr2); // next right
+                    else
+                    {
+                        // Brainstorm: leftmost joker. Rewind to the front.
+                        itr2 = list_itr_create(jokers);
+                        target = list_itr_next(&itr2);
+                    }
+                    break;
+                }
+            }
+            if (target != NULL && target->joker != NULL &&
+                target->joker->id == MIME_JOKER_ID)
+            {
+                mime_count++;
+            }
+        }
+    }
+
+    return mime_count;
+}
+
+/**
+ * @brief True when the held hand contains any card that a held-in-hand
+ *        joker cares about (Kings for Baron, Queens for Shoot the Moon).
+ *        Mime only shows "Again!" and re-runs the held pass when there is
+ *        actually something to retrigger - same gate as Sock and Buskin
+ *        requiring a face card.
+ */
+static bool held_hand_has_retrigger_target(void)
+{
+    CardObject** hand = get_hand_array();
+    int top = get_hand_top();
+
+    for (int i = top; i >= 0; i--)
+    {
+        if (hand[i] == NULL || hand[i]->card == NULL)
+            continue;
+
+        u8 rank = hand[i]->card->rank;
+        if (rank == KING || rank == QUEEN)
+            return true;
+    }
+
+    return false;
+}
+
 static inline bool play_scoring_held_cards_update(int played_idx)
 {
+    // Retrigger bookkeeping for Mime: how many extra held-cards passes are
+    // still to run this hand (0 = normal single pass).
+    static int s_mime_passes_left = 0;
+
     if (played_idx == 0 && (g_game_vars.timer % FRAMES(30) == 0) && g_game_vars.timer > FRAMES(40))
     {
         tte_erase_rect_wrapper(HELD_CARDS_SCORES_RECT);
@@ -1784,6 +1872,61 @@ static inline bool play_scoring_held_cards_update(int played_idx)
             }
             s_joker_scored_itr = list_itr_create(get_jokers_list());
         }
+
+        // Held-cards walk finished. Mime retriggers the whole pass: if Mime
+        // effects are in play AND the hand actually has a held-in-hand
+        // target (Kings/Queens), re-run the walk - one extra pass per Mime
+        // effect (real card + Blueprint/Brainstorm copies). Each pass shows
+        // "Again!" on the Mime (only when something was retriggered).
+        if (s_mime_passes_left == 0)
+        {
+            s_mime_passes_left = count_mime_effects();
+        }
+        if (s_mime_passes_left > 0 && held_hand_has_retrigger_target())
+        {
+            s_mime_passes_left--;
+
+            // Show "Again!" on the Mime that drove this pass - prefer the
+            // real card, fall back to a Blueprint/Brainstorm copy of Mime
+            // (a pure-copy Mime deck has no real Mime card).
+            List* jokers = get_jokers_list();
+            ListItr itr = list_itr_create(jokers);
+            JokerObject* joker_object;
+            JokerObject* copy_mime = NULL;
+            while ((joker_object = list_itr_next(&itr)))
+            {
+                u8 id = joker_object->joker->id;
+                if (id == MIME_JOKER_ID)
+                {
+                    tte_set_pos(fx2int(joker_object->x) + TILE_SIZE, JOKER_SCORE_TEXT_Y);
+                    tte_set_special(TTE_WHITE_PB * TTE_SPECIAL_PB_MULT_OFFSET);
+                    tte_write("Again!");
+                    joker_object_shake(joker_object, UNDEFINED);
+                    schedule_joker_event_text_clear();
+                    copy_mime = NULL;
+                    break;
+                }
+                if ((id == BLUEPRINT_JOKER_ID || id == BRAINSTORM_JOKER_ID) &&
+                    copy_mime == NULL)
+                {
+                    copy_mime = joker_object; // remember first copy, fallback
+                }
+            }
+            if (copy_mime != NULL)
+            {
+                tte_set_pos(fx2int(copy_mime->x) + TILE_SIZE, JOKER_SCORE_TEXT_Y);
+                tte_set_special(TTE_WHITE_PB * TTE_SPECIAL_PB_MULT_OFFSET);
+                tte_write("Again!");
+                joker_object_shake(copy_mime, UNDEFINED);
+                schedule_joker_event_text_clear();
+            }
+
+            // Rewind the walk to re-score every held card again.
+            s_scored_card_index = get_hand_top();
+            s_joker_scored_itr = list_itr_create(get_jokers_list());
+            return true;
+        }
+        s_mime_passes_left = 0;
 
         s_scored_card_index = 0;
         s_joker_round_end_itr = list_itr_create(get_jokers_list());

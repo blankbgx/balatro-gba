@@ -2201,14 +2201,11 @@ static u32 wee_joker_effect(
         case JOKER_EVENT_ON_CARD_SCORED:
             if (scored_card != NULL && scored_card->rank == TWO)
             {
-                if (s_is_copying_joker)
-                {
-                    // Copy mode: read original's accumulated value (no accumulation)
-                    *joker_effect = &s_shared_joker_effect;
-                    (*joker_effect)->chips = s_copied_joker_source->scoring_state;
-                    return JOKER_EFFECT_FLAG_CHIPS;
-                }
-                else
+                // Copies stay silent here: accumulation belongs to the real
+                // joker, and the copy mirrors the final accumulated value at
+                // ON_HAND_SCORED_END. Returning the running total per scored
+                // 2 would double-count it (8+16+24 instead of 24+24).
+                if (!s_is_copying_joker)
                 {
                     // Normal mode: accumulate +8 chips and show upgrade animation
                     joker->scoring_state += 8;
@@ -2221,12 +2218,21 @@ static u32 wee_joker_effect(
 
         case JOKER_EVENT_ON_HAND_SCORED_END:
             // Add accumulated chips to base chips so they participate
-            // in the final Chips × Mult calculation
-            if (joker->scoring_state > 0)
+            // in the final Chips × Mult calculation. Copies mirror the
+            // original's final accumulated value once.
             {
-                *joker_effect = &s_shared_joker_effect;
-                (*joker_effect)->chips = joker->scoring_state;
-                return JOKER_EFFECT_FLAG_CHIPS;
+                s32 chips_to_apply;
+                if (s_is_copying_joker && s_copied_joker_source != NULL)
+                    chips_to_apply = s_copied_joker_source->scoring_state;
+                else
+                    chips_to_apply = joker->scoring_state;
+
+                if (chips_to_apply > 0)
+                {
+                    *joker_effect = &s_shared_joker_effect;
+                    (*joker_effect)->chips = chips_to_apply;
+                    return JOKER_EFFECT_FLAG_CHIPS;
+                }
             }
             break;
 

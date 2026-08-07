@@ -100,7 +100,6 @@ enum JokerEvent
 #define BLUEPRINT_JOKER_ID    52
 #define SMEARED_JOKER_ID      58
 #define MIME_JOKER_ID         56
-#define JOLLY_JOKER_ID        59
 #define GROS_MICHEL_ID        60
 #define CAVENDISH_ID          61
 #define LOYALTY_CARD_ID       63

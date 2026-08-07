@@ -2243,7 +2243,7 @@ static u32 wee_joker_effect(
     return JOKER_EFFECT_FLAG_NONE;
 }
 
-// Riff-Raff: When blind starts (cards dealt), create 2 random common/uncommon jokers
+// Riff-Raff: When blind starts (cards dealt), create 2 random common jokers
 // --- Unified deferred blind-selected action queue ----------------------------
 // ON_BLIND_SELECTED dispatches left-to-right; every blind-selected joker
 // (Riff-Raff spawns, Ceremonial Dagger sacrifice) enqueues ONE request in

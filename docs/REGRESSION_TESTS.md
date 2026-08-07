@@ -21,8 +21,8 @@
 **背景**：新增两张小丑 + 窃贼卡面更新。
 - **Showman（马戏团长，ID 69）**：被动——商店/乌合之众可重复获取已持有小丑（`is_showman_joker_active` 状态轮询；`joker_reset_rollable_jokers` 和 Riff-Raff 去重跳过）
 - **Card Sharp（老千小丑，ID 70）**：Independent——本回合已打牌型 ×3（用 `g_game_vars.nb_played_hands[hand_type-1] > 1` 判断）
-- **大麦克特例（demake 独特设计）**：销毁前可重复获取（即使无 Showman）；销毁后永不入池；**一旦灭绝，所有在场大麦克一起灭绝**（`expire_all_gros_michel`）
-- 卡面：Showman/Card Sharp → sheet 18（扩展 64x32）；Burglar v2 → sheet 0 slot 28
+- **大麦克特例（demake 独特设计）**：重复获取需持有 Showman（与普通卡同规则）；销毁后永不入池；**一旦灭绝，所有在场大麦克一起灭绝**（`expire_all_gros_michel`）
+- 卡面：Showman/Card Sharp → gfx0 slots 29/30（用户量化后移动）；Burglar v2 → gfx0 slot 28
 
 **复测步骤**：
 1. 持有 Showman → 商店/乌合之众出现已持有的小丑（可买第二张）

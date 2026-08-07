@@ -428,7 +428,9 @@ void joker_reset_rollable_jokers(void)
 
     // Owned jokers can't be rolled again in the shop... unless Showman
     // (马戏团长) is in play: it allows already-owned Jokers to appear
-    // multiple times in the shop/booster packs.
+    // multiple times in the shop/booster packs. Gros Michel follows the
+    // same rule - it can only be re-obtained while Showman is held.
+    // Once destroyed it leaves the pool forever (joker_update_food_pool).
     if (!is_showman_joker_active())
     {
         List* owned_jokers = get_jokers_list();
@@ -438,15 +440,6 @@ void joker_reset_rollable_jokers(void)
         {
             if (joker_object != NULL && joker_object->joker != NULL)
             {
-                // Demake-specific exception: Gros Michel can always be
-                // re-obtained while alive (the player may hold several),
-                // even without Showman. Once destroyed it leaves the pool
-                // forever (joker_update_food_pool).
-                if (joker_object->joker->id == GROS_MICHEL_ID &&
-                    !is_gros_michel_destroyed())
-                {
-                    continue;
-                }
                 bitset_set_idx(&s_rollable_jokers_bitset, joker_object->joker->id, false);
             }
         }

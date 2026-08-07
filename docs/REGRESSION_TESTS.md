@@ -16,6 +16,24 @@
 
 ## 已修复 Bug 清单（按时间倒序）
 
+### M10. 新卡实装：Showman + Card Sharp + Burglar v2 卡面（P0）— 2026-08-07
+
+**背景**：新增两张小丑 + 窃贼卡面更新。
+- **Showman（马戏团长，ID 69）**：被动——商店/乌合之众可重复获取已持有小丑（`is_showman_joker_active` 状态轮询；`joker_reset_rollable_jokers` 和 Riff-Raff 去重跳过）
+- **Card Sharp（老千小丑，ID 70）**：Independent——本回合已打牌型 ×3（用 `g_game_vars.nb_played_hands[hand_type-1] > 1` 判断）
+- **大麦克特例（demake 独特设计）**：销毁前可重复获取（即使无 Showman）；销毁后永不入池；**一旦灭绝，所有在场大麦克一起灭绝**（`expire_all_gros_michel`）
+- 卡面：Showman/Card Sharp → sheet 18（扩展 64x32）；Burglar v2 → sheet 0 slot 28
+
+**复测步骤**：
+1. 持有 Showman → 商店/乌合之众出现已持有的小丑（可买第二张）
+2. 无 Showman → 已持有小丑正常不出现（回归）
+3. 持有多个大麦克（重复获取）→ 其中 1 个灭绝 → **全部一起 EXTINCT**
+4. 大麦克销毁前：商店可持续出现；销毁后：永不再出现
+5. Card Sharp：先打一对（×1）→ 再打一对 → 第二次 ×3；第一手不触发
+6. 窃贼卡面 v2 显示正常（shop + 对局内）
+
+**边界**：Showman 不影响大麦克销毁后不入池规则；Card Sharp 计数每回合重置。
+
 ### M9. Mime 重触发死循环 + "Again!" 位置（P0）— 2026-08-07, commit 250f29d
 
 **背景**：

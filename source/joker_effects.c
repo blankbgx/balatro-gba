@@ -125,9 +125,13 @@ REGISTER_JOKER_DESC_FUNC(ceremonial_dagger_joker_desc)
 REGISTER_JOKER_DESC_FUNC(credit_card_joker_desc)
 REGISTER_JOKER_DESC_FUNC(burglar_joker_desc)
 REGISTER_JOKER_DESC_FUNC(flash_card_joker_desc)
+REGISTER_JOKER_DESC_FUNC(showman_joker_desc)
+REGISTER_JOKER_DESC_FUNC(card_sharp_joker_desc)
 REGISTER_JOKER_EFFECT_FUNC(credit_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(burglar_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(flash_card_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(showman_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(card_sharp_joker_effect)
 
 // Joker Effect functions
 
@@ -301,6 +305,8 @@ const JokerInfo joker_registry[] =
         { "Credit Card",      COMMON_JOKER,    1, false, credit_card_joker_desc,      credit_card_joker_effect      }, // 66 Credit Card
         { "Burglar",          UNCOMMON_JOKER,  6, false, burglar_joker_desc,        burglar_joker_effect            }, // 67 Burglar
         { "Flash Card",       UNCOMMON_JOKER,  5, false, flash_card_joker_desc,     flash_card_joker_effect         }, // 68 Flash Card
+        { "Showman",          UNCOMMON_JOKER,  5, false, showman_joker_desc,        showman_joker_effect            }, // 69 Showman
+        { "Card Sharp",       UNCOMMON_JOKER,  6, false, card_sharp_joker_desc,     card_sharp_joker_effect         }, // 70 Card Sharp
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -2509,7 +2515,7 @@ void deferred_effects_process_pending(void)
                         u8 candidate = rng_get_u32() % get_joker_registry_size();
                         const JokerInfo* info = get_joker_registry_entry(candidate);
                         if (info && info->rarity == rarity &&
-                            !is_joker_owned(candidate))
+                            (is_showman_joker_active() || !is_joker_owned(candidate)))
                         {
                             if (candidate == GROS_MICHEL_ID &&
                                 is_gros_michel_destroyed())
@@ -2850,8 +2856,11 @@ static u32 gros_michel_joker_effect(
         // Don't self-destruct when being copied by Blueprint/Brainstorm
         if (!s_is_copying_joker && (rng_get_u32() % 6) == 0)
         {
-            // Self-destruct!
+            // Self-destruct! Demake-specific rule: extinction is GLOBAL -
+            // every Gros Michel in play dies together (the player may hold
+            // several, since it stays in the pool while alive).
             set_gros_michel_destroyed();
+            expire_all_gros_michel();
             *joker_effect = &s_shared_joker_effect;
             (*joker_effect)->message = "EXTINCT!";
             (*joker_effect)->expire = true;
@@ -3495,6 +3504,94 @@ static u32 burglar_joker_effect(
             s_deferred_queue[s_deferred_count] = self_object;
             s_deferred_kind[s_deferred_count] = DEFER_BURGLAR;
             s_deferred_count++;
+        }
+    }
+
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// --------------------------------------------------------------------------
+// Showman (马戏团长) - ID 69
+// Passive: Joker, Tarot, Planet and Spectral cards may appear multiple times.
+// In this demake it affects Jokers only: the shop and booster packs (Riff-Raff)
+// stop deduplicating owned Jokers, so already-owned ones can appear again.
+// --------------------------------------------------------------------------
+static int showman_joker_desc(Joker* joker, Rect dest_rect)
+{
+    (void)joker;
+    char desc[200];
+    snprintf(
+        desc,
+        sizeof(desc),
+        TTE_BLACK_TAG "Joker, " TTE_BLUE_TAG "Tarot" TTE_BLACK_TAG ", "
+        TTE_BLUE_TAG "Planet" TTE_BLACK_TAG " and " TTE_BLUE_TAG "Spectral"
+        TTE_BLACK_TAG " cards may appear " TTE_RED_TAG "multiple times"
+        TTE_BLACK_TAG " (shop & packs)"
+    );
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 showman_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    // Passive: the effect is implemented in joker_reset_rollable_jokers()
+    // (shop pool) and Riff-Raff spawn logic via is_showman_joker_active().
+    // No event-triggered behaviour - like Smeared Joker, this is a
+    // state-polled passive card.
+    (void)joker;
+    (void)scored_card;
+    (void)joker_event;
+    (void)joker_effect;
+
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// --------------------------------------------------------------------------
+// Card Sharp (老千小丑) - ID 70
+// Independent: X3 Mult if the played poker hand has already been played
+// this round (i.e. this hand type occurred 2+ times this round).
+// --------------------------------------------------------------------------
+static int card_sharp_joker_desc(Joker* joker, Rect dest_rect)
+{
+    (void)joker;
+    char desc[200];
+    snprintf(
+        desc,
+        sizeof(desc),
+        TTE_BLACK_TAG "X" TTE_RED_TAG "3 Mult" TTE_BLACK_TAG
+        " if played " TTE_BLUE_TAG "poker hand" TTE_BLACK_TAG
+        " has already been played " TTE_BLUE_TAG "this round"
+        TTE_BLACK_TAG
+    );
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 card_sharp_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    (void)joker;
+    (void)scored_card;
+
+    if (joker_event == JOKER_EVENT_INDEPENDENT)
+    {
+        // nb_played_hands[hand_type-1] is incremented on play (before
+        // scoring), so at Independent time it already includes the current
+        // hand. Count > 1 means this hand type was played before this round.
+        u32 hand_type = get_hand_type();
+        if (hand_type > 0 && hand_type <= HAND_TYPE_MAX &&
+            g_game_vars.nb_played_hands[hand_type - 1] > 1)
+        {
+            *joker_effect = &s_shared_joker_effect;
+            joker_effect_set_xmult(&s_shared_joker_effect, 3);
+            return JOKER_EFFECT_FLAG_XMULT;
         }
     }
 

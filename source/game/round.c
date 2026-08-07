@@ -2304,6 +2304,12 @@ void game_round_on_init(void)
      */
     game_round_selection_grid.selection = GAME_PLAYING_INIT_SEL;
 
+    // New round starts here (blind selected): reset per-round state.
+    // Card Sharp (老千小丑) checks "played this round" via nb_played_hands,
+    // so the counter must NOT leak across rounds.
+    for (int i = 0; i < HAND_TYPE_MAX; i++)
+        g_game_vars.nb_played_hands[i] = 0;
+
     // Dispatch ON_BLIND_SELECTED to all jokers after blind selection,
     // before cards are dealt. Used by Riff-Raff, Dagger, Madness, etc.
     // Uses joker_object_score (not joker_get_score_effect) so messages

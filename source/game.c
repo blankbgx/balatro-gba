@@ -149,6 +149,8 @@ static int s_four_fingers_joker_count = 0;
 
 static int s_smeared_joker_count = 0;
 
+static int s_showman_joker_count = 0;
+
 // Gros Michel / Cavendish food joker state
 static bool s_gros_michel_destroyed = false;
 
@@ -508,6 +510,11 @@ bool is_smeared_joker_active(void)
     return s_smeared_joker_count > 0;
 }
 
+bool is_showman_joker_active(void)
+{
+    return s_showman_joker_count > 0;
+}
+
 // Gros Michel / Cavendish food joker pool management
 void joker_update_food_pool(void)
 {
@@ -530,6 +537,42 @@ bool is_gros_michel_destroyed(void)
 void set_gros_michel_destroyed(void)
 {
     s_gros_michel_destroyed = true;
+}
+
+void expire_all_gros_michel(void)
+{
+    // Demake-specific rule: Gros Michel extinction is GLOBAL. When one
+    // Gros Michel self-destructs, every other Gros Michel in play dies
+    // with it. Mirror the mechanism used in joker.c (JOKER_EFFECT_FLAG_EXPIRE
+    // -> push into the expired list, which triggers the exit animation and
+    // eventual removal).
+    ListItr itr = list_itr_create(&s_owned_jokers_list);
+    JokerObject* joker_object;
+    List* expired = get_expired_jokers_list();
+
+    while ((joker_object = list_itr_next(&itr)))
+    {
+        if (joker_object != NULL && joker_object->joker != NULL &&
+            joker_object->joker->id == GROS_MICHEL_ID)
+        {
+            bool already_expired = false;
+            ListItr eitr = list_itr_create(expired);
+            JokerObject* exp;
+            while ((exp = list_itr_next(&eitr)))
+            {
+                if (exp == joker_object)
+                {
+                    already_expired = true;
+                    break;
+                }
+            }
+            if (!already_expired)
+            {
+                joker_object_shake(joker_object, UNDEFINED);
+                list_push_back(expired, joker_object);
+            }
+        }
+    }
 }
 
 // Discarded face card count (used by Jolly Joker)
@@ -584,6 +627,11 @@ void add_joker(JokerObject* joker_object)
     {
         s_smeared_joker_count++;
     }
+
+    if (joker_object->joker->id == SHOWMAN_ID)
+    {
+        s_showman_joker_count++;
+    }
 }
 
 void remove_owned_joker(int owned_joker_idx)
@@ -605,6 +653,11 @@ void remove_owned_joker(int owned_joker_idx)
     if (joker_object->joker->id == SMEARED_JOKER_ID)
     {
         s_smeared_joker_count--;
+    }
+
+    if (joker_object->joker->id == SHOWMAN_ID)
+    {
+        s_showman_joker_count--;
     }
 
     // TODO: Move to site of joker_destroy()?

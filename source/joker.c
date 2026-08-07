@@ -104,8 +104,8 @@ static const int JOKER_ID_TO_SPRITE_MAP[] = {
     // ID 65=Ceremonial Dagger(0,26)
         0,
     // Placeholder for IDs 66-70
-    // 66=Credit Card(15,1), 67=Burglar(0,28), 68=Flash Card(0,27), 69-70 unassigned (fallback 19)
-        15, 0, 0, 19, 19,
+    // 66=Credit Card(15,1), 67=Burglar(0,28), 68=Flash Card(0,27), 69=Showman(18,0), 70=Card Sharp(18,1)
+        15, 0, 0, 18, 18,
 };
 
 // Map of Joker ID -> sprite index within its spritesheet
@@ -170,6 +170,10 @@ static const int JOKER_ID_TO_SPRITE_IDX_IN_SHEET[] = {
         28,
         // ID 68 (Flash Card) -> sheet 0, sprite 27 (merged into gfx0)
         27,
+        // ID 69 (Showman) -> sheet 18, sprite 0 (gfx18 expanded to 64x32)
+        0,
+        // ID 70 (Card Sharp) -> sheet 18, sprite 1 (gfx18 expanded to 64x32)
+        1,
     };
 
 // Lookup table of Joker Rarity strings. Used to display at the bottom of the description screen.
@@ -422,15 +426,29 @@ void joker_reset_rollable_jokers(void)
     // (only becomes rollable after Gros Michel is destroyed)
     bitset_set_idx(&s_rollable_jokers_bitset, CAVENDISH_ID, false);
 
-    // Owned jokers can't be rolled again in the shop
-    List* owned_jokers = get_jokers_list();
-    ListItr itr = list_itr_create(owned_jokers);
-    JokerObject* joker_object;
-    while ((joker_object = list_itr_next(&itr)))
+    // Owned jokers can't be rolled again in the shop... unless Showman
+    // (马戏团长) is in play: it allows already-owned Jokers to appear
+    // multiple times in the shop/booster packs.
+    if (!is_showman_joker_active())
     {
-        if (joker_object != NULL && joker_object->joker != NULL)
+        List* owned_jokers = get_jokers_list();
+        ListItr itr = list_itr_create(owned_jokers);
+        JokerObject* joker_object;
+        while ((joker_object = list_itr_next(&itr)))
         {
-            bitset_set_idx(&s_rollable_jokers_bitset, joker_object->joker->id, false);
+            if (joker_object != NULL && joker_object->joker != NULL)
+            {
+                // Demake-specific exception: Gros Michel can always be
+                // re-obtained while alive (the player may hold several),
+                // even without Showman. Once destroyed it leaves the pool
+                // forever (joker_update_food_pool).
+                if (joker_object->joker->id == GROS_MICHEL_ID &&
+                    !is_gros_michel_destroyed())
+                {
+                    continue;
+                }
+                bitset_set_idx(&s_rollable_jokers_bitset, joker_object->joker->id, false);
+            }
         }
     }
 }

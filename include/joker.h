@@ -109,6 +109,8 @@ enum JokerEvent
 #define CREDIT_CARD_ID        66
 #define BURGLAR_ID            67
 #define FLASH_CARD_ID         68
+#define SHOWMAN_ID            69
+#define CARD_SHARP_ID         70
 
 // Credit Card: shop purchases may go into debt down to -20$ per REAL
 // Credit Card held. Blueprint/Brainstorm cannot copy this passive effect

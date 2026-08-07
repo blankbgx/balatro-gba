@@ -1849,8 +1849,11 @@ static bool held_hand_has_retrigger_target(void)
 static inline bool play_scoring_held_cards_update(int played_idx)
 {
     // Retrigger bookkeeping for Mime: how many extra held-cards passes are
-    // still to run this hand (0 = normal single pass).
-    static int s_mime_passes_left = 0;
+    // still to run this hand. -1 = not counted yet (count once on first pass
+    // end); N>0 = N extra passes left; 0 = done. Never recount from 0 -
+    // that would loop forever (the Mime count is always >0 when Mime is in
+    // play).
+    static int s_mime_passes_left = -1;
 
     if (played_idx == 0 && (g_game_vars.timer % FRAMES(30) == 0) && g_game_vars.timer > FRAMES(40))
     {
@@ -1877,8 +1880,16 @@ static inline bool play_scoring_held_cards_update(int played_idx)
         // effects are in play AND the hand actually has a held-in-hand
         // target (Kings/Queens), re-run the walk - one extra pass per Mime
         // effect (real card + Blueprint/Brainstorm copies). Each pass shows
-        // "Again!" on the Mime (only when something was retriggered).
-        if (s_mime_passes_left == 0)
+        // "Again!" on the card that drove it (only when something was
+        // retriggered).
+        //
+        // s_mime_passes_left lifecycle (prevents infinite retrigger):
+        //   -1 = not counted yet this hand (count ONCE on first pass end)
+        //   N>0 = N extra passes still to run
+        //    0 = all passes done (reset to -1, never recount)
+        // The bug this guards against: if 0 meant "recount", the third pass
+        // end would recount Mime effects (>0) and loop forever.
+        if (s_mime_passes_left == -1)
         {
             s_mime_passes_left = count_mime_effects();
         }
@@ -1886,38 +1897,61 @@ static inline bool play_scoring_held_cards_update(int played_idx)
         {
             s_mime_passes_left--;
 
-            // Show "Again!" on the Mime that drove this pass - prefer the
-            // real card, fall back to a Blueprint/Brainstorm copy of Mime
-            // (a pure-copy Mime deck has no real Mime card).
+            // Show "Again!" on the card that drove this pass. Priority:
+            // 1. A Blueprint/Brainstorm currently copying Mime (the copy
+            //    IS the retriggering effect - "Again!" belongs on it).
+            // 2. The real Mime card (only when no copy is present).
             List* jokers = get_jokers_list();
             ListItr itr = list_itr_create(jokers);
             JokerObject* joker_object;
-            JokerObject* copy_mime = NULL;
+            JokerObject* real_mime = NULL;
+            JokerObject* again_target = NULL;
             while ((joker_object = list_itr_next(&itr)))
             {
                 u8 id = joker_object->joker->id;
                 if (id == MIME_JOKER_ID)
                 {
-                    tte_set_pos(fx2int(joker_object->x) + TILE_SIZE, JOKER_SCORE_TEXT_Y);
-                    tte_set_special(TTE_WHITE_PB * TTE_SPECIAL_PB_MULT_OFFSET);
-                    tte_write("Again!");
-                    joker_object_shake(joker_object, UNDEFINED);
-                    schedule_joker_event_text_clear();
-                    copy_mime = NULL;
-                    break;
+                    real_mime = joker_object; // remember, use as fallback
                 }
-                if ((id == BLUEPRINT_JOKER_ID || id == BRAINSTORM_JOKER_ID) &&
-                    copy_mime == NULL)
+                else if (id == BLUEPRINT_JOKER_ID || id == BRAINSTORM_JOKER_ID)
                 {
-                    copy_mime = joker_object; // remember first copy, fallback
+                    // Is this copy targeting a Mime?
+                    JokerObject* target = NULL;
+                    ListItr itr2 = list_itr_create(jokers);
+                    JokerObject* probe;
+                    while ((probe = list_itr_next(&itr2)))
+                    {
+                        if (probe == joker_object)
+                        {
+                            if (id == BLUEPRINT_JOKER_ID)
+                                target = list_itr_next(&itr2); // next right
+                            else
+                            {
+                                // Brainstorm: leftmost joker
+                                itr2 = list_itr_create(jokers);
+                                target = list_itr_next(&itr2);
+                            }
+                            break;
+                        }
+                    }
+                    if (target != NULL && target->joker != NULL &&
+                        target->joker->id == MIME_JOKER_ID)
+                    {
+                        again_target = joker_object; // copy of Mime found
+                        break;
+                    }
                 }
             }
-            if (copy_mime != NULL)
+            if (again_target == NULL)
             {
-                tte_set_pos(fx2int(copy_mime->x) + TILE_SIZE, JOKER_SCORE_TEXT_Y);
+                again_target = real_mime; // no copy -> real card
+            }
+            if (again_target != NULL)
+            {
+                tte_set_pos(fx2int(again_target->x) + TILE_SIZE, JOKER_SCORE_TEXT_Y);
                 tte_set_special(TTE_WHITE_PB * TTE_SPECIAL_PB_MULT_OFFSET);
                 tte_write("Again!");
-                joker_object_shake(copy_mime, UNDEFINED);
+                joker_object_shake(again_target, UNDEFINED);
                 schedule_joker_event_text_clear();
             }
 
@@ -1926,7 +1960,7 @@ static inline bool play_scoring_held_cards_update(int played_idx)
             s_joker_scored_itr = list_itr_create(get_jokers_list());
             return true;
         }
-        s_mime_passes_left = 0;
+        s_mime_passes_left = -1; // hand over: reset to uncounted for next hand
 
         s_scored_card_index = 0;
         s_joker_round_end_itr = list_itr_create(get_jokers_list());

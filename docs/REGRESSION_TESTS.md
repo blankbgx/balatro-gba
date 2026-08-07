@@ -39,7 +39,7 @@
 **修复**：
 1. 新增导出函数 `resolve_copy_target(JokerObject*)`（joker_effects.c，复现运行时链式解析：蓝图→右邻、脑暴→最左，`brainstorm_counter < 2` 防环）——声明在 include/joker.h
 2. `count_mime_effects()` 改用链式解析 → 场景3 计数 3
-3. Again 定位改为收集所有 Mime 效果源（真身+链解析到 Mime 的复制体，按列表序），pass_idx 轮换取源
+3. Again 定位改为收集所有 Mime 效果源（真身+链解析到 Mime 的复制体，按列表序），pass_idx 轮换取源。**PASS_IDX 计算陷阱（2026-08-07 二次修复，commit 后的 follow-up）**：`total_passes` 必须保存**初始计数**（`s_mime_total_passes`，在 `== -1` 分支赋值），不能每次 pass 重新读 `s_mime_passes_left`——重新读会让每轮都算出 `k=0`，Again 永远固定在第一个复制体（用户 1651 版复测确认"again 显示还在第一个复制体上"）。正确：`k = s_mime_total_passes - 1 - s_mime_passes_left`（递减后）。参考 Hanging Chad：它的 "Again!" 走标准 MESSAGE 链自动显示在触发它的 joker 上；Mime 是手动 tte_write 所以必须自己算位置。
 
 **复测步骤**：
 1. `[蓝图, Mime, 脑暴, 男爵]` + 手牌 K：应 3 次重触发（蓝图/真身/脑暴各驱动 1 次 pass），"Again!" 依次显示在蓝图→真身→脑暴

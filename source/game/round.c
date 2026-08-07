@@ -1861,6 +1861,7 @@ static inline bool play_scoring_held_cards_update(int played_idx)
     // that would loop forever (the Mime count is always >0 when Mime is in
     // play).
     static int s_mime_passes_left = -1;
+    static int s_mime_total_passes = 0;
 
     if (played_idx == 0 && (g_game_vars.timer % FRAMES(30) == 0) && g_game_vars.timer > FRAMES(40))
     {
@@ -1899,14 +1900,18 @@ static inline bool play_scoring_held_cards_update(int played_idx)
         if (s_mime_passes_left == -1)
         {
             s_mime_passes_left = count_mime_effects();
+            s_mime_total_passes = s_mime_passes_left;
         }
         if (s_mime_passes_left > 0 && held_hand_has_retrigger_target())
         {
-            // Which pass is this (0-based)? After the decrement below,
-            // remaining = N - k - 1, so k = N - 1 - remaining.
-            int total_passes = s_mime_passes_left;
+            // Which pass is this (0-based)? We decremented below, so
+            // remaining = total - k - 1  =>  k = total - 1 - remaining.
+            // total must be the ORIGINAL count, not the current remaining
+            // value (re-reading s_mime_passes_left here makes every pass
+            // compute k=0 -> Again always on the FIRST copy, bug fixed
+            // 2026-08-07).
             s_mime_passes_left--;
-            int pass_idx = total_passes - 1 - s_mime_passes_left;
+            int pass_idx = s_mime_total_passes - 1 - s_mime_passes_left;
 
             // Collect the Mime effect sources in left-to-right order:
             // the real Mime plus every Blueprint/Brainstorm whose chain
@@ -1956,6 +1961,7 @@ static inline bool play_scoring_held_cards_update(int played_idx)
             return true;
         }
         s_mime_passes_left = -1; // hand over: reset to uncounted for next hand
+        s_mime_total_passes = 0;
 
         s_scored_card_index = 0;
         s_joker_round_end_itr = list_itr_create(get_jokers_list());

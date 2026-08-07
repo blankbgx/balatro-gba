@@ -16,6 +16,19 @@
 
 ## 已修复 Bug 清单（按时间倒序）
 
+### M11. Mime 与 Raised Fist / Reserved Parking 联动缺失（P1）— 2026-08-07
+
+**背景**：`held_hand_has_retrigger_target()` 只检测 K/Q（覆盖 Baron/Shoot the Moon），漏掉 Raised Fist（最低点数牌触发）和 Reserved Parking（任意面牌 J/Q/K 触发）——手里有最低牌或 J 但无 K/Q 时，Mime 不重跑 held walk，这两张卡失去 Mime 联动。
+
+**修复**：泛化目标检测——K/Q（Baron/Shoot the Moon）+ 任意面牌（Reserved Parking）+ 最低点数牌（Raised Fist，Ace 算高值与 `card_get_value` 一致）。
+
+**复测步骤**：
+1. 持有 Mime + Raised Fist，手里有 2/3/4（最低牌）无 K/Q → 打出任意牌，最低牌应显示 "Again!" 且 Mult 加 2 次
+2. 持有 Mime + Reserved Parking，手里只有 J 无 K/Q → J 应被重触发（2 次 50% 出 $1 机会）
+3. 回归：Mime + Baron（K）仍正常 ×2 轮
+
+**边界**：Ace 永远算高值（Raised Fist 不把 Ace 当最低牌）；无任何 held 触发卡时 Mime 不重跑（无空 "Again!"）。
+
 ### M10. 新卡实装：Showman + Card Sharp + Burglar v2 卡面（P0）— 2026-08-07
 
 **背景**：新增两张小丑 + 窃贼卡面更新。

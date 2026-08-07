@@ -1833,13 +1833,33 @@ static bool held_hand_has_retrigger_target(void)
     CardObject** hand = get_hand_array();
     int top = get_hand_top();
 
+    // Compute the lowest card value in hand ONCE, so we can detect a
+    // Raised Fist (致胜之拳) target: it triggers on the lowest-ranked
+    // held card (Aces high, matching raised_fist_joker_effect).
+    u8 lowest_value = IMPOSSIBLY_HIGH_CARD_VALUE;
+    for (int i = top; i >= 0; i--)
+    {
+        if (hand[i] == NULL || hand[i]->card == NULL)
+            continue;
+        u8 value = card_get_value(hand[i]->card);
+        if (lowest_value > value)
+            lowest_value = value;
+    }
+
     for (int i = top; i >= 0; i--)
     {
         if (hand[i] == NULL || hand[i]->card == NULL)
             continue;
 
         u8 rank = hand[i]->card->rank;
+        // Baron (K) / Shoot the Moon (Q)
         if (rank == KING || rank == QUEEN)
+            return true;
+        // Reserved Parking: any face card (J/Q/K) may give $1
+        if (card_is_face(hand[i]->card))
+            return true;
+        // Raised Fist: lowest-ranked held card adds 2x its value to Mult
+        if (card_get_value(hand[i]->card) == lowest_value)
             return true;
     }
 

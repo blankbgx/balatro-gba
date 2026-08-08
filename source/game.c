@@ -386,6 +386,7 @@ typedef struct
     const Rect* erase_rect; // roll erase area (extends ±DY)
     const Rect* draw_rect;  // roll draw position
     const Rect* label_rect; // white overlay label position
+    int target;             // HUD_TARGET_* (which display fn to restore)
     int color_pb;           // digit color (blue hands / red discards)
     const char* label;      // white overlay text ("+3", "-2", ... NULL = none)
     int from, to;           // roll range
@@ -422,6 +423,7 @@ void hud_enqueue_value_roll(
     const Rect* erase_rect,
     const Rect* draw_rect,
     const Rect* label_rect,
+    int target,
     int color_pb,
     const char* label,
     int from,
@@ -434,6 +436,7 @@ void hud_enqueue_value_roll(
     item->erase_rect = erase_rect;
     item->draw_rect = draw_rect;
     item->label_rect = label_rect;
+    item->target = target;
     item->color_pb = color_pb;
     item->label = label;
     item->from = from;
@@ -524,9 +527,9 @@ static inline void hud_pulse_update_loop(void)
             {
                 // Roll finished -> restore the normal display, advance.
                 tte_erase_rect_wrapper(*item->erase_rect);
-                if (item->draw_rect == &HANDS_TEXT_RECT)
+                if (item->target == HUD_TARGET_HANDS)
                     display_hands();
-                else if (item->draw_rect == &DISCARDS_TEXT_RECT)
+                else if (item->target == HUD_TARGET_DISCARDS)
                     display_discards();
                 s_hud_roll_queue.cur++;
                 s_hud_roll_queue.next_tick_at = g_game_vars.timer;

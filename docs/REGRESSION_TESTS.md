@@ -20,7 +20,7 @@
 
 **背景**：Burglar 触发时 hands/discards HUD 是"白↔本色闪烁"（~1.2s），用户希望像筹码结算那样**数字滚动**（从旧值逐级跳到新值）。
 
-**修复**：`hud_pulse_hands(int from_value)` / `hud_pulse_discards(int from_value)` 改为滚动计数——调用方（DEFER_BURGLAR fire 分支）在修改 `g_game_vars.hands/discards` **前**捕获旧值传入；`hud_pulse_update_loop` 按 `HUD_ROLL_STEPS 12` 步 × `FRAMES(2)` 线性插值重绘（~0.4s），结束后恢复 `display_hands()/display_discards()`。废弃的 HUD_PULSE_DELAY/TOGGLE 常量与 pulse 状态变量已删除。
+**修复（M14b，commit 5e8fd47 后热修）**：通用队列首次实现用 `item->draw_rect == &HANDS_TEXT_RECT` 指针比较决定滚动后恢复哪个 display 函数——但 `HANDS_TEXT_RECT` 是 layout.h 的 **static const Rect（每个 include 它的 .c 各一份独立副本）**，joker_effects.c 传的 `&HANDS_TEXT_RECT` 地址 ≠ game.c 里的地址 → 比较恒 false → 滚动结束后 `display_hands()/display_discards()` 永不调用 → **手数/弃牌数字被擦除后不恢复（用户："手数和筹码倍率区域完全没有数字了"）**。修复：改为 **enum target**（`HUD_TARGET_HANDS`/`HUD_TARGET_DISCARDS`，定义在 include/game.h），`hud_enqueue_value_roll` 加 target 参数。⚠️ 通用教训：**跨翻译单元共享的 static const 对象绝不能靠地址比较区分——每个 TU 有独立副本**；需要区分时用枚举/ID。⚠️ 另：game.h 枚举的写法是 `enum { ... };`（匿名枚举），joker_effects.c 无需 include layout.h 即可用常量。
 
 **2026-08-08 三次调整（原版动效参考 + 通用化）**：用户观察原版窃贼触发：先在手数上覆盖白色 "+3"，手数**向上**翻动到目标，**然后**弃牌数才翻动（**串行序列**）；若目标值==当前值则不翻动。重构为**通用 HUD 值滚动队列**（`hud_enqueue_value_roll(erase_rect, draw_rect, label_rect, color_pb, label, from, to)` + `hud_clear_value_roll_queue()`，game.h 导出）：每项 = 白色 label 覆盖（HUD_ROLL_LABEL_HOLD 20 帧）→ 方向滚动（12 步 × 2 帧，增向上/减向下，本色）→ 下一项；`from == to` 整项跳过。rect 常量（HANDS/DISCARDS_TEXT_RECT + ERASE/ROLL_ERASE）**移入 include/layout.h**（含 `#include "util.h"` 供 UNDEFINED），供 joker_effects.c 的 DEFER_BURGLAR fire 分支调用。后续手数增减/牌型升级 joker 复用同一队列（换 rect+颜色+label 即可）。⚠️ `HUD_ROLL_DY 5` 随 rect 一起在 layout.h 顶部定义（rect 初始化需要）。
 

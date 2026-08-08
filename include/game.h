@@ -97,11 +97,21 @@ void schedule_joker_event_text_clear(void);
  *        the digit rolls directionally to the target (increase = up,
  *        decrease = down, normal color). If from == to the item is
  *        skipped silently. Reused by any hands/discards/level mutation.
+ *        target is HUD_TARGET_HANDS / HUD_TARGET_DISCARDS (which
+ *        display function restores the number after the roll).
  */
+enum
+{
+    HUD_TARGET_HANDS,
+    HUD_TARGET_DISCARDS,
+    // Future: HUD_TARGET_HAND_LEVEL etc.
+};
+
 void hud_enqueue_value_roll(
     const Rect* erase_rect,
     const Rect* draw_rect,
     const Rect* label_rect,
+    int target,
     int color_pb,
     const char* label,
     int from,

@@ -444,7 +444,19 @@ void hud_enqueue_value_roll(
     // 2026-08-08 "select a card -> hard freeze" regression).
     item->label[0] = '\0';
     if (label != NULL)
-        snprintf(item->label, sizeof(item->label), "%s", label);
+    {
+        // Copy WITHOUT snprintf: the GBA newlib printf family drags in
+        // malloc/va_list machinery that can wedge the deck-select /
+        // run-setup text rendering (user: 2005/2016 freeze in the deck
+        // screen, "文本渲染导致的卡死"). A plain loop is enough.
+        size_t i = 0;
+        while (label[i] != '\0' && i + 1 < sizeof(item->label))
+        {
+            item->label[i] = label[i];
+            i++;
+        }
+        item->label[i] = '\0';
+    }
     item->from = from;
     item->to = to;
     if (!s_hud_roll_queue.active)

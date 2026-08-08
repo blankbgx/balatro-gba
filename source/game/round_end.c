@@ -4,6 +4,7 @@
 #include "affine_background_gfx.h"
 #include "game.h"
 #include "game_variables.h"
+#include "joker.h"
 #include "layout.h"
 #include "state_machine.h"
 #include "timer.h"
@@ -86,6 +87,10 @@ static int calculate_interest_reward(void)
     int reward = (g_game_vars.money / 5) * INTEREST_PER_5;
     if (reward > MAX_INTEREST)
         reward = MAX_INTEREST;
+    // To the Moon (冲向月球, ID 71): interest is doubled while at least
+    // one REAL copy is held (silent-state passive - copies don't count).
+    if (is_to_the_moon_active())
+        reward *= 2;
     return reward;
 }
 

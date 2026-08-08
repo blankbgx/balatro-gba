@@ -110,6 +110,7 @@ enum JokerEvent
 #define FLASH_CARD_ID         68
 #define SHOWMAN_ID            69
 #define CARD_SHARP_ID         70
+#define TO_THE_MOON_ID        71
 
 // Credit Card: shop purchases may go into debt down to -20$ per REAL
 // Credit Card held. Blueprint/Brainstorm cannot copy this passive effect
@@ -120,6 +121,11 @@ enum JokerEvent
 // whether a purchase is affordable - re-evaluated per purchase so buying
 // (or losing) a card updates the debt limit immediately.
 int count_credit_card_effects(void);
+// True while at least one REAL To the Moon (冲向月球, ID 71) is held:
+// end-of-round interest is doubled. Silent-state joker (no trigger
+// action) - Blueprint/Brainstorm copies do NOT count (same rule as
+// Credit Card / Showman).
+bool is_to_the_moon_active(void);
 // Resolve what a Blueprint/Brainstorm copying joker ultimately copies,
 // bouncing through other copying jokers (Blueprint -> right neighbor,
 // Brainstorm -> leftmost) until a non-copying joker is found, or NULL

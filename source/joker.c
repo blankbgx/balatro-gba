@@ -106,6 +106,8 @@ static const int JOKER_ID_TO_SPRITE_MAP[] = {
     // Placeholder for IDs 66-70
     // 66=Credit Card(15,1), 67=Burglar(0,28), 68=Flash Card(0,27), 69=Showman(0,29), 70=Card Sharp(0,30)
         15, 0, 0, 0, 0,
+    // ID 71=To the Moon(0,31)
+        0,
 };
 
 // Map of Joker ID -> sprite index within its spritesheet
@@ -174,6 +176,8 @@ static const int JOKER_ID_TO_SPRITE_IDX_IN_SHEET[] = {
         29,
         // ID 70 (Card Sharp) -> sheet 0, sprite 30 (merged into gfx0, user-quantized)
         30,
+        // ID 71 (To the Moon) -> sheet 0, sprite 31 (merged into gfx0, user-quantized)
+        31,
     };
 
 // Lookup table of Joker Rarity strings. Used to display at the bottom of the description screen.

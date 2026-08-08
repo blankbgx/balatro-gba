@@ -127,11 +127,13 @@ REGISTER_JOKER_DESC_FUNC(burglar_joker_desc)
 REGISTER_JOKER_DESC_FUNC(flash_card_joker_desc)
 REGISTER_JOKER_DESC_FUNC(showman_joker_desc)
 REGISTER_JOKER_DESC_FUNC(card_sharp_joker_desc)
+REGISTER_JOKER_DESC_FUNC(to_the_moon_joker_desc)
 REGISTER_JOKER_EFFECT_FUNC(credit_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(burglar_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(flash_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(showman_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(card_sharp_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(to_the_moon_joker_effect)
 
 // Joker Effect functions
 
@@ -307,6 +309,7 @@ const JokerInfo joker_registry[] =
         { "Flash Card",       UNCOMMON_JOKER,  5, false, flash_card_joker_desc,     flash_card_joker_effect         }, // 68 Flash Card
         { "Showman",          UNCOMMON_JOKER,  5, false, showman_joker_desc,        showman_joker_effect            }, // 69 Showman
         { "Card Sharp",       UNCOMMON_JOKER,  6, false, card_sharp_joker_desc,     card_sharp_joker_effect         }, // 70 Card Sharp
+        { "To the Moon",      UNCOMMON_JOKER,  5, false, to_the_moon_joker_desc,     to_the_moon_joker_effect       }, // 71 To the Moon
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -3657,4 +3660,58 @@ static u32 card_sharp_joker_effect(
     }
 
     return JOKER_EFFECT_FLAG_NONE;
+}
+
+// --------------------------------------------------------------------------
+// To the Moon (冲向月球) - ID 71
+// Passive: end-of-round interest is doubled while held. Silent-state
+// joker (no trigger action) - implemented like Credit Card / Showman:
+// no-op effect func + exported query consulted at the interest calc site
+// (round_end.c calculate_interest_reward). Blueprint/Brainstorm copies
+// do NOT count (copy invokes a no-op, contributes nothing).
+// --------------------------------------------------------------------------
+static int to_the_moon_joker_desc(Joker* joker, Rect dest_rect)
+{
+    (void)joker;
+    char desc[200];
+    snprintf(
+        desc,
+        sizeof(desc),
+        TTE_BLACK_TAG "Earn " TTE_RED_TAG "2x interest" TTE_BLACK_TAG
+        " at end of round (every $5 = $1, " TTE_BLUE_TAG "max $10" TTE_BLACK_TAG ")"
+    );
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 to_the_moon_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    // Passive: the effect is implemented in round_end.c's
+    // calculate_interest_reward() via is_to_the_moon_active().
+    (void)joker;
+    (void)scored_card;
+    (void)joker_event;
+    (void)joker_effect;
+
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+bool is_to_the_moon_active(void)
+{
+    List* jokers = get_jokers_list();
+    ListItr itr = list_itr_create(jokers);
+    JokerObject* joker_object;
+    while ((joker_object = list_itr_next(&itr)))
+    {
+        if (joker_object != NULL && joker_object->joker != NULL &&
+            joker_object->joker->id == TO_THE_MOON_ID)
+        {
+            return true;
+        }
+    }
+    return false;
 }

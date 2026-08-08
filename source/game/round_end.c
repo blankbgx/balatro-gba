@@ -87,8 +87,10 @@ static int calculate_interest_reward(void)
     int reward = (g_game_vars.money / 5) * INTEREST_PER_5;
     if (reward > MAX_INTEREST)
         reward = MAX_INTEREST;
-    // To the Moon (冲向月球, ID 71): interest is doubled while at least
-    // one REAL copy is held (silent-state passive - copies don't count).
+    // To the Moon (冲向月球, ID 71): "Earn an extra $1 of interest for
+    // every $5 you have at end of round" — the extra tier duplicates the
+    // base interest (cap effectively $10), implemented here as reward x2
+    // (silent-state passive - Blueprint/Brainstorm copies don't count).
     if (is_to_the_moon_active())
         reward *= 2;
     return reward;

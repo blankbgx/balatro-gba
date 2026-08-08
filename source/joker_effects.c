@@ -3677,8 +3677,9 @@ static int to_the_moon_joker_desc(Joker* joker, Rect dest_rect)
     snprintf(
         desc,
         sizeof(desc),
-        TTE_BLACK_TAG "Earn " TTE_RED_TAG "2x interest" TTE_BLACK_TAG
-        " at end of round (every $5 = $1, " TTE_BLUE_TAG "max $10" TTE_BLACK_TAG ")"
+        TTE_BLACK_TAG "Earn an extra " TTE_RED_TAG "$1 of interest"
+        TTE_BLACK_TAG " for every " TTE_BLUE_TAG "$5" TTE_BLACK_TAG
+        " you have at end of round"
     );
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }

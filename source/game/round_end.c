@@ -432,6 +432,11 @@ static void game_round_end_dismiss_round_end_panel(void)
     if (g_game_vars.timer >= TM_DISMISS_ROUND_END_TM)
     {
         g_game_vars.timer = TM_ZERO;
+        // Abort any in-flight HUD value-roll animation before leaving
+        // the round screen - nothing should keep erasing/redrawing the
+        // HUD numbers in the shop (user rule: anims only for joker/
+        // planet special effects, never leak into normal flow).
+        hud_clear_value_roll_queue();
         game_change_state(GAME_STATE_SHOP);
     }
 }

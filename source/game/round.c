@@ -2237,6 +2237,11 @@ static inline void played_cards_update_loop(void)
 
 void game_round_on_init(void)
 {
+    // Fresh round: never inherit a stale HUD roll animation from the
+    // previous round's joker effects (user rule: anims only for joker/
+    // planet special effects, and only within the round that fired them).
+    hud_clear_value_roll_queue();
+
     s_joker_scored_itr = list_itr_create(get_jokers_list());
 
     set_hand_state(HAND_DRAW);

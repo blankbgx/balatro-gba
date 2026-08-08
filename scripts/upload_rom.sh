@@ -54,7 +54,7 @@ if [ "$COUNT" -ge "$CLEAN_EVERY" ]; then
     echo "== upload #$COUNT: cleaning old ROMs in /gbalatro/ =="
     # List remote .gba files and delete each one (tolerate transient errors)
     $BYPY_PY -m bypy list /gbalatro 2>/dev/null \
-        | grep '\\.gba' \
+        | grep '\.gba' \
         | awk '{print $2}' \
         | while read -r f; do
             echo "   deleting $f"

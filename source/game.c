@@ -77,20 +77,8 @@ static const Rect MULT_TEXT_RECT            = {40,      80,     64,     88  };
 
 // Rects with UNDEFINED are only used in tte_printf, they need to be fully defined
 // to be used with tte_erase_rect_wrapper()
-static const Rect HANDS_TEXT_RECT           = {16,      104,    UNDEFINED, UNDEFINED };
-static const Rect DISCARDS_TEXT_RECT        = {48,      104,    UNDEFINED, UNDEFINED };
-// Erase area for hands/discards: fixed 3-char width so a value shrinking
-// from 2-3 digits to 1 digit (e.g. 10 -> 9) fully clears the old digits
-// instead of leaving a stale char ("90" after "10"->"9"). Height = 1 char.
-// Vertical slide distance (px) for the directional roll: increasing
-// values slide in from below (up), decreasing from above (down).
-#define HUD_ROLL_DY 5
-static const Rect HANDS_TEXT_ERASE_RECT     = {16,      104,    16 + 3 * TTE_CHAR_SIZE, 104 + TTE_CHAR_SIZE };
-static const Rect DISCARDS_TEXT_ERASE_RECT  = {48,      104,    48 + 3 * TTE_CHAR_SIZE, 104 + TTE_CHAR_SIZE };
-// Roll animation erase area: extends HUD_ROLL_DY px above/below the text
-// so the sliding digit (directional roll) never leaves a stale trail.
-static const Rect HANDS_TEXT_ROLL_ERASE_RECT = {16,      104 - HUD_ROLL_DY, 16 + 3 * TTE_CHAR_SIZE, 104 + TTE_CHAR_SIZE + HUD_ROLL_DY };
-static const Rect DISCARDS_TEXT_ROLL_ERASE_RECT = {48,   104 - HUD_ROLL_DY, 48 + 3 * TTE_CHAR_SIZE, 104 + TTE_CHAR_SIZE + HUD_ROLL_DY };
+// HANDS_TEXT_RECT / DISCARDS_TEXT_RECT / *_ERASE_RECT / *_ROLL_ERASE_RECT
+// now live in include/layout.h (shared with the value-roll queue callers).
 static const Rect DECK_SIZE_RECT            = {200,     152,    240,       160       };
 static const Rect ROUND_TEXT_RECT           = {48,      144,    UNDEFINED, UNDEFINED };
 static const Rect ANTE_TEXT_RECT            = {8,       144,    UNDEFINED, UNDEFINED };
@@ -385,117 +373,186 @@ static inline void joker_event_text_clear_update_loop(void)
     s_joker_event_text_clear_at = 0;
 }
 
-// ---- HUD value roll animation ---------------------------------------------
-// Jokers that mutate hands/discards on blind select (Burglar: +3 hands,
-// 0 discards) animate the HUD number as a directional roll (12 steps x
-// 2 frames ~0.4s): increasing values slide up from below, decreasing
-// slide down from above, in the number's normal color. Text has no
-// scale/affine support on GBA, so a digit roll is the cheapest readable
-// "jump" animation.
-#define HUD_ROLL_STEPS 12
-#define HUD_ROLL_INTERVAL FRAMES(2)
+// ---- HUD value roll queue (generic) ---------------------------------------
+// Any joker / poker-hand mutation that changes a numeric HUD value can
+// enqueue a "white label overlay -> directional digit roll" animation.
+// Burglar queues TWO items sequentially (原版 observed 2026-08-08: white
+// "+3" overlays the hands number first, hands roll UP to target, THEN
+// discards roll down to 0; if target == current value the roll is
+// skipped). Future +hands/-hands/discards/level-up jokers reuse this
+// queue with their own rects + colors.
 typedef struct
 {
-    bool active;
-    int from_value;
-    int to_value;
-    int step;
-    u32 next_tick_at;
-} HudRollState;
-static HudRollState s_hud_roll_hands = {0};
-static HudRollState s_hud_roll_discards = {0};
+    const Rect* erase_rect; // roll erase area (extends ±DY)
+    const Rect* draw_rect;  // roll draw position
+    const Rect* label_rect; // white overlay label position
+    int color_pb;           // digit color (blue hands / red discards)
+    const char* label;      // white overlay text ("+3", "-2", ... NULL = none)
+    int from, to;           // roll range
+} HudRollItem;
 
-void hud_pulse_hands(int from_value)
+enum
 {
-    // Rolling count-up: from the PRE-mutation value to the new hands count.
-    // Caller captures from_value BEFORE mutating g_game_vars.hands.
-    s_hud_roll_hands.active = true;
-    s_hud_roll_hands.from_value = from_value;
-    s_hud_roll_hands.to_value = g_game_vars.hands;
-    s_hud_roll_hands.step = 0;
-    s_hud_roll_hands.next_tick_at = g_game_vars.timer + HUD_ROLL_INTERVAL;
+    HUD_ROLL_PHASE_LABEL,   // showing white label (hold frames)
+    HUD_ROLL_PHASE_ROLL,    // stepping digits from -> to
+    HUD_ROLL_PHASE_DONE,
+};
+
+#define HUD_ROLL_STEPS 12
+#define HUD_ROLL_INTERVAL FRAMES(2)
+#define HUD_ROLL_LABEL_HOLD FRAMES(20)
+#define HUD_ROLL_QUEUE_MAX 8
+
+typedef struct
+{
+    HudRollItem items[HUD_ROLL_QUEUE_MAX];
+    int count;
+    int cur;             // current item index
+    int phase;           // HUD_ROLL_PHASE_*
+    int step;            // roll step counter
+    u32 next_tick_at;
+    bool active;
+} HudRollQueue;
+
+static HudRollQueue s_hud_roll_queue = {0};
+
+// Enqueue a sequential "label overlay -> roll" animation item. If the
+// queue is idle this starts it; items play one after another.
+void hud_enqueue_value_roll(
+    const Rect* erase_rect,
+    const Rect* draw_rect,
+    const Rect* label_rect,
+    int color_pb,
+    const char* label,
+    int from,
+    int to
+)
+{
+    if (s_hud_roll_queue.count >= HUD_ROLL_QUEUE_MAX)
+        return;
+    HudRollItem* item = &s_hud_roll_queue.items[s_hud_roll_queue.count++];
+    item->erase_rect = erase_rect;
+    item->draw_rect = draw_rect;
+    item->label_rect = label_rect;
+    item->color_pb = color_pb;
+    item->label = label;
+    item->from = from;
+    item->to = to;
+    if (!s_hud_roll_queue.active)
+    {
+        s_hud_roll_queue.active = true;
+        s_hud_roll_queue.cur = 0;
+        s_hud_roll_queue.phase = HUD_ROLL_PHASE_LABEL;
+        s_hud_roll_queue.step = 0;
+        s_hud_roll_queue.next_tick_at = g_game_vars.timer;
+    }
 }
 
-void hud_pulse_discards(int from_value)
+void hud_clear_value_roll_queue(void)
 {
-    s_hud_roll_discards.active = true;
-    s_hud_roll_discards.from_value = from_value;
-    s_hud_roll_discards.to_value = g_game_vars.discards;
-    s_hud_roll_discards.step = 0;
-    s_hud_roll_discards.next_tick_at = g_game_vars.timer + HUD_ROLL_INTERVAL;
+    s_hud_roll_queue.count = 0;
+    s_hud_roll_queue.active = false;
+}
+
+static void hud_roll_start_next_item(void)
+{
+    if (s_hud_roll_queue.cur >= s_hud_roll_queue.count)
+    {
+        s_hud_roll_queue.active = false;
+        s_hud_roll_queue.count = 0;
+        return;
+    }
+    HudRollItem* item = &s_hud_roll_queue.items[s_hud_roll_queue.cur];
+    s_hud_roll_queue.phase = HUD_ROLL_PHASE_LABEL;
+    s_hud_roll_queue.step = 0;
+
+    // 原版: if the target value == current value, no roll at all
+    // (nothing visible changed - skip straight past).
+    if (item->from == item->to)
+    {
+        s_hud_roll_queue.phase = HUD_ROLL_PHASE_DONE;
+        s_hud_roll_queue.next_tick_at = g_game_vars.timer;
+        return;
+    }
+
+    if (item->label != NULL)
+    {
+        // White label overlay first (原版: white +3 over the number).
+        tte_erase_rect_wrapper(*item->label_rect);
+        tte_printf(
+            "#{P:%d,%d; cx:0x%X000}%s",
+            item->label_rect->left,
+            item->label_rect->top,
+            TTE_WHITE_PB,
+            item->label
+        );
+        s_hud_roll_queue.next_tick_at = g_game_vars.timer + HUD_ROLL_LABEL_HOLD;
+    }
+    else
+    {
+        s_hud_roll_queue.next_tick_at = g_game_vars.timer;
+    }
 }
 
 static inline void hud_pulse_update_loop(void)
 {
-    if (s_hud_roll_hands.active)
-    {
-        if (g_game_vars.timer >= s_hud_roll_hands.next_tick_at)
-        {
-            s_hud_roll_hands.step++;
-            s_hud_roll_hands.next_tick_at = g_game_vars.timer + HUD_ROLL_INTERVAL;
+    if (!s_hud_roll_queue.active)
+        return;
 
-            if (s_hud_roll_hands.step >= HUD_ROLL_STEPS)
-            {
-                s_hud_roll_hands.active = false;
-                display_hands();
-            }
-            else
-            {
-                // Directional roll: increasing value slides in from below
-                // (dy: +DY -> 0), decreasing from above (dy: -DY -> 0).
-                // Normal color (blue), not white - the white flash read as
-                // flicker and was removed per user.
-                int delta = s_hud_roll_hands.to_value - s_hud_roll_hands.from_value;
-                int cur = s_hud_roll_hands.from_value +
-                          (delta * s_hud_roll_hands.step) / HUD_ROLL_STEPS;
-                int dy = (delta >= 0)
-                             ? (HUD_ROLL_DY * (HUD_ROLL_STEPS - s_hud_roll_hands.step)) / HUD_ROLL_STEPS
-                             : -(HUD_ROLL_DY * (HUD_ROLL_STEPS - s_hud_roll_hands.step)) / HUD_ROLL_STEPS;
-                tte_erase_rect_wrapper(HANDS_TEXT_ROLL_ERASE_RECT);
-                tte_printf(
-                    "#{P:%d,%d; cx:0x%X000}%d",
-                    HANDS_TEXT_RECT.left,
-                    HANDS_TEXT_RECT.top + dy,
-                    TTE_BLUE_PB,
-                    cur
-                );
-            }
+    HudRollItem* item = &s_hud_roll_queue.items[s_hud_roll_queue.cur];
+
+    if (s_hud_roll_queue.phase == HUD_ROLL_PHASE_LABEL)
+    {
+        if (g_game_vars.timer >= s_hud_roll_queue.next_tick_at)
+        {
+            // Label hold done -> begin the digit roll.
+            s_hud_roll_queue.phase = HUD_ROLL_PHASE_ROLL;
+            s_hud_roll_queue.step = 0;
+            s_hud_roll_queue.next_tick_at = g_game_vars.timer + HUD_ROLL_INTERVAL;
+            // Erase the label overlay; the roll redraws in normal color.
+            tte_erase_rect_wrapper(*item->label_rect);
         }
     }
-    if (s_hud_roll_discards.active)
+    else if (s_hud_roll_queue.phase == HUD_ROLL_PHASE_ROLL)
     {
-        if (g_game_vars.timer >= s_hud_roll_discards.next_tick_at)
+        if (g_game_vars.timer >= s_hud_roll_queue.next_tick_at)
         {
-            s_hud_roll_discards.step++;
-            s_hud_roll_discards.next_tick_at = g_game_vars.timer + HUD_ROLL_INTERVAL;
+            s_hud_roll_queue.step++;
+            s_hud_roll_queue.next_tick_at = g_game_vars.timer + HUD_ROLL_INTERVAL;
 
-            if (s_hud_roll_discards.step >= HUD_ROLL_STEPS)
+            if (s_hud_roll_queue.step >= HUD_ROLL_STEPS)
             {
-                s_hud_roll_discards.active = false;
-                display_discards();
+                // Roll finished -> restore the normal display, advance.
+                tte_erase_rect_wrapper(*item->erase_rect);
+                if (item->draw_rect == &HANDS_TEXT_RECT)
+                    display_hands();
+                else if (item->draw_rect == &DISCARDS_TEXT_RECT)
+                    display_discards();
+                s_hud_roll_queue.cur++;
+                s_hud_roll_queue.next_tick_at = g_game_vars.timer;
+                hud_roll_start_next_item();
             }
             else
             {
-                // Directional roll, red (normal discards color).
-                int delta = s_hud_roll_discards.to_value - s_hud_roll_discards.from_value;
-                int cur = s_hud_roll_discards.from_value +
-                          (delta * s_hud_roll_discards.step) / HUD_ROLL_STEPS;
+                // Directional roll: increasing slides up from below
+                // (dy: +DY -> 0), decreasing from above (dy: -DY -> 0).
+                int delta = item->to - item->from;
+                int cur = item->from + (delta * s_hud_roll_queue.step) / HUD_ROLL_STEPS;
                 int dy = (delta >= 0)
-                             ? (HUD_ROLL_DY * (HUD_ROLL_STEPS - s_hud_roll_discards.step)) / HUD_ROLL_STEPS
-                             : -(HUD_ROLL_DY * (HUD_ROLL_STEPS - s_hud_roll_discards.step)) / HUD_ROLL_STEPS;
-                tte_erase_rect_wrapper(DISCARDS_TEXT_ROLL_ERASE_RECT);
+                             ? (HUD_ROLL_DY * (HUD_ROLL_STEPS - s_hud_roll_queue.step)) / HUD_ROLL_STEPS
+                             : -(HUD_ROLL_DY * (HUD_ROLL_STEPS - s_hud_roll_queue.step)) / HUD_ROLL_STEPS;
+                tte_erase_rect_wrapper(*item->erase_rect);
                 tte_printf(
                     "#{P:%d,%d; cx:0x%X000}%d",
-                    DISCARDS_TEXT_RECT.left,
-                    DISCARDS_TEXT_RECT.top + dy,
-                    TTE_RED_PB,
+                    item->draw_rect->left,
+                    item->draw_rect->top + dy,
+                    item->color_pb,
                     cur
                 );
             }
         }
     }
 }
-
 void game_update()
 {
     rng_update();

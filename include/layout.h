@@ -7,6 +7,7 @@
 #define LAYOUT_H
 
 #include "graphic_utils.h"
+#include "util.h" // UNDEFINED
 
 // clang-format off
 // Points                                                 x        y
@@ -28,6 +29,25 @@ static const Rect HAND_SIZE_RECT                       = {128,     128,    152, 
 // Joker score text rows (y=48: below jokers; y=108: below held cards)
 static const Rect PLAYED_CARDS_SCORES_RECT             = {72,      48,     240,    56};
 static const Rect HELD_CARDS_SCORES_RECT               = {72,      108,    240,    116};
+// Hands/discards HUD numbers (top-left HUD) - shared by game.c
+// (display_hands/display_discards) and the generic value-roll queue
+// (hud_enqueue_value_roll callers in joker_effects.c).
+// Rects with UNDEFINED are only used in tte_printf, they need to be fully
+// defined to be used with tte_erase_rect_wrapper().
+static const Rect HANDS_TEXT_RECT           = {16,      104,    UNDEFINED, UNDEFINED };
+static const Rect DISCARDS_TEXT_RECT        = {48,      104,    UNDEFINED, UNDEFINED };
+// Erase area for hands/discards: fixed 3-char width so a value shrinking
+// from 2-3 digits to 1 digit (e.g. 10 -> 9) fully clears the old digits
+// instead of leaving a stale char ("90" after "10"->"9"). Height = 1 char.
+// Vertical slide distance (px) for the directional roll: increasing
+// values slide in from below (up), decreasing from above (down).
+#define HUD_ROLL_DY 5
+static const Rect HANDS_TEXT_ERASE_RECT     = {16,      104,    16 + 3 * TTE_CHAR_SIZE, 104 + TTE_CHAR_SIZE };
+static const Rect DISCARDS_TEXT_ERASE_RECT  = {48,      104,    48 + 3 * TTE_CHAR_SIZE, 104 + TTE_CHAR_SIZE };
+// Roll animation erase area: extends HUD_ROLL_DY px above/below the text
+// so the sliding digit (directional roll) never leaves a stale trail.
+static const Rect HANDS_TEXT_ROLL_ERASE_RECT = {16,      104 - HUD_ROLL_DY, 16 + 3 * TTE_CHAR_SIZE, 104 + TTE_CHAR_SIZE + HUD_ROLL_DY };
+static const Rect DISCARDS_TEXT_ROLL_ERASE_RECT = {48,   104 - HUD_ROLL_DY, 48 + 3 * TTE_CHAR_SIZE, 104 + TTE_CHAR_SIZE + HUD_ROLL_DY };
 // clang-format on
 
 #endif // LAYOUT_H

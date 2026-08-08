@@ -2660,17 +2660,38 @@ void deferred_effects_process_pending(void)
 
             case DEFER_BURGLAR:
             {
-                // Fire: apply +3 hands, lose all discards, roll both HUD
-                // numbers from their pre-mutation values to the new ones
-                // (rolling-digit count-up, not a color flash). Each queued
-                // instance (real card + Blueprint + Brainstorm copies) fires
-                // one beat apart.
+                // Fire: apply +3 hands, lose all discards. Queue the HUD
+                // roll SEQUENTIALLY (原版 2026-08-08: white "+3" overlays
+                // the hands number first, hands roll up to target, THEN
+                // discards roll down to 0; if target == current value no
+                // roll). Each queued instance (real + Blueprint +
+                // Brainstorm copies) fires one beat apart.
                 int old_hands = g_game_vars.hands;
                 int old_discards = g_game_vars.discards;
                 g_game_vars.hands += 3;
                 g_game_vars.discards = 0;
-                hud_pulse_hands(old_hands);
-                hud_pulse_discards(old_discards);
+                hud_enqueue_value_roll(
+                    &HANDS_TEXT_ROLL_ERASE_RECT,
+                    &HANDS_TEXT_RECT,
+                    &HANDS_TEXT_ERASE_RECT,
+                    TTE_BLUE_PB,
+                    "+3",
+                    old_hands,
+                    g_game_vars.hands
+                );
+                // Discards label: "-<old>" (the amount lost, since
+                // discards goes to 0). Use a small buffer for the digits.
+                char discards_label[8];
+                snprintf(discards_label, sizeof(discards_label), "-%d", old_discards);
+                hud_enqueue_value_roll(
+                    &DISCARDS_TEXT_ROLL_ERASE_RECT,
+                    &DISCARDS_TEXT_RECT,
+                    &DISCARDS_TEXT_ERASE_RECT,
+                    TTE_RED_PB,
+                    discards_label,
+                    old_discards,
+                    g_game_vars.discards
+                );
                 break;
             }
         }

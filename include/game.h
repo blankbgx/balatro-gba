@@ -91,18 +91,29 @@ List* get_discarded_jokers_list(void);
 void schedule_joker_event_text_clear(void);
 
 /**
- * @brief Animate the hands HUD number as a rolling count-up from the
- *        pre-mutation value to the current hands count (white digits,
- *        like the chips settlement roll). Caller must capture from_value
- *        BEFORE mutating g_game_vars.hands.
+ * @brief Enqueue a sequential HUD "white label overlay -> digit roll"
+ *        animation (generic value-roll queue). Items play one after
+ *        another: label (e.g. "+3" over the hands number) holds, then
+ *        the digit rolls directionally to the target (increase = up,
+ *        decrease = down, normal color). If from == to the item is
+ *        skipped silently. Reused by any hands/discards/level mutation.
  */
-void hud_pulse_hands(int from_value);
+void hud_enqueue_value_roll(
+    const Rect* erase_rect,
+    const Rect* draw_rect,
+    const Rect* label_rect,
+    int color_pb,
+    const char* label,
+    int from,
+    int to
+);
 
 /**
- * @brief Animate the discards HUD number as a rolling count-up from the
- *        pre-mutation value to the current discards count.
+ * @brief Abort any queued HUD value roll animations (e.g. on round
+ *        transition / state change where the panel is about to be
+ *        redrawn anyway).
  */
-void hud_pulse_discards(int from_value);
+void hud_clear_value_roll_queue(void);
 
 int deck_get_size(void);
 int get_deck_top(void);

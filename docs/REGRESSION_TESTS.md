@@ -22,7 +22,7 @@
 
 **修复**：`hud_pulse_hands(int from_value)` / `hud_pulse_discards(int from_value)` 改为滚动计数——调用方（DEFER_BURGLAR fire 分支）在修改 `g_game_vars.hands/discards` **前**捕获旧值传入；`hud_pulse_update_loop` 按 `HUD_ROLL_STEPS 12` 步 × `FRAMES(2)` 线性插值重绘（~0.4s），结束后恢复 `display_hands()/display_discards()`。废弃的 HUD_PULSE_DELAY/TOGGLE 常量与 pulse 状态变量已删除。
 
-**2026-08-07 二次调整（用户反馈）**：① 去掉白色数字（白↔本色切换观感像闪烁）——滚动数字用**本色**（hands 蓝 / discards 红）；② 滚动带**方向**——增加值从下方滑入向上滚（dy: +HUD_ROLL_DY→0）、减少值从上方滑入向下滚（dy: -HUD_ROLL_DY→0），`HUD_ROLL_DY 5`px；③ erase rect 扩展 ±DY 覆盖滑动轨迹（`HANDS/DISCARDS_TEXT_ROLL_ERASE_RECT`）；④ 节奏不变（12 步 × 2 帧）。⚠️ 注意 HUD_ROLL_DY 定义在 rect 常量之前（rect 初始化需要它），且只能定义一次。
+**2026-08-08 三次调整（原版动效参考 + 通用化）**：用户观察原版窃贼触发：先在手数上覆盖白色 "+3"，手数**向上**翻动到目标，**然后**弃牌数才翻动（**串行序列**）；若目标值==当前值则不翻动。重构为**通用 HUD 值滚动队列**（`hud_enqueue_value_roll(erase_rect, draw_rect, label_rect, color_pb, label, from, to)` + `hud_clear_value_roll_queue()`，game.h 导出）：每项 = 白色 label 覆盖（HUD_ROLL_LABEL_HOLD 20 帧）→ 方向滚动（12 步 × 2 帧，增向上/减向下，本色）→ 下一项；`from == to` 整项跳过。rect 常量（HANDS/DISCARDS_TEXT_RECT + ERASE/ROLL_ERASE）**移入 include/layout.h**（含 `#include "util.h"` 供 UNDEFINED），供 joker_effects.c 的 DEFER_BURGLAR fire 分支调用。后续手数增减/牌型升级 joker 复用同一队列（换 rect+颜色+label 即可）。⚠️ `HUD_ROLL_DY 5` 随 rect 一起在 layout.h 顶部定义（rect 初始化需要）。
 
 **复测步骤**：
 1. 持有窃贼 → 选盲注 → 手数数字从旧值**逐级滚动**到 +3 后的值（不是闪烁）

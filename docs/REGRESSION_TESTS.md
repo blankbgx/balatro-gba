@@ -22,7 +22,12 @@
 
 **修复（M14b，commit 5e8fd47 后热修）**：通用队列首次实现用 `item->draw_rect == &HANDS_TEXT_RECT` 指针比较决定滚动后恢复哪个 display 函数——但 `HANDS_TEXT_RECT` 是 layout.h 的 **static const Rect（每个 include 它的 .c 各一份独立副本）**，joker_effects.c 传的 `&HANDS_TEXT_RECT` 地址 ≠ game.c 里的地址 → 比较恒 false → 滚动结束后 `display_hands()/display_discards()` 永不调用 → **手数/弃牌数字被擦除后不恢复（用户："手数和筹码倍率区域完全没有数字了"）**。修复：改为 **enum target**（`HUD_TARGET_HANDS`/`HUD_TARGET_DISCARDS`，定义在 include/game.h），`hud_enqueue_value_roll` 加 target 参数。⚠️ 通用教训：**跨翻译单元共享的 static const 对象绝不能靠地址比较区分——每个 TU 有独立副本**；需要区分时用枚举/ID。⚠️ 另：game.h 枚举的写法是 `enum { ... };`（匿名枚举），joker_effects.c 无需 include layout.h 即可用常量。
 
-**2026-08-08 三次调整（原版动效参考 + 通用化）**：用户观察原版窃贼触发：先在手数上覆盖白色 "+3"，手数**向上**翻动到目标，**然后**弃牌数才翻动（**串行序列**）；若目标值==当前值则不翻动。重构为**通用 HUD 值滚动队列**（`hud_enqueue_value_roll(erase_rect, draw_rect, label_rect, color_pb, label, from, to)` + `hud_clear_value_roll_queue()`，game.h 导出）：每项 = 白色 label 覆盖（HUD_ROLL_LABEL_HOLD 20 帧）→ 方向滚动（12 步 × 2 帧，增向上/减向下，本色）→ 下一项；`from == to` 整项跳过。rect 常量（HANDS/DISCARDS_TEXT_RECT + ERASE/ROLL_ERASE）**移入 include/layout.h**（含 `#include "util.h"` 供 UNDEFINED），供 joker_effects.c 的 DEFER_BURGLAR fire 分支调用。后续手数增减/牌型升级 joker 复用同一队列（换 rect+颜色+label 即可）。⚠️ `HUD_ROLL_DY 5` 随 rect 一起在 layout.h 顶部定义（rect 初始化需要）。
+**2026-08-08 三次调整（原版动效参考 + 通用化）**：用户观察原版窃贼触发：先在手数上覆盖白色 "+3"，手数**向上**翻动到目标，**然后**弃牌数才翻动（**串行序列**）；若目标值==当前值则不翻动。重构为**通用 HUD 值滚动队列**（`hud_enqueue_value_roll(erase_rect, draw_rect, label_rect, target, color_pb, label, from, to)` + `hud_clear_value_roll_queue()`，game.h 导出）：每项 = 白色 label 覆盖（HUD_ROLL_LABEL_HOLD 20 帧）→ 方向滚动（12 步 × 2 帧，增向上/减向下，本色）→ 下一项；`from == to` 整项跳过。rect 常量（HANDS/DISCARDS_TEXT_RECT + ERASE/ROLL_ERASE）**移入 include/layout.h**（含 `#include "util.h"` 供 UNDEFINED），供 joker_effects.c 的 DEFER_BURGLAR fire 分支调用。后续手数增减/牌型升级 joker 复用同一队列（换 rect+颜色+label 即可）。⚠️ `HUD_ROLL_DY 5` 随 rect 一起在 layout.h 顶部定义（rect 初始化需要）。
+
+**⚠️ M14c 热修（commit 待，2026-08-08 用户：1948 版"选取一张牌后游戏立马卡死"）——两个 bug**：
+1. **悬垂 label 指针（卡死根因）**：`HudRollItem.label` 原是 `const char*`，DEFER_BURGLAR fire 分支传的是**栈上 `char discards_label[8]`**（snprintf 的 "-3"）——fire 返回后栈失效，队列在**几帧后**播弃牌项时读野指针 → GBA 无内存保护 → 随机内容被 tte_printf %s 读取 → 可能越界 → **硬卡死**（用户观察到的时间点正好是盲选入队后第一次选牌，队列播到第二项）。修复：`label` 改为 `char label[16]` **深拷贝**（`snprintf(item->label, ...)`），空串表示无 label。
+2. **from==to 时队列卡死**：`hud_roll_start_next_item()` 对 `from == to` 设 `phase = HUD_ROLL_PHASE_DONE` 后 return——但 update_loop 没有 DONE 分支 → cur 永不前进、active 永 true → 队列**永久悬挂**（弃牌已为 0 时触发）。修复：`from == to` 时直接 `cur++; hud_roll_start_next_item(); return;`（跳过该项）。
+⚠️ 通用教训：**延迟队列/动画队列里绝不能存调用方栈上的指针——必须深拷贝**（队列播放时机晚于调用返回）；**状态机必须覆盖所有 phase 的推进路径**（缺 DONE 分支 = 永久悬挂）。用户规则：**动画队列只用于小丑/星球等特殊效果，不得干扰正常选牌/出牌/结算路径**（本队列 active=false 时空转零开销 ✓）。
 
 **复测步骤**：
 1. 持有窃贼 → 选盲注 → 手数数字从旧值**逐级滚动**到 +3 后的值（不是闪烁）

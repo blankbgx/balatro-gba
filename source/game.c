@@ -388,7 +388,7 @@ typedef struct
     const Rect* label_rect; // white overlay label position
     int target;             // HUD_TARGET_* (which display fn to restore)
     int color_pb;           // digit color (blue hands / red discards)
-    const char* label;      // white overlay text ("+3", "-2", ... NULL = none)
+    char label[16];         // white overlay text ("+3", "-2", ... "" = none)
     int from, to;           // roll range
 } HudRollItem;
 
@@ -438,7 +438,13 @@ void hud_enqueue_value_roll(
     item->label_rect = label_rect;
     item->target = target;
     item->color_pb = color_pb;
-    item->label = label;
+    // Deep-copy the label: callers may pass a stack buffer (e.g.
+    // snprintf'd "-3") that dies when the fire branch returns - the
+    // queue plays LATER, so a stored pointer would dangle (the
+    // 2026-08-08 "select a card -> hard freeze" regression).
+    item->label[0] = '\0';
+    if (label != NULL)
+        snprintf(item->label, sizeof(item->label), "%s", label);
     item->from = from;
     item->to = to;
     if (!s_hud_roll_queue.active)
@@ -473,12 +479,13 @@ static void hud_roll_start_next_item(void)
     // (nothing visible changed - skip straight past).
     if (item->from == item->to)
     {
-        s_hud_roll_queue.phase = HUD_ROLL_PHASE_DONE;
+        s_hud_roll_queue.cur++;
         s_hud_roll_queue.next_tick_at = g_game_vars.timer;
+        hud_roll_start_next_item();
         return;
     }
 
-    if (item->label != NULL)
+    if (item->label[0] != '\0')
     {
         // White label overlay first (原版: white +3 over the number).
         tte_erase_rect_wrapper(*item->label_rect);

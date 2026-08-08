@@ -7,7 +7,6 @@
 #define LAYOUT_H
 
 #include "graphic_utils.h"
-#include "util.h" // UNDEFINED
 
 // clang-format off
 // Points                                                 x        y
@@ -31,11 +30,11 @@ static const Rect PLAYED_CARDS_SCORES_RECT             = {72,      48,     240, 
 static const Rect HELD_CARDS_SCORES_RECT               = {72,      108,    240,    116};
 // Hands/discards HUD numbers (top-left HUD) - shared by game.c
 // (display_hands/display_discards) and the generic value-roll queue
-// (hud_enqueue_value_roll callers in joker_effects.c).
-// Rects with UNDEFINED are only used in tte_printf, they need to be fully
-// defined to be used with tte_erase_rect_wrapper().
-static const Rect HANDS_TEXT_RECT           = {16,      104,    UNDEFINED, UNDEFINED };
-static const Rect DISCARDS_TEXT_RECT        = {48,      104,    UNDEFINED, UNDEFINED };
+// (hud_enqueue_value_roll callers in joker_effects.c). TEXT_RECT only
+// feeds tte_printf #{P:x,y} (left/top used); right/bottom are real
+// values so no UNDEFINED (util.h) dependency leaks into layout.h.
+static const Rect HANDS_TEXT_RECT           = {16,      104,    40,     112 };
+static const Rect DISCARDS_TEXT_RECT        = {48,      104,    72,     112 };
 // Erase area for hands/discards: fixed 3-char width so a value shrinking
 // from 2-3 digits to 1 digit (e.g. 10 -> 9) fully clears the old digits
 // instead of leaving a stale char ("90" after "10"->"9"). Height = 1 char.

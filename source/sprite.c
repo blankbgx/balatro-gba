@@ -1,4 +1,5 @@
 #include "sprite.h"
+#include "tte_printf_override.h"
 
 #include "audio_utils.h"
 #include "game.h"

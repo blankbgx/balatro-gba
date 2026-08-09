@@ -1,4 +1,5 @@
 #include "graphic_utils.h"
+#include "tte_printf_override.h"
 
 #include "layout.h"
 

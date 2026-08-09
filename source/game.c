@@ -1,4 +1,5 @@
 #include "game.h"
+#include "tte_printf_override.h"
 
 #include "affine_background.h"
 #include "affine_background_gfx.h"

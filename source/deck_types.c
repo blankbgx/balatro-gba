@@ -4,6 +4,7 @@
  * @brief Implementation of functions related to the different types of Decks.
  */
 #include "deck_types.h"
+#include "tte_printf_override.h"
 
 #include "game.h"
 

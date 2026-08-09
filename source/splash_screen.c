@@ -1,4 +1,5 @@
 #include "splash_screen.h"
+#include "tte_printf_override.h"
 
 #include "font.h"
 #include "game.h"

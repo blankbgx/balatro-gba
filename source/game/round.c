@@ -4,6 +4,7 @@
  */
 
 #include "game/round.h"
+#include "tte_printf_override.h"
 
 #include "audio_utils.h"
 #include "background_gfx.h"

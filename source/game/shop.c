@@ -5,6 +5,7 @@
  */
 
 #include "game/shop.h"
+#include "tte_printf_override.h"
 
 #include "audio_utils.h"
 #include "background_shop_gfx.h"

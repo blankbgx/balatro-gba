@@ -5,6 +5,7 @@
  */
 
 #include "game/run_setup.h"
+#include "tte_printf_override.h"
 
 #include "background_run_setup_gfx.h"
 #include "button.h"

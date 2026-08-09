@@ -1,4 +1,5 @@
 #include "game/game_over.h"
+#include "tte_printf_override.h"
 
 #include "affine_background.h"
 #include "audio_utils.h"

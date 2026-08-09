@@ -5,6 +5,7 @@
  *         contents of the Hand.
  */
 #include "hand.h"
+#include "tte_printf_override.h"
 
 #include "audio_utils.h"
 #include "card.h"

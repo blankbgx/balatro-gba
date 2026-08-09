@@ -8,6 +8,12 @@
 
 **为什么**：防止 bug 回归。文档含全部已修复 bug（M1-M8 起），定期跑一遍确认旧问题不复发。
 
+## ⛔ 开发纪律：GBA 禁止 FILE 输出（2026-08-09 归档，dde6361）
+
+**规则**：项目代码**禁止调用任何 newlib FILE 层函数**——`printf`/`fprintf`/`puts`/`fputs`/`iprintf`/`fopen`/`fwrite`/`fclose`/`fflush`/`assert`（`__assert_func` 内部走 `fprintf(stderr)`）。文本渲染一律 `vsnprintf` + `tte_write`（见 `include/tte_printf_override.h`）。
+
+**为什么**：tonc 的 `tte_printf` 被宏定义为 `iprintf`（tonc_tte.h:472），走 stdout FILE 链（`__sbprintf → _fflush_r → __swrite → _write_r → devoptab` 间接调用）。本仓库运行时 devoptab/句柄区（0x030072e8-0x0300731c）会被破坏（根因未完全定位，见 Temp/gbalatro-devoptab-handoff-2026-08-09.md），任何 FILE 输出 → 跳飞 0x5EC002E4 → 卡死（deck 选择/Options 界面，已修 dde6361）。存档/成就/快照走 SRAM 内存映射（save.c），与 FILE 层零关系——**新增存储功能继续走 SRAM 段，不要引入文件系统**。
+
 ## 🎯 主线目标：完成全部小丑实装（当务之急）
 
 当前自定义小丑已实装 **19 张（53-71）**：53 Wee、54 Riff-Raff、55 Baron、56 Mime、57 Egg、58 Smeared、59 Faceless、60 Gros Michel、61 Cavendish、62 Flower Pot、63 Loyalty Card、64 Riding the Bus、65 Ceremonial Dagger、66 Credit Card、67 Burglar、68 Flash Card、69 Showman、70 Card Sharp、**71 To the Moon（冲向月球，利息翻倍，被动不可复制，gfx0 slot 31）**。注册表已含全部已实现条目（0-71）；原版其余 joker（72+）尚未加入，需完整走：效果实现 → 精灵量化 → 注册 → 映射 → 测试。每个交付照常走：编译 → 命名时间戳 ROM → upload_rom.sh 上传。

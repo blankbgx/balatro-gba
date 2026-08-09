@@ -400,7 +400,7 @@ enum
     HUD_ROLL_PHASE_DONE,
 };
 
-#define HUD_ROLL_STEPS 12
+#define HUD_ROLL_STEPS 24
 #define HUD_ROLL_INTERVAL FRAMES(2)
 #define HUD_ROLL_LABEL_HOLD FRAMES(20)
 #define HUD_ROLL_QUEUE_MAX 8
@@ -557,18 +557,16 @@ static inline void hud_pulse_update_loop(void)
             }
             else
             {
-                // Directional roll: increasing slides up from below
-                // (dy: +DY -> 0), decreasing from above (dy: -DY -> 0).
+                // Static value tween: the number steps from -> to in
+                // place. No vertical slide - the old slide (dy) looked
+                // jumpy at these frame counts.
                 int delta = item->to - item->from;
                 int cur = item->from + (delta * s_hud_roll_queue.step) / HUD_ROLL_STEPS;
-                int dy = (delta >= 0)
-                             ? (HUD_ROLL_DY * (HUD_ROLL_STEPS - s_hud_roll_queue.step)) / HUD_ROLL_STEPS
-                             : -(HUD_ROLL_DY * (HUD_ROLL_STEPS - s_hud_roll_queue.step)) / HUD_ROLL_STEPS;
                 tte_erase_rect_wrapper(*item->erase_rect);
                 tte_printf(
                     "#{P:%d,%d; cx:0x%X000}%d",
                     item->draw_rect->left,
-                    item->draw_rect->top + dy,
+                    item->draw_rect->top,
                     item->color_pb,
                     cur
                 );

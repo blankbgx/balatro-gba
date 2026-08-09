@@ -21,6 +21,9 @@ build.bat
 generate_guide.py
 joker_guide.html
 Jokers _ Balatro Wiki _ Fandom.html
+Activation Type _ Balatro Wiki _ Fandom.html
+Baron _ Balatro Wiki _ Fandom.html
+Guide_ Activation Sequence _ Balatro Wiki _ Fandom.html
 # test17 / joker_gfx17/18 sprite-scratch artifacts
 test17.h
 test17.s
@@ -30,3 +33,8 @@ include/joker_gfx17.h
 joker_gfx18.h
 joker_gfx18.s
 tools/
+# scratch joker card art (ttm_v2) + build/py artifacts that escaped build/
+graphics/ttm_v2/
+scripts/__pycache__/
+__pycache__/
+/state_machine.o

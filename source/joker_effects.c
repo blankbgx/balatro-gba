@@ -302,7 +302,7 @@ const JokerInfo joker_registry[] =
     { "Cavendish",     COMMON_JOKER,    5, false, cavendish_joker_desc, cavendish_joker_effect     }, // 61 Cavendish (orig #61)
         { "Flower Pot",    UNCOMMON_JOKER,  6, false, flower_pot_desc, flower_pot_effect              }, // 62 Flower Pot (orig #122)
         { "Loyalty Card",  UNCOMMON_JOKER,  5, false, loyalty_card_joker_desc, loyalty_card_joker_effect }, // 63 Loyalty Card (orig #25)
-        { "Riding the Bus", COMMON_JOKER,   6, false, riding_the_bus_joker_desc, riding_the_bus_joker_effect }, // 64 Riding the Bus (orig #44)
+        { "Ride the Bus",  COMMON_JOKER,   6, false, riding_the_bus_joker_desc, riding_the_bus_joker_effect }, // 64 Ride the Bus (orig #44)
         { "Ceremonial Dagger", UNCOMMON_JOKER, 6, false, ceremonial_dagger_joker_desc, ceremonial_dagger_joker_effect }, // 65 Ceremonial Dagger (orig #21)
         { "Credit Card",      COMMON_JOKER,    1, false, credit_card_joker_desc,      credit_card_joker_effect      }, // 66 Credit Card (orig #20)
         { "Burglar",          UNCOMMON_JOKER,  6, false, burglar_joker_desc,        burglar_joker_effect            }, // 67 Burglar (orig #47)
@@ -2819,7 +2819,7 @@ static u32 mime_joker_effect(
     // are walked (JOKER_EVENT_ON_CARD_HELD per card), EVERY joker that hooks
     // that pass runs again - Baron (Kings x1.5), Shoot the Moon (Queens +13
     // mult), Steel/Gold/Blue Seals (card abilities). It does NOT retrigger
-    // the normal joker scoring order (Blackboard, Riding the Bus etc.).
+    // the normal joker scoring order (Blackboard, Ride the Bus etc.).
     //
     // Implementation lives in round.c (play_scoring_held_cards_update):
     // after the walk finishes, it counts Mime effects present (real card +
@@ -3138,7 +3138,7 @@ static u32 loyalty_card_joker_effect(
     return effect_flags_ret;
 }
 
-// --- Riding the Bus (ID 64) ---
+// --- Ride the Bus (ID 64) ---
 
 // Description: gains +1 mult per consecutive hand played without a scoring
 // face card. Dynamic: shows current accumulated mult.

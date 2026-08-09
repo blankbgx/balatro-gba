@@ -93,7 +93,7 @@
 | 61 | Cavendish 卡文迪什 | ×3 倍率（大麦克销毁后出现） |
 | 62 | Flower Pot 花盆 | 4 花色齐全 ×3 |
 | 63 | Loyalty Card 积分卡 | 每第 6 次出牌 ×4 |
-| 64 | Riding the Bus 搭乘巴士 | 无面牌 +1 倍率 |
+| 64 | Ride the Bus 搭乘巴士 | 无面牌 +1 倍率 |
 | 65 | Ceremonial Dagger 仪式匕首 | 吃右侧小丑售价×2 倍率 |
 | 66 | Credit Card 信用卡 | 商店可欠款至 -$20 |
 

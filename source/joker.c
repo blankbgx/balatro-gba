@@ -99,7 +99,7 @@ static const int JOKER_ID_TO_SPRITE_MAP[] = {
         0,
     // ID 63=Loyalty Card(0,24)
         0,
-    // ID 64=Riding the Bus(8,2)
+    // ID 64=Ride the Bus(8,2)
         8,
     // ID 65=Ceremonial Dagger(0,26)
         0,
@@ -162,7 +162,7 @@ static const int JOKER_ID_TO_SPRITE_IDX_IN_SHEET[] = {
         25,
         // ID 63 (Loyalty Card) -> sheet 0, sprite 24
         24,
-        // ID 64 (Riding the Bus) -> sheet 8, sprite 2
+        // ID 64 (Ride the Bus) -> sheet 8, sprite 2
         2,
         // ID 65 (Ceremonial Dagger) -> sheet 0, sprite 26
         26,

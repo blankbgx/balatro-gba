@@ -18,15 +18,17 @@
 
 当前自定义小丑已实装 **19 张（53-71）**：53 Wee、54 Riff-Raff、55 Baron、56 Mime、57 Egg、58 Smeared、59 Faceless、60 Gros Michel、61 Cavendish、62 Flower Pot、63 Loyalty Card、64 Riding the Bus、65 Ceremonial Dagger、66 Credit Card、67 Burglar、68 Flash Card、69 Showman、70 Card Sharp、**71 To the Moon（冲向月球，利息翻倍，被动不可复制，gfx0 slot 31）**。注册表已含全部已实现条目（0-71）；原版其余 joker（72+）尚未加入，需完整走：效果实现 → 精灵量化 → 注册 → 映射 → 测试。每个交付照常走：编译 → 命名时间戳 ROM → upload_rom.sh 上传。
 
-## 🔖 注册表加"原版 ID"属性（2026-08-09 定，待实施）
+## 🔖 注册表加"原版 ID"属性（2026-08-09 定）
 
-**目标**：`JokerInfo` 结构（include/joker.h）加 `u8 original_id` 字段，存**原版 Balatro fandom 编号**（docs/balatro_jokers_merged.md 的 Nr 列，150/150 权威表）。
+**进度**：✅ **注释版已完成**（提交，2026-08-09）——`source/joker_effects.c` 全部 72 条注册条目已加 `(orig #XX)` 注释（如 `// 53 Wee Joker (orig #124)`），数据源 `docs/balatro_jokers_merged.md`（fandom Nr 1-150），**纯注释 gba 产物不变**。特例：Riding the Bus → orig #44（merged.md 写作 "Ride the Bus"）。
+
+**未来结构化字段**（图鉴系统做时再实施，会改变 gba 产物）：`JokerInfo` 结构（include/joker.h）加 `u8 original_id` 字段，存原版 fandom 编号。
 
 **用途**：
 - 快速定位文档属性（当前从项目 ID 查 merged.md 要靠手工换算——**项目 ID ≠ 原版 ID**，例：Blue Joker 项目 ID 34 = 原版 Nr 53）
 - 未来图鉴（codex/dex）系统直接读取展示
 
-**实施要点**：
+**实施要点**（结构化时）：
 - 字段放 `name` 后；全部 72 个注册条目（0-71）填充原版 Nr，数据源 = `docs/balatro_jokers_merged.md` 的 Nr 列（按名字对齐，注意同名换算）
 - **无法游戏内显式验证**（当前无消费方）——验证方式 = 静态脚本：逐条比对注册表 original_id ↔ merged.md Nr ↔ 名字，保证 0-71 全填且无重复错位
 - 后续新增 joker（72+）注册时同步填 original_id（作为注册流程一步）

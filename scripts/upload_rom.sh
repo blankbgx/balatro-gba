@@ -49,6 +49,22 @@ for candidate in python /c/Python313/python; do
 done
 [ -n "$BYPY_PY" ] || { echo "error: no python with bypy found" >&2; exit 1; }
 
+# --- auto-timestamp the ROM name if it lacks a _YYMMDDHHMM_ stamp ------------
+# Prevents stale hand-written timestamps (e.g. copied from a previous day).
+# Uses LOCAL time (not UTC - a UTC stamp would read 8h behind in CN).
+# We copy the ROM to the timestamped name locally, upload it, then clean up.
+ROM_DIR=$(cd "$(dirname "$ROM")" && pwd)
+ROM_NAME=$(basename "$ROM")
+TMP_COPIED=0
+if ! echo "$ROM_NAME" | grep -qE '_[0-9]{10}(_|\.)'; then
+    STAMP=$(date +%y%m%d%H%M)
+    ROM_NAME="GBAlatro_${STAMP}_DEBUG.gba"
+    cp "$ROM" "$ROM_DIR/$ROM_NAME" || { echo "error: cannot copy to $ROM_NAME" >&2; exit 1; }
+    TMP_COPIED=1
+    echo "== auto-timestamped name: $ROM_NAME (local $STAMP) =="
+    trap 'rm -f "$ROM_DIR/$ROM_NAME"' EXIT
+fi
+
 # --- clean old ROMs when counter hits the threshold --------------------------
 if [ "$COUNT" -ge "$CLEAN_EVERY" ]; then
     echo "== upload #$COUNT: cleaning old ROMs in /gbalatro/ =="
@@ -64,15 +80,14 @@ if [ "$COUNT" -ge "$CLEAN_EVERY" ]; then
 fi
 
 # --- upload (bypy needs relative filename + cwd, no MSYS paths) --------------
-echo "== uploading $ROM ($COUNT/$CLEAN_EVERY) =="
-ROM_DIR=$(cd "$(dirname "$ROM")" && pwd)
-ROM_NAME=$(basename "$ROM")
+echo "== uploading $ROM (as $ROM_NAME) ($COUNT/$CLEAN_EVERY) =="
 (
     cd "$ROM_DIR" || exit 1
-    $BYPY_PY -m bypy upload "$ROM_NAME" /gbalatro/ 2>/dev/null || {
-        echo "error: upload failed" >&2
+    OUT=$($BYPY_PY -m bypy upload "$ROM_NAME" /gbalatro/ 2>&1)
+    if echo "$OUT" | grep -qE '<E>|Error|error'; then
+        echo "error: upload failed: $OUT" >&2
         exit 1
-    }
+    fi
 ) || exit 1
 
 # --- persist counter ---------------------------------------------------------

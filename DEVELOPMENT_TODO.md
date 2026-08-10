@@ -18,6 +18,22 @@
 
 当前自定义小丑已实装 **19 张（53-71）**：53 Wee、54 Riff-Raff、55 Baron、56 Mime、57 Egg、58 Smeared、59 Faceless、60 Gros Michel、61 Cavendish、62 Flower Pot、63 Loyalty Card、64 Riding the Bus、65 Ceremonial Dagger、66 Credit Card、67 Burglar、68 Flash Card、69 Showman、70 Card Sharp、**71 To the Moon（冲向月球，利息翻倍，被动不可复制，gfx0 slot 31）**。注册表已含全部已实现条目（0-71）；原版其余 joker（72+）尚未加入，需完整走：效果实现 → 精灵量化 → 注册 → 映射 → 测试。每个交付照常走：编译 → 命名时间戳 ROM → upload_rom.sh 上传。
 
+## 🎵 HUD roll 动画结束节奏课题（2026-08-10 定，低优先，纯视觉）
+
+**背景**：用户希望 Burglar 的 +N/-N 数字动画结束时有"停顿节奏感"（参照通用延迟队列的 30帧/效果 节奏，DEVELOPMENT_TODO.md §通用延迟动作队列：`DEFER_DELAY=FRAMES(30)`）。
+
+**尝试与回滚**：
+- 提交 `b2631f9`：加 `HUD_ROLL_END_HOLD=FRAMES(30)`（渐变到目标后保持 30 帧再收尾）→ **动画跳乱** → 已 `git revert`（`3e00268`）
+- 当前稳定版 = `3fdb6d5`（label 画数字上方 + 渐变同值跳过——修好了开局手数闪烁）
+
+**待查方向（回电脑再解决）**：
+- HOLD 阶段与 `last_shown`/同值跳过机制的交互（HOLD 期间无重绘，但恢复 display 时 erase_rect 与 label 上方区域交错？）
+- HOLD 期间数字是否被其他 HUD 重绘打断（display_hands 恢复时机）
+- 跳乱的具体表现需用户复现描述（数字乱跳/错位/重影？）
+- 可先试：HOLD 期间保持最后一次重绘（不 erase），恢复时直接 display_hands（去掉 erase_rect 擦除）
+
+**状态**：⏸ 暂停（用户不在电脑前）；优先级最低（纯视觉改善，不影响功能）。
+
 ## 🔖 注册表加"原版 ID"属性（2026-08-09 定）
 
 **进度**：✅ **注释版已完成**（提交，2026-08-09）——`source/joker_effects.c` 全部 72 条注册条目已加 `(orig #XX)` 注释（如 `// 53 Wee Joker (orig #124)`），数据源 `docs/balatro_jokers_merged.md`（fandom Nr 1-150），**纯注释 gba 产物不变**。特例：Riding the Bus → orig #44（merged.md 写作 "Ride the Bus"）。

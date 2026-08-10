@@ -2317,6 +2317,14 @@ void game_round_on_init(void)
     for (int i = 0; i < HAND_TYPE_MAX; i++)
         g_game_vars.nb_played_hands[i] = 0;
 
+    // Display the HUD BEFORE dispatching ON_BLIND_SELECTED: jokers may
+    // mutate hands/discards (e.g. Burglar +3 / lose all discards) and
+    // enqueue roll animations that tween from the OLD value. Redrawing
+    // after the enqueue makes the real value flash, then the animation
+    // jumps back to the old value - visible as a "flash" at round start.
+    display_hands();
+    display_discards();
+
     // Dispatch ON_BLIND_SELECTED to all jokers after blind selection,
     // before cards are dealt. Used by Riff-Raff, Dagger, Madness, etc.
     // Uses joker_object_score (not joker_get_score_effect) so messages
@@ -2330,12 +2338,6 @@ void game_round_on_init(void)
         }
         // Auto-clear the event messages after a short delay
         schedule_joker_event_text_clear();
-
-        // Jokers may mutate hands/discards on this event (Burglar: +3 hands,
-        // lose all discards) - refresh the HUD so the new values show
-        // immediately instead of waiting for the first play/discard.
-        display_hands();
-        display_discards();
     }
 }
 

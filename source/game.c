@@ -398,14 +398,12 @@ enum
 {
     HUD_ROLL_PHASE_LABEL,   // showing white label (hold frames)
     HUD_ROLL_PHASE_ROLL,    // stepping digits from -> to
-    HUD_ROLL_PHASE_HOLD,    // tween done: keep the target value (rhythm)
     HUD_ROLL_PHASE_DONE,
 };
 
 #define HUD_ROLL_STEPS 24
 #define HUD_ROLL_INTERVAL FRAMES(2)
 #define HUD_ROLL_LABEL_HOLD FRAMES(20)
-#define HUD_ROLL_END_HOLD FRAMES(30)   // pause on the target value before settling
 #define HUD_ROLL_QUEUE_MAX 8
 
 typedef struct
@@ -558,10 +556,15 @@ static inline void hud_pulse_update_loop(void)
 
             if (s_hud_roll_queue.step >= HUD_ROLL_STEPS)
             {
-                // Tween done -> hold the target value for a beat so the
-                // animation doesn't end abruptly (rhythm).
-                s_hud_roll_queue.phase = HUD_ROLL_PHASE_HOLD;
-                s_hud_roll_queue.next_tick_at = g_game_vars.timer + HUD_ROLL_END_HOLD;
+                // Roll finished -> restore the normal display, advance.
+                tte_erase_rect_wrapper(*item->erase_rect);
+                if (item->target == HUD_TARGET_HANDS)
+                    display_hands();
+                else if (item->target == HUD_TARGET_DISCARDS)
+                    display_discards();
+                s_hud_roll_queue.cur++;
+                s_hud_roll_queue.next_tick_at = g_game_vars.timer;
+                hud_roll_start_next_item();
             }
             else
             {
@@ -586,21 +589,6 @@ static inline void hud_pulse_update_loop(void)
                     item->last_shown = cur;
                 }
             }
-        }
-    }
-    else if (s_hud_roll_queue.phase == HUD_ROLL_PHASE_HOLD)
-    {
-        if (g_game_vars.timer >= s_hud_roll_queue.next_tick_at)
-        {
-            // Hold done -> restore the normal display, advance.
-            tte_erase_rect_wrapper(*item->erase_rect);
-            if (item->target == HUD_TARGET_HANDS)
-                display_hands();
-            else if (item->target == HUD_TARGET_DISCARDS)
-                display_discards();
-            s_hud_roll_queue.cur++;
-            s_hud_roll_queue.next_tick_at = g_game_vars.timer;
-            hud_roll_start_next_item();
         }
     }
 }

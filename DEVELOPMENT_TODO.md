@@ -18,6 +18,25 @@
 
 当前自定义小丑已实装 **19 张（53-71）**：53 Wee、54 Riff-Raff、55 Baron、56 Mime、57 Egg、58 Smeared、59 Faceless、60 Gros Michel、61 Cavendish、62 Flower Pot、63 Loyalty Card、64 Riding the Bus、65 Ceremonial Dagger、66 Credit Card、67 Burglar、68 Flash Card、69 Showman、70 Card Sharp、**71 To the Moon（冲向月球，利息翻倍，被动不可复制，gfx0 slot 31）**。注册表已含全部已实现条目（0-71）；原版其余 joker（72+）尚未加入，需完整走：效果实现 → 精灵量化 → 注册 → 映射 → 测试。每个交付照常走：编译 → 命名时间戳 ROM → upload_rom.sh 上传。
 
+## 🌐 上游命名规范化跟踪（2026-08-10 记，待定案）
+
+**背景**：上游 GBALATRO/balatro-gba 正在系统性规范化代码命名。
+
+**已合并**：
+- #591：静态变量改 `s_` 前缀 + 常量改大写（大规模重命名）
+- #563/#597/#599：Sprite mode 字段 / obj_aff_copy 移除 / 独立 RNG（本地已含，无冲突）
+
+**进行中**：
+- #609：静态函数前缀风格政策（issue 讨论中）
+- #611/#604/#605：移除函数 `game_` 前缀（blind_select 等）
+- #606/#607：对局中按住 B 查看小丑描述（上游也在做描述系统）
+
+**对本地的影响**：
+- 本地大量代码用 `game_` 前缀（`game_round_*`、`game_start` 等）——**上游若继续移除 game_ 前缀，将来 rebase 会产生大量冲突**
+- 描述系统：本地已有描述面板（动态描述/长描述/clamp≥0），上游实现可对比取舍后吸收
+
+**行动**：⏸ 等上游命名政策定案（#609）后再评估是否对齐；**rebase 上游前先查 #609 状态**。不急。
+
 ## 🎵 HUD roll 动画结束节奏课题（2026-08-10 定，低优先，纯视觉）
 
 **背景**：用户希望 Burglar 的 +N/-N 数字动画结束时有"停顿节奏感"（参照通用延迟队列的 30帧/效果 节奏，DEVELOPMENT_TODO.md §通用延迟动作队列：`DEFER_DELAY=FRAMES(30)`）。

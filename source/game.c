@@ -593,7 +593,10 @@ static inline void hud_pulse_update_loop(void)
         if (g_game_vars.timer >= s_hud_roll_queue.next_tick_at)
         {
             // Hold done -> restore the normal display, advance.
-            tte_erase_rect_wrapper(*item->erase_rect);
+            // display_hands()/display_discards() erase their own fixed
+            // 3-char area before redrawing, so do NOT erase_rect here:
+            // the ROLL erase rect extends ±HUD_ROLL_DY and would wipe
+            // content above the digit row (label area / background).
             if (item->target == HUD_TARGET_HANDS)
                 display_hands();
             else if (item->target == HUD_TARGET_DISCARDS)

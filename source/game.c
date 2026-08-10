@@ -391,7 +391,6 @@ typedef struct
     int color_pb;           // digit color (blue hands / red discards)
     char label[16];         // white overlay text ("+3", "-2", ... "" = none)
     int from, to;           // roll range
-    int last_shown;         // last digit drawn (-1 = nothing drawn yet)
 } HudRollItem;
 
 enum
@@ -461,7 +460,6 @@ void hud_enqueue_value_roll(
     }
     item->from = from;
     item->to = to;
-    item->last_shown = -1;
     if (!s_hud_roll_queue.active)
     {
         s_hud_roll_queue.active = true;
@@ -502,18 +500,12 @@ static void hud_roll_start_next_item(void)
 
     if (item->label[0] != '\0')
     {
-        // White label overlay ABOVE the number (原版: +3 floats above
-        // the digit). Drawing it in place of the digit would erase the
-        // value first (4 -> +3 -> 4 looks like a flash at round start),
-        // so shift the label up one character row.
-        Rect above = *item->label_rect;
-        above.top -= TTE_CHAR_SIZE;
-        above.bottom -= TTE_CHAR_SIZE;
-        tte_erase_rect_wrapper(above);
+        // White label overlay first (原版: white +3 over the number).
+        tte_erase_rect_wrapper(*item->label_rect);
         tte_printf(
             "#{P:%d,%d; cx:0x%X000}%s",
             item->label_rect->left,
-            item->label_rect->top - TTE_CHAR_SIZE,
+            item->label_rect->top,
             TTE_WHITE_PB,
             item->label
         );
@@ -536,15 +528,12 @@ static inline void hud_pulse_update_loop(void)
     {
         if (g_game_vars.timer >= s_hud_roll_queue.next_tick_at)
         {
-            // Label hold done -> begin the digit tween.
+            // Label hold done -> begin the digit roll.
             s_hud_roll_queue.phase = HUD_ROLL_PHASE_ROLL;
             s_hud_roll_queue.step = 0;
             s_hud_roll_queue.next_tick_at = g_game_vars.timer + HUD_ROLL_INTERVAL;
-            // Erase the label overlay (one row above the number).
-            Rect label_above = *item->label_rect;
-            label_above.top -= TTE_CHAR_SIZE;
-            label_above.bottom -= TTE_CHAR_SIZE;
-            tte_erase_rect_wrapper(label_above);
+            // Erase the label overlay; the roll redraws in normal color.
+            tte_erase_rect_wrapper(*item->label_rect);
         }
     }
     else if (s_hud_roll_queue.phase == HUD_ROLL_PHASE_ROLL)
@@ -573,21 +562,14 @@ static inline void hud_pulse_update_loop(void)
                 // jumpy at these frame counts.
                 int delta = item->to - item->from;
                 int cur = item->from + (delta * s_hud_roll_queue.step) / HUD_ROLL_STEPS;
-                // Skip redraw while the digit is unchanged - erasing and
-                // rewriting the same number every step flashes it in
-                // place (visible at round start, e.g. 4->7 first steps).
-                if (cur != item->last_shown)
-                {
-                    tte_erase_rect_wrapper(*item->erase_rect);
-                    tte_printf(
-                        "#{P:%d,%d; cx:0x%X000}%d",
-                        item->draw_rect->left,
-                        item->draw_rect->top,
-                        item->color_pb,
-                        cur
-                    );
-                    item->last_shown = cur;
-                }
+                tte_erase_rect_wrapper(*item->erase_rect);
+                tte_printf(
+                    "#{P:%d,%d; cx:0x%X000}%d",
+                    item->draw_rect->left,
+                    item->draw_rect->top,
+                    item->color_pb,
+                    cur
+                );
             }
         }
     }

@@ -312,7 +312,7 @@ const JokerInfo joker_registry[] =
         { "Showman",          UNCOMMON_JOKER,  5, false, showman_joker_desc,        showman_joker_effect            }, // 69 Showman (orig #121)
         { "Card Sharp",       UNCOMMON_JOKER,  6, false, card_sharp_joker_desc,     card_sharp_joker_effect         }, // 70 Card Sharp (orig #62)
         { "To the Moon",      UNCOMMON_JOKER,  5, false, to_the_moon_joker_desc,     to_the_moon_joker_effect       }, // 71 To the Moon (orig #84)
-        { "Splash",           COMMON_JOKER,    3, false, splash_joker_desc,           splash_joker_effect             }, // 72 Splash (orig #52)
+        { "Splash",           COMMON_JOKER,    3, false, splash_joker_desc,           splash_joker_effect             }, // 72 Splash (orig #52), art by @MathisMartin31 (Discussion #69, 2026-05-14)
 
         // The following jokers
     // uncomment them when their sprites are added.

@@ -1,4 +1,6 @@
 #include "card.h"
+#include "game.h"
+#include "joker.h"
 
 #include "graphic_utils.h"
 #include "item.h"
@@ -184,7 +186,7 @@ bool card_object_is_selected(CardObject* card_object)
 // use THIS function so they stay in sync with future Splash behavior.
 bool card_object_is_scoring(CardObject* card_object)
 {
-    return card_object_is_selected(card_object);
+    return card_object_is_selected(card_object) || is_joker_owned(SPLASH_JOKER_ID);
 }
 
 Sprite* card_object_get_sprite(CardObject* card_object)

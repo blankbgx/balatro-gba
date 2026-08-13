@@ -128,12 +128,14 @@ REGISTER_JOKER_DESC_FUNC(flash_card_joker_desc)
 REGISTER_JOKER_DESC_FUNC(showman_joker_desc)
 REGISTER_JOKER_DESC_FUNC(card_sharp_joker_desc)
 REGISTER_JOKER_DESC_FUNC(to_the_moon_joker_desc)
+REGISTER_JOKER_DESC_FUNC(splash_joker_desc)
 REGISTER_JOKER_EFFECT_FUNC(credit_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(burglar_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(flash_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(showman_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(card_sharp_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(to_the_moon_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(splash_joker_effect)
 
 // Joker Effect functions
 
@@ -310,6 +312,7 @@ const JokerInfo joker_registry[] =
         { "Showman",          UNCOMMON_JOKER,  5, false, showman_joker_desc,        showman_joker_effect            }, // 69 Showman (orig #121)
         { "Card Sharp",       UNCOMMON_JOKER,  6, false, card_sharp_joker_desc,     card_sharp_joker_effect         }, // 70 Card Sharp (orig #62)
         { "To the Moon",      UNCOMMON_JOKER,  5, false, to_the_moon_joker_desc,     to_the_moon_joker_effect       }, // 71 To the Moon (orig #84)
+        { "Splash",           COMMON_JOKER,    3, false, splash_joker_desc,           splash_joker_effect             }, // 72 Splash (orig #52)
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -3738,4 +3741,40 @@ bool is_to_the_moon_active(void)
         }
     }
     return false;
+}
+
+// --- Splash (ID 72) ---
+
+// Description: every played card counts in scoring, including cards that
+// would normally not score (Ace-less low ranks, face cards when no scoring
+// hand type applies, etc.). Passive: implemented in card_object_is_scoring()
+// via is_joker_owned(SPLASH_JOKER_ID), so round.c scoring loop, hand-type
+// detection and Ride the Bus streak checks all stay in sync automatically.
+static int splash_joker_desc(Joker* joker, Rect dest_rect)
+{
+    (void)joker;
+    char desc[200];
+    snprintf(
+        desc,
+        sizeof(desc),
+        TTE_BLACK_TAG "Every played card counts " TTE_RED_TAG "as scoring"
+    );
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 splash_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    // Passive: the effect is implemented in card_object_is_scoring() via
+    // is_joker_owned(SPLASH_JOKER_ID). No event-triggered behaviour.
+    (void)joker;
+    (void)scored_card;
+    (void)joker_event;
+    (void)joker_effect;
+
+    return JOKER_EFFECT_FLAG_NONE;
 }

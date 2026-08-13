@@ -16,6 +16,19 @@
 
 ## 已修复 Bug 清单（按时间倒序）
 
+### M15. Splash 实装（所有打出牌计分）（P1）— 2026-08-13
+
+**功能**：Splash（ID 72，orig #52，$3 Common，卡面 gfx5 slot 4）。效果：**所有打出的牌都计分**（含通常无牌型匹配的杂牌）。被动实现于 `card_object_is_scoring()`（`|| is_joker_owned(SPLASH_JOKER_ID)`），round.c 记分循环 / 牌型判定 / Ride the Bus 连击检查自动同步。
+
+**复测步骤**：
+1. 商店购买 Splash（$3）放入小丑栏
+2. 打出一手**混合杂牌**（无对子/顺子/同花等匹配的 5 张散牌）
+3. **预期**：5 张牌全部出现计分动画并贡献筹码（Score 逐张累加）——无 Splash 时只有匹配牌型的牌计分（对照）
+4. 单独打出 1 张 A 或人头牌（无牌型）：Splash 下仍计分
+5. **Ride the Bus 共存**：持有 Splash + Ride the Bus，打出含脸牌的手——脸牌计分 → Ride the Bus 连击重置（与无 Splash 行为一致）；打无脸牌手 → 连击 +1
+6. 蓝图/脑暴复制 Splash：效果不变（布尔被动，复制无额外影响，无崩溃）
+7. 商店稀有度/价格：Common $3；描述文本 "Every played card counts as scoring"
+
 ### M14. 窃贼手数/弃牌 HUD 动画（P2）— 2026-08-07 起，2026-08-10 定型
 
 **⚠️ M14d 定型（2026-08-10，commits f2177bc / 1878fe1 / 3fdb6d5 / b2631f9）——用户连续三轮反馈后的最终形态**：

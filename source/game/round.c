@@ -1676,7 +1676,7 @@ static inline bool play_scoring_cards_update(void)
 
         CardObject* scored_card_object = s_played_hand[s_scored_card_index];
 
-        if (card_object_is_selected(scored_card_object))
+        if (card_object_is_scoring(scored_card_object))
         {
             // Offset of 1 tile to keep the text on the card
             tte_set_pos(fx2int(scored_card_object->x) + TILE_SIZE, SCORED_CARD_TEXT_Y);

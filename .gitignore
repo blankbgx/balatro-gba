@@ -38,3 +38,5 @@ graphics/ttm_v2/
 scripts/__pycache__/
 __pycache__/
 /state_machine.o
+graphics/splash_dl/
+graphics/credit_card_v2/

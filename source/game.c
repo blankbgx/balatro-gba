@@ -762,10 +762,16 @@ void add_joker(JokerObject* joker_object)
 {
     // Defensive: never let the owned rack exceed its capacity. Deferred
     // spawns (Riff-Raff) cap their own count, but other callers exist -
-    // an overfull rack would index SPACING_LUT out of bounds.
-    if (joker_object == NULL ||
-        list_get_len(&s_owned_jokers_list) >= MAX_JOKERS_HELD_SIZE)
+    // an overfull rack would index SPACING_LUT out of bounds. The caller
+    // has already allocated the object (joker_new + joker_object_new), so
+    // dropping it must destroy it - a bare return leaks the pool slots.
+    if (joker_object == NULL)
     {
+        return;
+    }
+    if (list_get_len(&s_owned_jokers_list) >= MAX_JOKERS_HELD_SIZE)
+    {
+        joker_object_destroy(&joker_object);
         return;
     }
 

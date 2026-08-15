@@ -776,6 +776,10 @@ static inline void game_round_handle_round_over(void)
     // This allows jokers like Egg (gain value) and Riff-Raff (reset flag)
     // to work correctly at round boundaries.
     // Uses joker_object_score so effects like Egg's "+$3" animation are displayed.
+    // Skipped on a loss: the run is over, so end-of-round payouts and
+    // extinction rolls (Gros Michel/Cavendish) would be meaningless noise
+    // on the game-over screen.
+    if (next_state != GAME_STATE_LOSE)
     {
         ListItr itr = list_itr_create(get_jokers_list());
         JokerObject* joker_obj;

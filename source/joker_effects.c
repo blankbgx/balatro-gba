@@ -2890,7 +2890,7 @@ static int gros_michel_joker_desc(Joker* joker, Rect dest_rect)
     static const char desc[] =
         TTE_BLACK_TAG "Provides " TTE_RED_TAG "+15 Mult"
         TTE_BLACK_TAG ". " TTE_RED_TAG "1 in 6"
-        TTE_BLACK_TAG " chance this card is destroyed at end of hand";
+        TTE_BLACK_TAG " chance this card is destroyed at end of round";
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
 
@@ -2899,7 +2899,7 @@ static int cavendish_joker_desc(Joker* joker, Rect dest_rect)
     static const char desc[] =
         TTE_BLACK_TAG "Provides " TTE_RED_TAG "X3 Mult"
         TTE_BLACK_TAG ". " TTE_RED_TAG "1 in 1000"
-        TTE_BLACK_TAG " chance this card is destroyed at end of hand";
+        TTE_BLACK_TAG " chance this card is destroyed at end of round";
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
 
@@ -2926,7 +2926,7 @@ static u32 faceless_joker_effect(
     return JOKER_EFFECT_FLAG_NONE;
 }
 
-// Gros Michel: +15 mult, 1/6 chance to self-destruct after each hand
+// Gros Michel: +15 mult, 1/6 chance to self-destruct at end of round
 static u32 gros_michel_joker_effect(
     Joker* joker,
     Card* scored_card,
@@ -2941,7 +2941,9 @@ static u32 gros_michel_joker_effect(
         return JOKER_EFFECT_FLAG_MULT;
     }
 
-    if (joker_event == JOKER_EVENT_ON_HAND_SCORED_END)
+    // Official timing: "1 in 6 chance this is destroyed at END OF ROUND"
+    // (fandom #38) - one extinction roll per round, not per hand.
+    if (joker_event == JOKER_EVENT_ON_ROUND_END)
     {
         // Don't self-destruct when being copied by Blueprint/Brainstorm
         if (!s_is_copying_joker && (rng_get_u32(RNG_SEQ_JOKER_GROS_MICHEL) % 6) == 0)
@@ -2961,7 +2963,7 @@ static u32 gros_michel_joker_effect(
     return JOKER_EFFECT_FLAG_NONE;
 }
 
-// Cavendish: x3 mult, 1/1000 chance to self-destruct after each hand
+// Cavendish: x3 mult, 1/1000 chance to self-destruct at end of round
 static u32 cavendish_joker_effect(
     Joker* joker,
     Card* scored_card,
@@ -2976,7 +2978,9 @@ static u32 cavendish_joker_effect(
         return JOKER_EFFECT_FLAG_XMULT;
     }
 
-    if (joker_event == JOKER_EVENT_ON_HAND_SCORED_END)
+    // Official timing: "1 in 1000 chance this is destroyed at END OF ROUND"
+    // (fandom #61) - same as Gros Michel, one roll per round.
+    if (joker_event == JOKER_EVENT_ON_ROUND_END)
     {
         // Don't self-destruct when being copied by Blueprint/Brainstorm
         if (!s_is_copying_joker && (rng_get_u32(RNG_SEQ_JOKER_CAVENDISH) % 1000) == 0)

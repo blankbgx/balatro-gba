@@ -179,11 +179,10 @@ bool card_object_is_selected(CardObject* card_object)
     return card_object->selected;
 }
 
-// A card participates in scoring if it is selected. When the "Splash" joker is
-// implemented (every played card counts in scoring), this becomes:
-//   return card_object_is_selected(card_object) || is_joker_owned(SPLASH_JOKER_ID);
-// Consumers: round.c scoring loop and joker streak checks (Ride the Bus) must
-// use THIS function so they stay in sync with future Splash behavior.
+// A card participates in scoring if it is selected - or, while Splash
+// (ID 72) is owned, EVERY played card scores.
+// Consumers: round.c scoring loop and joker streak checks (Ride the Bus)
+// use THIS function so they stay in sync with Splash behavior.
 bool card_object_is_scoring(CardObject* card_object)
 {
     return card_object_is_selected(card_object) || is_joker_owned(SPLASH_JOKER_ID);

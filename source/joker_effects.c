@@ -12,9 +12,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
-// Score text display row for jokers (mirrors source/joker.c JOKER_SCORE_TEXT_Y)
-#define JOKER_SCORE_TEXT_Y 48
 #include <string.h>
 
 #define MISPRINT_MAX_MULT 23
@@ -46,11 +43,11 @@ static JokerEffect s_shared_joker_effect = {0};
 // Flag: true when a Copying Joker (Blueprint/Brainstorm) is calling
 // another joker's effect function. Used by Wee Joker to distinguish
 // normal scoring (accumulate chips) from copy mode (read-only).
-bool s_is_copying_joker = false;
+static bool s_is_copying_joker = false;
 
 // Pointer to the original joker being copied by Blueprint/Brainstorm.
 // Used by Wee Joker to read the original's accumulated scoring_state.
-Joker* s_copied_joker_source = NULL;
+static Joker* s_copied_joker_source = NULL;
 
 // Joker Descriptions
 

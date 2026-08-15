@@ -26,6 +26,9 @@ static const Rect BLIND_REQ_TEXT_RECT                  = {32,      24,     64,  
 static const Rect PLAYING_SCREEN_RECT                  = {72,      0,      240,    160};
 static const Rect HAND_SIZE_RECT                       = {128,     128,    152,    160}; // Seems to include both SELECT and PLAYING
 // Joker score text rows (y=48: below jokers; y=108: below held cards)
+// JOKER_SCORE_TEXT_Y: the y=48 row in pixel coords, for tte_set_pos calls
+// (joker trigger messages: "Again!", "+2 Jokers", "Upgrade!", ...)
+#define JOKER_SCORE_TEXT_Y                        48
 static const Rect PLAYED_CARDS_SCORES_RECT             = {72,      48,     240,    56};
 static const Rect HELD_CARDS_SCORES_RECT               = {72,      108,    240,    116};
 // Hands/discards HUD numbers (top-left HUD) - shared by game.c

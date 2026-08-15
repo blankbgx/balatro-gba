@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Reconstruct slot 31 of joker_gfx0 from built .s (tiles + palette) and diff vs source PNG."""
+"""Reconstruct slot 31 of joker_gfx0 from built .s (tiles + palette) and diff vs source PNG.
+
+NOTE: one-off scratch tool from the To the Moon v3 sprite work (2026-08).
+Hardcodes slot 31 and the (gitignored) graphics/ttm_v2/ reference path.
+Parameterize SLOT/ref before reusing for other sprites.
+"""
 import re, sys
 from PIL import Image
 

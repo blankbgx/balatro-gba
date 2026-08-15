@@ -449,10 +449,10 @@ void hud_enqueue_value_roll(
     item->label[0] = '\0';
     if (label != NULL)
     {
-        // Copy WITHOUT snprintf: the GBA newlib printf family drags in
-        // malloc/va_list machinery that can wedge the deck-select /
-        // run-setup text rendering (user: 2005/2016 freeze in the deck
-        // screen, "文本渲染导致的卡死"). A plain loop is enough.
+        // Plain char-by-char copy: sufficient for <=15 chars and keeps
+        // this hot path free of varargs machinery. (The historic freeze
+        // was iprintf's FILE layer - fixed by tte_printf_override.h;
+        // vsnprintf itself is safe, just unnecessary here.)
         size_t i = 0;
         while (label[i] != '\0' && i + 1 < sizeof(item->label))
         {
@@ -527,7 +527,7 @@ static void hud_roll_start_next_item(void)
     }
 }
 
-static inline void hud_pulse_update_loop(void)
+static inline void hud_roll_update_loop(void)
 {
     if (!s_hud_roll_queue.active)
         return;
@@ -615,7 +615,7 @@ void game_update()
 
     jokers_update_loop();
     joker_event_text_clear_update_loop();
-    hud_pulse_update_loop();
+    hud_roll_update_loop();
 
     state_machine_update();
 

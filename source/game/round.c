@@ -19,9 +19,7 @@
 #include "selection_grid.h"
 #include "soundbank.h"
 #include "timer.h"
-
-// Score text display row for jokers (mirrors source/joker.c JOKER_SCORE_TEXT_Y)
-#define JOKER_SCORE_TEXT_Y 48
+// JOKER_SCORE_TEXT_Y (48) comes from layout.h
 #include "util.h"
 
 #include <stdlib.h>

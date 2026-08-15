@@ -21,7 +21,7 @@
 #include <string.h>
 #include <tonc.h>
 
-#define JOKER_SCORE_TEXT_Y     48
+// JOKER_SCORE_TEXT_Y (48) lives in layout.h, shared with round.c/joker_effects.c
 #define HELD_CARD_SCORE_TEXT_Y 108
 #define MAX_CARD_SCORE_STR_LEN 2
 // what it was before (MAX_DEFINEABLE_JOKERS / JOKERS_PER_SPRITESHEET)
@@ -88,28 +88,22 @@ static const int JOKER_ID_TO_SPRITE_MAP[] = {
     15,
     16,
     17,
-    // ID 53-61: split across sheets 18 and 19
-    // 53=Wee(18), 54=Riff-Raff(18), 55=Baron(19), 56=Mime(19), 57=Egg(19), 58=Smeared(18), 59=Faceless(18), 60=Gros Michel(19), 61=Cavendish(19)
-    // ID 53-54,58-59 merged into sheet 0 (indices 18-23)
-    // ID 55-56 also merged into sheet 0 (indices 18-19)
-    // ID 57,60-61 remain on sheet 19 (indices 0-2)
-    // 53=Wee(0,20), 54=Riff-Raff(0,21), 55=Baron(0,18), 56=Mime(0,19), 57=Egg(19,0), 58=Smeared(0,23), 59=Faceless(0,22), 60=Gros Michel(19,1), 61=Cavendish(19,2)
-    0, 0, 0, 0, 19, 0, 0, 19, 19,
-    // ID 62=Flower Pot(0,25)
-        0,
-    // ID 63=Loyalty Card(0,24)
-        0,
-    // ID 64=Ride the Bus(8,2)
-        8,
-    // ID 65=Ceremonial Dagger(0,26)
-        0,
-    // Placeholder for IDs 66-70
-    // 66=Credit Card(15,1), 67=Burglar(0,28), 68=Flash Card(0,27), 69=Showman(0,29), 70=Card Sharp(0,30)
-        15, 0, 0, 0, 0,
-    // ID 71=To the Moon(0,31)
-        0,
-    // ID 72=Splash(5,4)
-        5,
+    // Custom jokers (ID 53-72): sheet -> slot comments are on the
+    // JOKER_ID_TO_SPRITE_IDX_IN_SHEET table below; this table is sheet only.
+    // 53-56,58-59,62-65,67-71 -> sheet 0 (merged); 57,60-61 -> sheet 19;
+    // 66 -> sheet 15; 64 -> sheet 8; 72 -> sheet 5.
+    0, 0, 0, 0, 19, 0, 0, 19, 19, // 53-61
+    0,  // 62 Flower Pot
+    0,  // 63 Loyalty Card
+    8,  // 64 Ride the Bus
+    0,  // 65 Ceremonial Dagger
+    15, // 66 Credit Card
+    0,  // 67 Burglar
+    0,  // 68 Flash Card
+    0,  // 69 Showman
+    0,  // 70 Card Sharp
+    0,  // 71 To the Moon
+    5,  // 72 Splash
 };
 
 // Map of Joker ID -> sprite index within its spritesheet
@@ -135,53 +129,30 @@ static const int JOKER_ID_TO_SPRITE_IDX_IN_SHEET[] = {
     0, 1,
     // IDs 44-52: individual spritesheets (all index 0)
     0, 0, 0, 0, 0, 0, 0, 0, 0,
-    // ID 53 (Wee) -> sheet 18, sprite 0
-    // ID 53 (Wee) -> sheet 0, sprite 20 (merged)
-    20,
-    // ID 54 (Riff-Raff) -> sheet 18, sprite 1
-    // ID 54 (Riff-Raff) -> sheet 0, sprite 21 (merged)
-    21,
-    // ID 55 (Baron) -> sheet 19, sprite 0
-    // ID 55 (Baron) -> sheet 0, sprite 18 (merged)
-    18,
-    // ID 56 (Mime) -> sheet 19, sprite 1
-    // ID 56 (Mime) -> sheet 0, sprite 19 (merged)
-    19,
-    // ID 57 (Egg) -> sheet 19, sprite 2
-    // ID 57 (Egg) -> sheet 19, sprite 0 (cleaned)
-    0,
-    // ID 58 (Smeared) -> sheet 0, sprite 23 (merged)
-    23,
-    // ID 59 (Faceless) -> sheet 0, sprite 22 (merged)
-    22,
-    // ID 60 (Gros Michel) -> sheet 19, sprite 3
-    // ID 60 (Gros Michel) -> sheet 19, sprite 1 (cleaned)
-    1,
-    // ID 61 (Cavendish) -> sheet 19, sprite 4
-    // ID 61 (Cavendish) -> sheet 19, sprite 2 (cleaned)
-    2,
-        // ID 62 (Flower Pot) -> sheet 0, sprite 25 (moved from sheet 20)
-        25,
-        // ID 63 (Loyalty Card) -> sheet 0, sprite 24
-        24,
-        // ID 64 (Ride the Bus) -> sheet 8, sprite 2
-        2,
-        // ID 65 (Ceremonial Dagger) -> sheet 0, sprite 26
-        26,
-        // ID 66 (Credit Card) -> sheet 15, sprite 1 (merged into gfx15)
-        1,
-        // ID 67 (Burglar) -> sheet 0, sprite 28 (merged into gfx0, 米白 dropped)
-        28,
-        // ID 68 (Flash Card) -> sheet 0, sprite 27 (merged into gfx0)
-        27,
-        // ID 69 (Showman) -> sheet 0, sprite 29 (merged into gfx0, user-quantized)
-        29,
-        // ID 70 (Card Sharp) -> sheet 0, sprite 30 (merged into gfx0, user-quantized)
-        30,
-        // ID 71 (To the Moon) -> sheet 0, sprite 31 (merged into gfx0, user-quantized)
-        31,
-        // ID 72 (Splash) -> sheet 5, sprite 4 (own sheet, 5th slot)
-        4,
+    // Custom jokers (ID 53-72): slot index within the sheet named above.
+    // Most custom art was merged into sheet 0 (slots 18-31); sheet 19
+    // holds the remaining food jokers; 66 on sheet 15, 64 on sheet 8,
+    // 72 on sheet 5.
+    20, // 53 Wee          -> sheet 0, slot 20
+    21, // 54 Riff-Raff    -> sheet 0, slot 21
+    18, // 55 Baron        -> sheet 0, slot 18
+    19, // 56 Mime         -> sheet 0, slot 19
+    0,  // 57 Egg          -> sheet 19, slot 0
+    23, // 58 Smeared      -> sheet 0, slot 23
+    22, // 59 Faceless     -> sheet 0, slot 22
+    1,  // 60 Gros Michel  -> sheet 19, slot 1
+    2,  // 61 Cavendish    -> sheet 19, slot 2
+    25, // 62 Flower Pot   -> sheet 0, slot 25
+    24, // 63 Loyalty Card -> sheet 0, slot 24
+    2,  // 64 Ride the Bus -> sheet 8, slot 2
+    26, // 65 Ceremonial Dagger -> sheet 0, slot 26
+    1,  // 66 Credit Card  -> sheet 15, slot 1
+    28, // 67 Burglar      -> sheet 0, slot 28
+    27, // 68 Flash Card   -> sheet 0, slot 27
+    29, // 69 Showman      -> sheet 0, slot 29
+    30, // 70 Card Sharp   -> sheet 0, slot 30
+    31, // 71 To the Moon  -> sheet 0, slot 31
+    4,  // 72 Splash       -> sheet 5, slot 4
     };
 
 // Lookup table of Joker Rarity strings. Used to display at the bottom of the description screen.

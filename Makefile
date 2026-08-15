@@ -57,6 +57,14 @@ ifeq ($(MGBA_LOGGING),1)
 CFLAGS += -DMGBA_LOGGING
 endif
 
+# Debug switches (testing only): `make DEBUG_SHOP_FREE=1` - free shop
+# rerolls + all items $0. Default builds have it off (game.h defaults to 0).
+# NOTE: flag changes don't retrigger compilation - `make clean` first when
+# toggling this switch.
+ifeq ($(DEBUG_SHOP_FREE),1)
+CFLAGS += -DDEBUG_SHOP_FREE=1
+endif
+
 CXXFLAGS	:=	$(CFLAGS) -fno-rtti -fno-exceptions
 
 ASFLAGS	:=	-g $(ARCH)

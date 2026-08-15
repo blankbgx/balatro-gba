@@ -321,7 +321,7 @@ static void game_shop_intro()
             SHOP_REROLL_RECT.left,
             SHOP_REROLL_RECT.top,
             TTE_WHITE_PB,
-#ifdef DEBUG_SHOP_FREE
+#if DEBUG_SHOP_FREE
             0
 #else
             s_reroll_cost
@@ -479,7 +479,7 @@ static bool shop_reroll_row_on_selection_changed(
  */
 static inline void game_shop_reroll(void)
 {
-#ifndef DEBUG_SHOP_FREE
+#if !DEBUG_SHOP_FREE
     g_game_vars.money -= s_reroll_cost;
 #endif
     display_money(); // Update the money display
@@ -538,7 +538,7 @@ static inline void game_shop_reroll(void)
         schedule_joker_event_text_clear();
     }
 
-#ifndef DEBUG_SHOP_FREE
+#if !DEBUG_SHOP_FREE
     s_reroll_cost++;
 #endif
     tte_printf(
@@ -546,7 +546,7 @@ static inline void game_shop_reroll(void)
         SHOP_REROLL_RECT.left,
         SHOP_REROLL_RECT.top,
         TTE_WHITE_PB,
-#ifdef DEBUG_SHOP_FREE
+#if DEBUG_SHOP_FREE
         0
 #else
         s_reroll_cost
@@ -585,7 +585,7 @@ static void reroll_on_pressed(void)
 
 static bool reroll_can_be_pressed(void)
 {
-#ifdef DEBUG_SHOP_FREE
+#if DEBUG_SHOP_FREE
     return true;
 #else
     return g_game_vars.money >= s_reroll_cost;

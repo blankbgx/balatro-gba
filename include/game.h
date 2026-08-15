@@ -16,9 +16,12 @@
 
 // ---------------------------------------------------------------------------
 // DEBUG SWITCHES
-// Set to 1 to enable, 0 for release builds.
+// Build-time only: `make DEBUG_SHOP_FREE=1` enables, default builds stay
+// clean (0 = off). Never commit a non-zero default here.
 // ---------------------------------------------------------------------------
-#define DEBUG_SHOP_FREE 1 // Free shop rerolls + all items priced at $0
+#ifndef DEBUG_SHOP_FREE
+#define DEBUG_SHOP_FREE 0 // 1 = free shop rerolls + all items priced at $0
+#endif
 
 // TODO: Can make these dynamic to support interest-related jokers and vouchers
 #define MAX_INTEREST   5

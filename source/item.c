@@ -26,7 +26,7 @@ int item_get_buy_price(Item* item)
 {
     GBAL_RETURN_IF_NULL_RET(item, UNDEFINED);
 
-#ifdef DEBUG_SHOP_FREE
+#if DEBUG_SHOP_FREE
     // Debug mode: everything is free
     return 0;
 #else

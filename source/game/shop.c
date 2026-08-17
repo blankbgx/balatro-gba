@@ -588,7 +588,10 @@ static bool reroll_can_be_pressed(void)
 #if DEBUG_SHOP_FREE
     return true;
 #else
-    return g_game_vars.money >= s_reroll_cost;
+    // Credit Card debt limit applies to rerolls too (vanilla: any shop
+    // spending can go into debt), same formula as the purchase path.
+    return g_game_vars.money + CREDIT_CARD_DEBT_LIMIT * count_credit_card_effects() >=
+           s_reroll_cost;
 #endif
 }
 

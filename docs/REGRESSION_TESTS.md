@@ -16,6 +16,19 @@
 
 ## 已修复 Bug 清单（按时间倒序）
 
+### M20. 信用卡欠款额度不覆盖 reroll（P1）— 2026-08-17
+
+**背景**：信用卡（Credit Card, ID 66）购买路径允许欠款（`money + CREDIT_CARD_DEBT_LIMIT*张数 >= price`，shop.c），但 reroll 按钮的可用判定 `reroll_can_be_pressed()` 只查 `money >= s_reroll_cost`——欠款刷不了商店。原版规则：任何商店消费都可欠款。
+
+**修复**：reroll 判定加上 `CREDIT_CARD_DEBT_LIMIT * count_credit_card_effects()`，与购买路径同式。`money` 为 s32、`display_money` 用 `%ld`，负数显示天然安全。
+
+**复测步骤**：
+1. 持有信用卡，把钱花到不足 reroll 费（如 $3 vs reroll $5）→ 按钮**可用**，按下后余额变负（$-2）
+2. 欠款抵近上限（余额 - 20×张数 < cost）→ 按钮禁用
+3. 无信用卡且余额不足 → 按钮禁用（行为不变）
+4. 双信用卡（Showman 重复获取）→ 欠款上限 $40 生效
+5. `DEBUG_SHOP_FREE=1` 构建：按钮始终可用、不扣钱（行为不变）
+
 ### M19. 商店按住 B 移动焦点查看描述导致小丑位移累积下沉（P1）— 2026-08-17
 
 **背景**：在 Next Round/Reroll 按钮上**按住 B** 再移动焦点到待售小丑：焦点上升只写入 `ty`（目标值），当帧 `y` 未动且 `vy==0`，desc 进入的"静止守卫"（查速度不查位置）被穿透；desc 捕获**瞬时位置** `y` 作为归位基准，丢弃了排队中的上升量。焦点移开时 unfocus 执行 +RAISE 下沉而无对应上升，每循环净下沉一档，**可叠加**。查看另一张小丑时 desc 流程会把其他商店小丑 `ty` 重置为 `ITEM_SHOP_Y`，漂移被冲掉（表现为"复位"），但 focused 标志仍 true，再次操作立即复现。上游原有 bug，与 M18 无关。

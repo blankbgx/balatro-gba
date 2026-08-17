@@ -33,6 +33,48 @@ static bool free_affines[MAX_AFFINES] = {false};
 
 static List sprite_objects_list = LIST_DEFAULT;
 
+bool sprite_checkout_affine(Sprite* sprite)
+{
+    GBAL_RETURN_IF_NULL_RET(sprite, false);
+
+    if (sprite->aff != NULL)
+        return true;
+
+    int idx = MAX_AFFINES;
+    for (int i = 0; i < MAX_AFFINES; i++)
+    {
+        if (!free_affines[i])
+        {
+            free_affines[i] = true;
+            idx = i;
+            break;
+        }
+    }
+
+    if (idx == MAX_AFFINES)
+        return false;
+
+    sprite->obj->attr0 |= ATTR0_AFF;
+    // AFF_ID occupies attr1 bits 9-13; mask = 0x3E00
+    sprite->obj->attr1 = (sprite->obj->attr1 & ~0x3E00u) | ATTR1_AFF_ID(idx);
+    sprite->aff = &obj_aff_buffer[idx];
+    obj_aff_identity(sprite->aff);
+    return true;
+}
+
+void sprite_release_affine(Sprite* sprite)
+{
+    GBAL_RETURN_IF_NULL_VOID(sprite);
+
+    if (sprite->aff == NULL)
+        return;
+
+    free_affines[sprite->aff - obj_aff_buffer] = false;
+    sprite->aff = NULL;
+    sprite->obj->attr0 &= ~ATTR0_AFF;
+    sprite->obj->attr1 &= ~0x3E00u;
+}
+
 // Sprite methods
 Sprite* sprite_new(u16 a0, u16 a1, u32 tid, u32 pb, s16 sprite_index)
 {
@@ -51,37 +93,17 @@ Sprite* sprite_new(u16 a0, u16 a1, u32 tid, u32 pb, s16 sprite_index)
         return NULL;
     }
 
+    sprite->obj = &obj_buffer[sprite_index];
+    obj_set_attr(sprite->obj, a0, a1, ATTR2_PALBANK(pb) | tid);
+
     if (a0 & ATTR0_AFF)
     {
-        int aff_index = MAX_AFFINES;
-
-        for (int i = 0; i < MAX_AFFINES; i++)
-        {
-            if (!free_affines[i])
-            {
-                free_affines[i] = true;
-                aff_index = i;
-                break;
-            }
-        }
-
-        if (aff_index == MAX_AFFINES)
+        if (!sprite_checkout_affine(sprite))
         {
             POOL_FREE(Sprite, sprite);
+            free_sprites[sprite_index] = NULL;
             return NULL;
         }
-
-        a1 = a1 | ATTR1_AFF_ID(aff_index);
-
-        sprite->obj = &obj_buffer[sprite_index];
-        sprite->aff = &obj_aff_buffer[aff_index];
-        obj_set_attr(sprite->obj, a0, a1, ATTR2_PALBANK(pb) | tid);
-        obj_aff_identity(&obj_aff_buffer[aff_index]);
-    }
-    else
-    {
-        sprite->obj = &obj_buffer[sprite_index];
-        obj_set_attr(sprite->obj, a0, a1, ATTR2_PALBANK(pb) | tid);
     }
 
     sprite->idx = sprite_index;
@@ -322,6 +344,20 @@ static inline IWRAM_CODE void update_sprite_position(SpriteObject* sprite_object
     }
 
     // Apply rotation and scale to the sprite
+    if (sprite_object->sprite->aff == NULL)
+    {
+        if (!sprite_checkout_affine(sprite_object->sprite))
+        {
+            // Pool exhausted — degrade gracefully: snap to rest pose so the
+            // non-affine render is correct, but do NOT freeze position movement.
+            sprite_object->scale = sprite_object->tscale;
+            sprite_object->rotation = sprite_object->trotation;
+            sprite_object->vscale = 0;
+            sprite_object->vrotation = 0;
+            return;
+        }
+    }
+
     obj_aff_rotscale(
         sprite_object->sprite->aff,
         sprite_object->scale,
@@ -336,6 +372,19 @@ IWRAM_CODE void sprite_object_update(SpriteObject* sprite_object)
         update_sprite_position(sprite_object);
 
     sprite_position(sprite_object->sprite, fx2int(sprite_object->x), fx2int(sprite_object->y));
+
+    // Release affine matrix when at rest in the IDENTITY pose (scale==1,
+    // rotation==0) so idle sprites don't permanently hold hardware matrices.
+    // The identity-pose check is required: a sprite resting at a non-identity
+    // transform (e.g. the main-menu ace at scale 0.8 with ATTR0_AFF_DBL set)
+    // would pop/vanish if released — for a non-affine sprite attr0 bit 9 is
+    // the HIDE flag, not double-size.
+    if (is_sprite_object_static(sprite_object) && sprite_object->sprite != NULL &&
+        sprite_object->sprite->aff != NULL && sprite_object->scale == FIX_ONE &&
+        sprite_object->rotation == 0)
+    {
+        sprite_release_affine(sprite_object->sprite);
+    }
 }
 
 void sprite_object_update_all(void)

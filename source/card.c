@@ -133,7 +133,7 @@ void card_object_set_sprite(CardObject* card_object, s16 layer)
         TILE_SIZE * CARD_SPRITE_OFFSET
     );
     Sprite* sprite = sprite_new(
-        ATTR0_SQUARE | ATTR0_4BPP | ATTR0_AFF,
+        ATTR0_SQUARE | ATTR0_4BPP,
         ATTR1_SIZE_32,
         tile_index,
         CARD_PB,
@@ -151,7 +151,7 @@ void card_object_set_sprite_face_down(CardObject* card_object, enum DeckType dec
         TILE_SIZE * CARD_SPRITE_OFFSET
     );
     Sprite* sprite = sprite_new(
-        ATTR0_SQUARE | ATTR0_4BPP | ATTR0_AFF,
+        ATTR0_SQUARE | ATTR0_4BPP,
         ATTR1_SIZE_32,
         tile_index,
         DECK_SPRITES_PB,

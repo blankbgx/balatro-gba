@@ -137,6 +137,35 @@ Sprite* sprite_new(u16 a0, u16 a1, u32 tid, u32 pb, s16 sprite_index);
 void sprite_destroy(Sprite** sprite);
 
 /**
+ * @brief Check out an affine matrix from the pool for a sprite.
+ *
+ * Lazily acquires a hardware affine matrix so the sprite can render with
+ * scale/rotation transforms. If the sprite already holds a matrix the
+ * call is a no-op and returns true.
+ *
+ * On success the sprite's ATTR0_AFF flag is set and the matrix is
+ * initialized to identity.
+ *
+ * @param sprite pointer to Sprite. No action if **NULL**.
+ *
+ * @return **true** if the sprite holds a valid affine matrix after the call
+ *         (either pre-existing or freshly acquired), **false** if the pool
+ *         is exhausted.
+ */
+bool sprite_checkout_affine(Sprite* sprite);
+
+/**
+ * @brief Release an affine matrix back to the pool.
+ *
+ * Frees the hardware affine matrix held by @p sprite (if any) and clears
+ * the ATTR0_AFF flag so the sprite renders as a regular (non-affine) sprite.
+ * Safe to call on a sprite that has no matrix.
+ *
+ * @param sprite pointer to Sprite. No action if **NULL**.
+ */
+void sprite_release_affine(Sprite* sprite);
+
+/**
  * @brief Get index of Sprite in the GBA object buffer
  *
  * @param sprite pointer to Sprite, cannot be **NULL**

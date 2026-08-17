@@ -294,7 +294,7 @@ JokerObject* joker_object_new(Joker* joker)
     sprite_object_set_sprite(
         (SpriteObject*)joker_object,
         sprite_new(
-            ATTR0_SQUARE | ATTR0_4BPP | ATTR0_AFF,
+            ATTR0_SQUARE | ATTR0_4BPP,
             ATTR1_SIZE_32,
             tile_index,
             joker_pb,

@@ -638,8 +638,14 @@ static void game_shop_process_user_input(void)
     if (tmp_card != NULL && tmp_card->vx == 0 && tmp_card->vy == 0 && key_held(DESELECT_CARDS))
     {
         s_description_card = tmp_card;
-        s_description_card_original_x_pos = s_description_card->x;
-        s_description_card_original_y_pos = s_description_card->y;
+        // Capture the TARGET position (tx/ty), not the instantaneous one (x/y):
+        // a focus raise queued this frame has already updated ty but not y
+        // (the spring integrates later in the frame, so vy is still 0 and the
+        // immobile check above passes). Capturing y here would orphan the
+        // queued raise — the later unfocus then applies +RAISE without a
+        // matching rise and the card sinks cumulatively lower each cycle (M19).
+        s_description_card_original_x_pos = s_description_card->tx;
+        s_description_card_original_y_pos = s_description_card->ty;
 
         s_timer = TM_ZERO;
         state_machine_change_state(&shop_sm, GAME_SHOP_SHOW_CARD_DESC);

@@ -16,7 +16,7 @@
 
 ## 已修复 Bug 清单（按时间倒序）
 
-### M18. 仿射矩阵动态借用/归还（affine pooling）（P1）— 2026-08-17, commit 5d2fdd2
+### M18. 仿射矩阵动态借用/归还（affine pooling）（P1）— 2026-08-17, commit 3fc5a4f
 
 **背景**：架构改进。此前每个仿射精灵在 `sprite_new` 时永久占用一个硬件仿射矩阵（共 32 个），空闲精灵 99% 时间持有但不使用。改为动态借用：精灵创建时不分配矩阵，首次需要缩放/旋转时惰性借出（`sprite_checkout_affine`），回到静止状态（scale==1, rotation==0, 无速度）后归还（`sprite_release_affine`）。矩阵池耗尽时降级：位置弹簧正常更新，但缩放/旋转瞬移到目标值。
 

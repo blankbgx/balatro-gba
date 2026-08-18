@@ -233,6 +233,15 @@ void sort_cards(void);
  * @return              The number of cards in the best flush found, or 0 if no flush meets min_len.
  */
 int get_played_suit_counts(CardObject** played, int top, int suit_counts_out[NUM_SUITS]);
+
+/**
+ * @brief Returns a bitmask of suits that a card counts as.
+ * With Smeared Joker active: black cards count as both CLUBS and SPADES,
+ * red cards count as both HEARTS and DIAMONDS. Any suit-dependent scoring
+ * check (hand detection, suit jokers) must use this instead of comparing
+ * card->suit directly (M22).
+ */
+u8 card_effective_suit_mask(u8 suit);
 int find_flush_in_played_cards(CardObject** played, int top, int min_len, bool* out_selection);
 
 /**

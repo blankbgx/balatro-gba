@@ -830,7 +830,9 @@ static u32 sinful_joker_effect(
 
     u32 effect_flags_ret = JOKER_EFFECT_FLAG_NONE;
 
-    if (scored_card->suit == sinful_suit)
+    // M22: go through the suit mask so Smeared Joker applies (e.g. a played
+    // Club also counts as Spades and must trigger Wrathful Joker).
+    if (card_effective_suit_mask(scored_card->suit) & (1 << sinful_suit))
     {
         *joker_effect = &s_shared_joker_effect;
 

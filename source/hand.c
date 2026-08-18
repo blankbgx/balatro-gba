@@ -347,8 +347,11 @@ void hand_deselect_all_cards(void)
  * @brief Returns a bitmask of suits that a card counts as.
  * With Smeared Joker: black cards count as both CLUBS and SPADES,
  *                     red cards count as both HEARTS and DIAMONDS.
+ *
+ * NOT static: suit-checking joker effects (Greedy/Lusty/Wrathful/Gluttonous)
+ * in joker_effects.c must go through this too (M22).
  */
-static inline u8 card_effective_suit_mask(u8 suit)
+u8 card_effective_suit_mask(u8 suit)
 {
     if (!is_smeared_joker_active())
         return (1 << suit);

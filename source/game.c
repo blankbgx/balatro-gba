@@ -429,6 +429,8 @@ typedef struct
 
 static HudRollQueue s_hud_roll_queue = {0};
 
+static void hud_roll_start_next_item(void);
+
 // Enqueue a sequential "label overlay -> roll" animation item. If the
 // queue is idle this starts it; items play one after another.
 void hud_enqueue_value_roll(
@@ -474,11 +476,16 @@ void hud_enqueue_value_roll(
     item->last_shown = -1;
     if (!s_hud_roll_queue.active)
     {
+        // Kick the first item THROUGH hud_roll_start_next_item(): it owns
+        // the label print. Setting the fields here without calling it
+        // skipped the label phase's draw entirely, so item 1 showed no
+        // "+3" - the roll just erased the value, redrew it once
+        // (last_shown=-1 forces a redraw), then stepped: a visible
+        // in-place flash of the old number. Item 2+ got their labels only
+        // because the HOLD settle path goes through start_next_item.
         s_hud_roll_queue.active = true;
         s_hud_roll_queue.cur = 0;
-        s_hud_roll_queue.phase = HUD_ROLL_PHASE_LABEL;
-        s_hud_roll_queue.step = 0;
-        s_hud_roll_queue.next_tick_at = s_ui_tick; // M24: monotonic timebase
+        hud_roll_start_next_item();
     }
 }
 
@@ -526,14 +533,14 @@ static void hud_roll_start_next_item(void)
         // old one-row-up position landed on the white "hands"/"discards"
         // caption row and was unreadable. This replaces the value for the
         // hold beat (4 -> +3 -> roll 4..7), matching 原版 where the +N
-        // takes over the number cell. Use the item's color (blue/red) so
-        // it reads as part of that stat, not as white caption text.
+        // takes over the number cell. White, NOT the stat color: a red
+        // "-4" in the discards cell read as "discards went negative".
         tte_erase_rect_wrapper(*item->label_rect);
         tte_printf(
             "#{P:%d,%d; cx:0x%X000}%s",
             item->label_rect->left,
             item->label_rect->top,
-            item->color_pb,
+            TTE_WHITE_PB,
             item->label
         );
         s_hud_roll_queue.next_tick_at = s_ui_tick + HUD_ROLL_LABEL_HOLD; // M24

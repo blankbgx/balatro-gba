@@ -2324,8 +2324,13 @@ void game_round_on_init(void)
     // enqueue roll animations that tween from the OLD value. Redrawing
     // after the enqueue makes the real value flash, then the animation
     // jumps back to the old value - visible as a "flash" at round start.
-    display_hands();
-    display_discards();
+    // M21: use the no-erase variants here - the values shown at round entry
+    // always match what is already displayed (or the area is blank after the
+    // shop), and the erase->print gap on this heavy transition frame can
+    // straddle the text rows' scan-out, flashing the digits blank for one
+    // frame on scanline-accurate emulators (observed on Delta).
+    display_hands_no_erase();
+    display_discards_no_erase();
 
     // Dispatch ON_BLIND_SELECTED to all jokers after blind selection,
     // before cards are dealt. Used by Riff-Raff, Dagger, Madness, etc.

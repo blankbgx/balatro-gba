@@ -1021,9 +1021,46 @@ void display_hands(void)
     );
 }
 
+/**
+ * @brief Print the hands count WITHOUT erasing first (M21).
+ *
+ * Used at round entry, where the value shown always matches what is already
+ * on screen (round 1: carried over from game_start/round end) or the area is
+ * blank (post-shop). On the heavy transition frame, display_hands()'s
+ * erase->print gap can straddle the scan-out of the text rows and produce a
+ * one-frame blank ("flicker") on scanline-accurate emulators. Overwriting
+ * the glyph tiles directly has no blank window. Do NOT use where the value
+ * may shrink in digit count (stale digits) - that needs the erase.
+ */
+void display_hands_no_erase(void)
+{
+    tte_printf(
+        "#{P:%d,%d; cx:0x%X000}%ld",
+        HANDS_TEXT_RECT.left,
+        HANDS_TEXT_RECT.top,
+        TTE_BLUE_PB,
+        g_game_vars.hands
+    );
+}
+
 void display_discards(void)
 {
     tte_erase_rect_wrapper(DISCARDS_TEXT_ERASE_RECT);
+    tte_printf(
+        "#{P:%d,%d; cx:0x%X000}%ld",
+        DISCARDS_TEXT_RECT.left,
+        DISCARDS_TEXT_RECT.top,
+        TTE_RED_PB,
+        g_game_vars.discards
+    );
+}
+
+/**
+ * @brief Print the discards count WITHOUT erasing first (M21).
+ * See display_hands_no_erase() for why this exists and when it is safe.
+ */
+void display_discards_no_erase(void)
+{
     tte_printf(
         "#{P:%d,%d; cx:0x%X000}%ld",
         DISCARDS_TEXT_RECT.left,

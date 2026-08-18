@@ -159,6 +159,11 @@ void game_start(void);
 void display_round(void);
 void display_hands(void);
 void display_discards(void);
+// Round-entry variants (M21): print without erasing - the erase->print gap on
+// the heavy transition frame can straddle the text rows' scan-out and flash
+// the digit blank for one frame on scanline-accurate emulators (e.g. Delta).
+void display_hands_no_erase(void);
+void display_discards_no_erase(void);
 void display_temp_score(u32 value);
 void erase_temp_score(void);
 void display_score(u32 value);

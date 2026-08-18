@@ -2041,10 +2041,14 @@ static inline bool play_scoring_hand_scored_end_update(int played_idx)
 static inline void play_ending_played_cards_update(int played_idx)
 {
     // Same protection against out of bounds access as `play_starting_played_cards_update`
+    // M23: must use card_object_is_scoring (Splash-aware), matching the raise
+    // phase in play_starting_played_cards_update - otherwise Splash-included
+    // but unselected cards rise during scoring and never get reset, staying
+    // floating while the hand-type cards (e.g. the pair) sink back.
     bool card_selected =
         (s_played_top < s_scored_card_index)
             ? false
-            : card_object_is_selected(s_played_hand[s_played_top - s_scored_card_index]);
+            : card_object_is_scoring(s_played_hand[s_played_top - s_scored_card_index]);
 
     if (played_idx == s_played_top && (g_game_vars.timer % FRAMES(10) == 0 || !card_selected) &&
         g_game_vars.timer > FRAMES(40))
@@ -2068,7 +2072,7 @@ static inline void play_ending_played_cards_update(int played_idx)
         }
     }
 
-    if (card_object_is_selected(s_played_hand[played_idx]) &&
+    if (card_object_is_scoring(s_played_hand[played_idx]) &&
         s_played_top - played_idx >= s_scored_card_index)
     {
         s_played_hand[played_idx]->ty = int2fx(HAND_PLAY_POS.y);

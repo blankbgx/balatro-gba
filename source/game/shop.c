@@ -341,6 +341,25 @@ static int shop_top_row_get_size(void)
 }
 
 /**
+ * @brief Single affordability chokepoint for ALL shop spending.
+ *
+ * Purchase, reroll, and future consumable/voucher/pack purchases must ALL go
+ * through this function so the Credit Card debt allowance applies uniformly
+ * (M20 taught us: reroll had its own money-only check and silently excluded
+ * the debt limit). DEBUG_SHOP_FREE short-circuits here so every spending
+ * path stays consistent.
+ */
+static bool shop_can_afford(int price)
+{
+#if DEBUG_SHOP_FREE
+    (void)price;
+    return true;
+#else
+    return g_game_vars.money + CREDIT_CARD_DEBT_LIMIT * count_credit_card_effects() >= price;
+#endif
+}
+
+/**
  * @brief Called when pressing A on a Shop Joker to buy it.
  */
 static inline void game_shop_buy_item(int shop_item_idx)
@@ -372,9 +391,7 @@ static void shop_top_row_on_key_transit(SelectionGrid* selection_grid, Selection
     {
         int shop_item_idx = selection->x - 1; // - 1 to account for next round button
         Item* item = (Item*)list_get_at_idx(&s_shop_items_list, shop_item_idx);
-        if (!item_can_acquire(item) ||
-            g_game_vars.money + CREDIT_CARD_DEBT_LIMIT * count_credit_card_effects() <
-                item_get_buy_price(item))
+        if (!item_can_acquire(item) || !shop_can_afford(item_get_buy_price(item)))
         {
             return;
         }
@@ -585,14 +602,7 @@ static void reroll_on_pressed(void)
 
 static bool reroll_can_be_pressed(void)
 {
-#if DEBUG_SHOP_FREE
-    return true;
-#else
-    // Credit Card debt limit applies to rerolls too (vanilla: any shop
-    // spending can go into debt), same formula as the purchase path.
-    return g_game_vars.money + CREDIT_CARD_DEBT_LIMIT * count_credit_card_effects() >=
-           s_reroll_cost;
-#endif
+    return shop_can_afford(s_reroll_cost);
 }
 
 /**

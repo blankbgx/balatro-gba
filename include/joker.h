@@ -137,6 +137,8 @@ JokerObject* resolve_copy_target(JokerObject* copying_joker);
 // Per-frame scheduler for deferred blind-selected joker effects (Riff-Raff
 // spawns, Ceremonial Dagger sacrifice). Called from game.c's update loop.
 void deferred_effects_process_pending(void);
+// M24: true while deferred blind-selected effects are still queued.
+bool deferred_effects_pending(void);
 
 // True if this round's deferred queue actually produced a visible effect
 // (trigger animation / sacrifice). Silent queues (Riff-Raff no free slot,

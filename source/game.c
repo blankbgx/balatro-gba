@@ -25,6 +25,14 @@
 #include "list.h"
 #include "random.h"
 #include "save.h"
+
+// Monotonic tick for UI animation scheduling (HUD roll queue, joker event
+// text clear, deferred blind-select effects). Unlike g_game_vars.timer this
+// is NEVER reset - round.c resets the game timer at ~10 state transitions,
+// and any timestamp scheduled against it is orphaned by the reset (M24:
+// the Burglar discards roll stalled ~230 frames when the deal-complete
+// reset landed mid-queue).
+static u32 s_ui_tick = 0;
 #include "selection_grid.h"
 #include "soundbank.h"
 #include "splash_screen.h"
@@ -357,14 +365,14 @@ static u32 s_joker_event_text_clear_at = 0;
 
 void schedule_joker_event_text_clear(void)
 {
-    s_joker_event_text_clear_at = g_game_vars.timer + JOKER_EVENT_TEXT_CLEAR_DELAY;
+    s_joker_event_text_clear_at = s_ui_tick + JOKER_EVENT_TEXT_CLEAR_DELAY; // M24
 }
 
 static inline void joker_event_text_clear_update_loop(void)
 {
     if (s_joker_event_text_clear_at == 0)
         return;
-    if (g_game_vars.timer < s_joker_event_text_clear_at)
+    if (s_ui_tick < s_joker_event_text_clear_at) // M24
         return;
     // Scoring is in progress (scoring numbers are being drawn on the same
     // text row): wait for it to finish instead of erasing them early.
@@ -470,8 +478,18 @@ void hud_enqueue_value_roll(
         s_hud_roll_queue.cur = 0;
         s_hud_roll_queue.phase = HUD_ROLL_PHASE_LABEL;
         s_hud_roll_queue.step = 0;
-        s_hud_roll_queue.next_tick_at = g_game_vars.timer;
+        s_hud_roll_queue.next_tick_at = s_ui_tick; // M24: monotonic timebase
     }
+}
+
+bool hud_roll_is_active(void)
+{
+    return s_hud_roll_queue.active;
+}
+
+u32 game_get_ui_tick(void)
+{
+    return s_ui_tick;
 }
 
 void hud_clear_value_roll_queue(void)
@@ -497,7 +515,7 @@ static void hud_roll_start_next_item(void)
     if (item->from == item->to)
     {
         s_hud_roll_queue.cur++;
-        s_hud_roll_queue.next_tick_at = g_game_vars.timer;
+        s_hud_roll_queue.next_tick_at = s_ui_tick; // M24
         hud_roll_start_next_item();
         return;
     }
@@ -519,11 +537,11 @@ static void hud_roll_start_next_item(void)
             TTE_WHITE_PB,
             item->label
         );
-        s_hud_roll_queue.next_tick_at = g_game_vars.timer + HUD_ROLL_LABEL_HOLD;
+        s_hud_roll_queue.next_tick_at = s_ui_tick + HUD_ROLL_LABEL_HOLD; // M24
     }
     else
     {
-        s_hud_roll_queue.next_tick_at = g_game_vars.timer;
+        s_hud_roll_queue.next_tick_at = s_ui_tick; // M24
     }
 }
 
@@ -536,12 +554,12 @@ static inline void hud_roll_update_loop(void)
 
     if (s_hud_roll_queue.phase == HUD_ROLL_PHASE_LABEL)
     {
-        if (g_game_vars.timer >= s_hud_roll_queue.next_tick_at)
+        if (s_ui_tick >= s_hud_roll_queue.next_tick_at) // M24
         {
             // Label hold done -> begin the digit tween.
             s_hud_roll_queue.phase = HUD_ROLL_PHASE_ROLL;
             s_hud_roll_queue.step = 0;
-            s_hud_roll_queue.next_tick_at = g_game_vars.timer + HUD_ROLL_INTERVAL;
+            s_hud_roll_queue.next_tick_at = s_ui_tick + HUD_ROLL_INTERVAL; // M24
             // Erase the label overlay (one row above the number).
             Rect label_above = *item->label_rect;
             label_above.top -= TTE_CHAR_SIZE;
@@ -551,17 +569,17 @@ static inline void hud_roll_update_loop(void)
     }
     else if (s_hud_roll_queue.phase == HUD_ROLL_PHASE_ROLL)
     {
-        if (g_game_vars.timer >= s_hud_roll_queue.next_tick_at)
+        if (s_ui_tick >= s_hud_roll_queue.next_tick_at) // M24
         {
             s_hud_roll_queue.step++;
-            s_hud_roll_queue.next_tick_at = g_game_vars.timer + HUD_ROLL_INTERVAL;
+            s_hud_roll_queue.next_tick_at = s_ui_tick + HUD_ROLL_INTERVAL; // M24
 
             if (s_hud_roll_queue.step >= HUD_ROLL_STEPS)
             {
                 // Tween done -> hold the target value for a beat so the
                 // animation doesn't end abruptly (rhythm).
                 s_hud_roll_queue.phase = HUD_ROLL_PHASE_HOLD;
-                s_hud_roll_queue.next_tick_at = g_game_vars.timer + HUD_ROLL_END_HOLD;
+                s_hud_roll_queue.next_tick_at = s_ui_tick + HUD_ROLL_END_HOLD; // M24
             }
             else
             {
@@ -590,19 +608,28 @@ static inline void hud_roll_update_loop(void)
     }
     else if (s_hud_roll_queue.phase == HUD_ROLL_PHASE_HOLD)
     {
-        if (g_game_vars.timer >= s_hud_roll_queue.next_tick_at)
+        if (s_ui_tick >= s_hud_roll_queue.next_tick_at) // M24
         {
-            // Hold done -> restore the normal display, advance.
-            // display_hands()/display_discards() erase their own fixed
-            // 3-char area before redrawing, so do NOT erase_rect here:
-            // the ROLL erase rect extends ±HUD_ROLL_DY and would wipe
-            // content above the digit row (label area / background).
-            if (item->target == HUD_TARGET_HANDS)
-                display_hands();
-            else if (item->target == HUD_TARGET_DISCARDS)
-                display_discards();
+            // Hold done -> settle on THIS item's target value, advance.
+            // M24: print item->to, NOT the live value (display_hands()/
+            // display_discards() read g_game_vars) - when a later fire
+            // (e.g. Blueprint's Burglar copy) already advanced the live
+            // value while this item was still playing, restoring the live
+            // value leapfrogged the queue (hands visibly jumped 6 -> 10 ->
+            // back to 7). The serial illusion requires each item to settle
+            // on its own target.
+            // Erase only the small digit rect (label_rect), not the ROLL
+            // erase rect which extends ±HUD_ROLL_DY into the label row.
+            tte_erase_rect_wrapper(*item->label_rect);
+            tte_printf(
+                "#{P:%d,%d; cx:0x%X000}%d",
+                item->draw_rect->left,
+                item->draw_rect->top,
+                item->color_pb,
+                item->to
+            );
             s_hud_roll_queue.cur++;
-            s_hud_roll_queue.next_tick_at = g_game_vars.timer;
+            s_hud_roll_queue.next_tick_at = s_ui_tick; // M24
             hud_roll_start_next_item();
         }
     }
@@ -612,6 +639,7 @@ void game_update()
     rng_update();
 
     g_game_vars.timer++;
+    s_ui_tick++; // M24: monotonic UI animation timebase (never reset)
 
     jokers_update_loop();
     joker_event_text_clear_update_loop();

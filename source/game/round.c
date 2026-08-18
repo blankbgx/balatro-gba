@@ -1243,6 +1243,12 @@ static inline void game_round_process_card_draw(void)
 
     if (get_hand_state() == HAND_DRAW && s_cards_drawn < g_game_vars.hand_size)
     {
+        // M24: don't deal while blind-select effects / HUD value rolls are
+        // still playing - the player should see settled numbers (Burglar
+        // +3/0 discards) before cards arrive, not digits changing mid-deal.
+        if (deferred_effects_pending() || hud_roll_is_active())
+            return;
+
         if (g_game_vars.timer % FRAMES(10) == 0) // Draw a card every 10 frames
         {
             s_cards_drawn++;

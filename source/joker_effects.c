@@ -2389,6 +2389,14 @@ static bool deferred_source_is_alive(JokerObject* source)
     return alive;
 }
 
+// M24: true while any deferred blind-selected effect is still queued.
+// round.c gates card dealing on this (plus hud_roll_is_active()) so HUD
+// numbers don't change after cards are dealt.
+bool deferred_effects_pending(void)
+{
+    return s_deferred_count > 0;
+}
+
 // Called every frame from game.c's jokers_update_loop(). Advances the
 // deferred queue strictly left-to-right: activate next request (lock its
 // action) -> show animation -> wait DEFER_DELAY -> apply effect.
@@ -2396,7 +2404,6 @@ void deferred_effects_process_pending(void)
 {
     if (s_deferred_count == 0)
         return;
-
     // Post-fire pacing: after the last effect fired, wait for the rack to
     // settle (entry/re-layout animations finished), then hold one beat
     // before the next request activates.
@@ -2416,13 +2423,13 @@ void deferred_effects_process_pending(void)
         if (all_settled)
         {
             s_deferred_settle_wait = false;
-            s_deferred_next_beat_at = g_game_vars.timer + DEFER_DELAY;
+            s_deferred_next_beat_at = game_get_ui_tick() + DEFER_DELAY; // M24
         }
         return;
     }
     if (s_deferred_next_beat_at != 0)
     {
-        if (g_game_vars.timer < s_deferred_next_beat_at)
+        if (game_get_ui_tick() < s_deferred_next_beat_at) // M24
             return;
         s_deferred_next_beat_at = 0;
     }
@@ -2544,12 +2551,12 @@ void deferred_effects_process_pending(void)
             }
         }
 
-        s_deferred_fire_at = g_game_vars.timer + DEFER_DELAY;
+        s_deferred_fire_at = game_get_ui_tick() + DEFER_DELAY; // M24
         return;
     }
 
     // Time to apply the active request's effect
-    if (g_game_vars.timer >= s_deferred_fire_at)
+    if (game_get_ui_tick() >= s_deferred_fire_at) // M24
     {
         JokerObject* source = s_deferred_queue[s_deferred_active];
         switch (s_deferred_kind[s_deferred_active])
@@ -2649,7 +2656,7 @@ void deferred_effects_process_pending(void)
                     s_deferred_wait_frames += DEFER_DELAY;
                     if (s_deferred_wait_frames < DAGGER_MAX_WAIT)
                     {
-                        s_deferred_fire_at = g_game_vars.timer + DEFER_DELAY;
+                        s_deferred_fire_at = game_get_ui_tick() + DEFER_DELAY; // M24
                         return;
                     }
                     // Timed out waiting - sacrifice it where it stands

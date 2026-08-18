@@ -164,6 +164,12 @@ void display_discards(void);
 // the digit blank for one frame on scanline-accurate emulators (e.g. Delta).
 void display_hands_no_erase(void);
 void display_discards_no_erase(void);
+// M24: monotonic UI tick (never reset, unlike g_game_vars.timer) - use for
+// animation scheduling that must survive state-transition timer resets.
+u32 game_get_ui_tick(void);
+// M24: true while a HUD value roll animation is playing (used to gate card
+// dealing at round start so numbers don't change after cards are dealt).
+bool hud_roll_is_active(void);
 void display_temp_score(u32 value);
 void erase_temp_score(void);
 void display_score(u32 value);

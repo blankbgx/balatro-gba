@@ -2,5 +2,9 @@ FROM devkitpro/devkitarm:20251117
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y \
+# apt.devkitpro.org is Cloudflare-fronted and 403s some egress IPs (CN
+# networks); the toolchain itself is baked into the base image, and
+# python3-pil comes from debian.org, so drop that repo for this install.
+RUN rm -f /etc/apt/sources.list.d/devkitpro.list \
+    && apt-get update && apt-get install -y \
     python3-pil

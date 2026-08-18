@@ -532,24 +532,33 @@ static void gfx_face_watchdog(void)
         if (!card_debug_slot_matches(hand[i]->card, i, &shown_suit, &shown_rank))
         {
             any_bad = true;
+            // Name the overwriter: last recorded write to this slot.
+            int w_suit = -9, w_rank = -9;
+            u32 w_tick = 0;
+            card_debug_last_writer(i, &w_suit, &w_rank, &w_tick);
             mgba_printf(
                 MGBA_LOG_ERROR,
-                "GFXWD: slot %d card s%d r%d shows s%d r%d (tick %lu)",
+                "GFXWD: slot %d card s%d r%d shows s%d r%d; last write s%d r%d @%lu (tick %lu)",
                 i,
                 hand[i]->card->suit,
                 hand[i]->card->rank,
                 shown_suit,
                 shown_rank,
+                w_suit,
+                w_rank,
+                w_tick,
                 s_ui_tick
             );
             tte_printf(
-                "#{P:88,2; cx:0x%X000}GFXBUG %d:%d%d>%d%d",
+                "#{P:88,2; cx:0x%X000}GB%d:%d,%d>%d,%d W%d,%d",
                 TTE_RED_PB,
                 i,
                 hand[i]->card->suit,
                 hand[i]->card->rank,
                 shown_suit,
-                shown_rank
+                shown_rank,
+                w_suit,
+                w_rank
             );
         }
     }

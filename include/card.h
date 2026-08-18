@@ -81,6 +81,8 @@ void card_object_set_sprite(CardObject* card_object, s16 layer);
 // DEBUG watchdog: verify a card's VRAM slot holds its own face; on
 // mismatch, identify which face the slot actually shows (-1 = unknown).
 bool card_debug_slot_matches(const Card* card, int layer, int* shown_suit, int* shown_rank);
+// Most recent recorded VRAM write to `layer` (suit/rank = -2: deck back).
+bool card_debug_last_writer(int layer, int* suit, int* rank, u32* tick);
 #endif
 void card_object_set_sprite_face_down(CardObject* card_object, enum DeckType deck, s16 layer);
 void card_object_shake(CardObject* card_object, mm_word sound_id);

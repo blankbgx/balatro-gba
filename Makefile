@@ -167,6 +167,22 @@ clean:
 #---------------------------------------------------------------------------------
 all: $(BUILD)
 
+#---------------------------------------------------------------------------------
+# Development-phase delivery default (2026-08-18, user decision): ROMs delivered
+# for testing are DEBUG builds (free shop + free rerolls => any target build is
+# reachable via reroll spam). The SOURCE default stays off: a plain `make` from
+# main can never silently ship cheat mode (2026-08-15 drift incident).
+# NOTE: this target must stay AFTER `all`/`$(BUILD)` - the first target in the
+# file is the default goal; a `debug` first target makes plain `make` recurse
+# into itself (clean wipes build/, inner make re-triggers debug, ...).
+# `make debug` = clean rebuild with all debug switches on. Docker flow: clean
+# deletes the generated font .s, regen it on the HOST between clean and build
+# (container has no Pillow).
+#---------------------------------------------------------------------------------
+.PHONY: debug
+debug: clean
+	$(MAKE) DEBUG_SHOP_FREE=1
+
 else
 
 #---------------------------------------------------------------------------------

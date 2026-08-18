@@ -522,19 +522,18 @@ static void hud_roll_start_next_item(void)
 
     if (item->label[0] != '\0')
     {
-        // White label overlay ABOVE the number (原版: +3 floats above
-        // the digit). Drawing it in place of the digit would erase the
-        // value first (4 -> +3 -> 4 looks like a flash at round start),
-        // so shift the label up one character row.
-        Rect above = *item->label_rect;
-        above.top -= TTE_CHAR_SIZE;
-        above.bottom -= TTE_CHAR_SIZE;
-        tte_erase_rect_wrapper(above);
+        // Label overlay (+3 / -4) drawn IN the value's own region: the
+        // old one-row-up position landed on the white "hands"/"discards"
+        // caption row and was unreadable. This replaces the value for the
+        // hold beat (4 -> +3 -> roll 4..7), matching 原版 where the +N
+        // takes over the number cell. Use the item's color (blue/red) so
+        // it reads as part of that stat, not as white caption text.
+        tte_erase_rect_wrapper(*item->label_rect);
         tte_printf(
             "#{P:%d,%d; cx:0x%X000}%s",
             item->label_rect->left,
-            item->label_rect->top - TTE_CHAR_SIZE,
-            TTE_WHITE_PB,
+            item->label_rect->top,
+            item->color_pb,
             item->label
         );
         s_hud_roll_queue.next_tick_at = s_ui_tick + HUD_ROLL_LABEL_HOLD; // M24
@@ -560,11 +559,8 @@ static inline void hud_roll_update_loop(void)
             s_hud_roll_queue.phase = HUD_ROLL_PHASE_ROLL;
             s_hud_roll_queue.step = 0;
             s_hud_roll_queue.next_tick_at = s_ui_tick + HUD_ROLL_INTERVAL; // M24
-            // Erase the label overlay (one row above the number).
-            Rect label_above = *item->label_rect;
-            label_above.top -= TTE_CHAR_SIZE;
-            label_above.bottom -= TTE_CHAR_SIZE;
-            tte_erase_rect_wrapper(label_above);
+            // Erase the label overlay (drawn in the value's own region).
+            tte_erase_rect_wrapper(*item->label_rect);
         }
     }
     else if (s_hud_roll_queue.phase == HUD_ROLL_PHASE_ROLL)

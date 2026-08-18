@@ -34,7 +34,7 @@ const static u16 DECK_SPRITE_LUT[DECK_TYPE_MAX] = {0, 16, 32, 48, 64, 80};
 static bool s_high_contrast = DEFAULT_HIGH_CONTRAST;
 static bool s_more_readable = DEFAULT_MORE_READABLE;
 
-#ifdef DEBUG_SHOP_FREE
+#if DEBUG_SHOP_FREE
 // Ghost-face hunt (2026-08-18): ring buffer of recent VRAM slot writes.
 // When the watchdog finds a slot holding the wrong face, this names the
 // last writer to that slot (layer, face copied, tick). face_down writes
@@ -178,7 +178,7 @@ void card_object_set_sprite(CardObject* card_object, s16 layer)
         &card_tiles[CARD_SPRITE_LUT[card_object->card->suit][card_object->card->rank] * TILE_SIZE],
         TILE_SIZE * CARD_SPRITE_OFFSET
     );
-#ifdef DEBUG_SHOP_FREE
+#if DEBUG_SHOP_FREE
     card_debug_log_write(layer, card_object->card->suit, card_object->card->rank);
 #endif
     Sprite* sprite = sprite_new(
@@ -199,7 +199,7 @@ void card_object_set_sprite_face_down(CardObject* card_object, enum DeckType dec
         &decks_face_down_gfxTiles[DECK_SPRITE_LUT[deck] * TILE_SIZE],
         TILE_SIZE * CARD_SPRITE_OFFSET
     );
-#ifdef DEBUG_SHOP_FREE
+#if DEBUG_SHOP_FREE
     card_debug_log_write(layer, -2, -2); // deck back art
 #endif
     Sprite* sprite = sprite_new(
@@ -217,7 +217,7 @@ void card_object_shake(CardObject* card_object, mm_word sound_id)
     sprite_object_shake((SpriteObject*)card_object, sound_id);
 }
 
-#ifdef DEBUG_SHOP_FREE
+#if DEBUG_SHOP_FREE
 /**
  * @brief DEBUG watchdog helper: verify a card's VRAM slot holds ITS face.
  *

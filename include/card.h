@@ -77,7 +77,7 @@ CardObject* card_object_new(Card* card);
 void card_object_destroy(CardObject** card_object);
 void card_object_set_sprite(CardObject* card_object, s16 layer);
 
-#ifdef DEBUG_SHOP_FREE
+#if DEBUG_SHOP_FREE
 // DEBUG watchdog: verify a card's VRAM slot holds its own face; on
 // mismatch, identify which face the slot actually shows (-1 = unknown).
 bool card_debug_slot_matches(const Card* card, int layer, int* shown_suit, int* shown_rank);

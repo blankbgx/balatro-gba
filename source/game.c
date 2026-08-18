@@ -500,7 +500,7 @@ u32 game_get_ui_tick(void)
     return s_ui_tick;
 }
 
-#ifdef DEBUG_SHOP_FREE
+#if DEBUG_SHOP_FREE
 /**
  * @brief Ghost-face watchdog (2026-08-18 "A♦ shown as 2♦ for rounds").
  *
@@ -720,7 +720,7 @@ void game_update()
     joker_event_text_clear_update_loop();
     hud_roll_update_loop();
 
-#ifdef DEBUG_SHOP_FREE
+#if DEBUG_SHOP_FREE
     gfx_face_watchdog();
 #endif
 

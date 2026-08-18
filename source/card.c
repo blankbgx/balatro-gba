@@ -8,6 +8,7 @@
 
 #include <maxmod.h>
 #include <stdlib.h>
+#include <string.h>
 
 // Audio
 #include "pool.h"
@@ -164,6 +165,54 @@ void card_object_shake(CardObject* card_object, mm_word sound_id)
 {
     sprite_object_shake((SpriteObject*)card_object, sound_id);
 }
+
+#ifdef DEBUG_SHOP_FREE
+/**
+ * @brief DEBUG watchdog helper: verify a card's VRAM slot holds ITS face.
+ *
+ * Compares the 16 tiles at the card's slot (CARD_TID + layer*offset) with
+ * the expected face from the active sheet. On mismatch, searches BOTH deck
+ * sheets (all 52 faces) to identify what the slot actually contains -
+ * identifying the displayed face names the overwriter (see the "A♦ shown
+ * as 2♦" ghost-face hunt, 2026-08-18).
+ *
+ * @return true if the slot holds the correct face. On false, the
+ *         shown_suit / shown_rank out-params identify the displayed face
+ *         (-1/-1 = content matches no known card face).
+ */
+bool card_debug_slot_matches(const Card* card, int layer, int* shown_suit, int* shown_rank)
+{
+    const int tile_index = CARD_TID + (layer * CARD_SPRITE_OFFSET);
+    const u32* vram = (const u32*)&tile_mem[TILE_MEM_OBJ_CHARBLOCK0_IDX][tile_index];
+    const u32 copy_words = TILE_SIZE * CARD_SPRITE_OFFSET;
+
+    const unsigned int* card_tiles = s_more_readable ? deck_big_gfxTiles : deck_gfxTiles;
+    const u32* expected = (const u32*)&card_tiles[CARD_SPRITE_LUT[card->suit][card->rank] * TILE_SIZE];
+    if (memcmp(expected, vram, copy_words * sizeof(u32)) == 0)
+        return true;
+
+    for (int sheet = 0; sheet < 2; sheet++)
+    {
+        const unsigned int* tiles = sheet ? deck_big_gfxTiles : deck_gfxTiles;
+        for (int s = 0; s < NUM_SUITS; s++)
+        {
+            for (int r = 0; r < NUM_RANKS; r++)
+            {
+                if (memcmp(&tiles[CARD_SPRITE_LUT[s][r] * TILE_SIZE], vram,
+                           copy_words * sizeof(u32)) == 0)
+                {
+                    *shown_suit = s;
+                    *shown_rank = r;
+                    return false;
+                }
+            }
+        }
+    }
+    *shown_suit = -1;
+    *shown_rank = -1;
+    return false;
+}
+#endif // DEBUG_SHOP_FREE
 
 void card_object_set_selected(CardObject* card_object, bool selected)
 {

@@ -2,14 +2,9 @@
 
 > 已完成的修复不在此列。这些是设计讨论中确定的后续工作，按优先级排列。
 
-## 🔍 调查中：8 底注通关前卡死（2026-08-19 立案）
+## ✅ 已修复：8 底注通关前卡死（2026-08-19 立案，同日修复）
 
-**现象**：击败 8 底注 Boss 后、手牌归入牌组即将结束时卡死，胜利结算画面未出现。
-**已排除**：无小丑纯净通关路径——无头复现（MAX_ANTE=1 + 强制达标 + 按键注入自动导航）完整走完 win_on_init 无卡死。→ 需要用户构筑（特定小丑？）触发。
-**嫌疑**：`game_round_handle_round_over` 的 ON_ROUND_END 小丑派发（胜利时仍会派发），挂起的小丑效果 = 卡死点。ON_ROUND_END 处理器：Blueprint/Brainstorm（复制语义）、Riff-Raff、Egg、Gros Michel、Cavendish。
-**手段**：DEBUG 构建阶段标记（WINPROBE，round.c）——屏幕顶部同一格依次覆写 `RO`（进入 round_over）→ `J<id>`（正在派发的小丑）→ `GO<n>`（切换状态，10=WIN）。卡死时最后可见标记即现场。
-**下一步**：用户用 DEBUG ROM 复现 → 上报最后标记（J<id> 直接指认小丑）→ 定位。**记得问用户当时的小丑构筑**。
-**坑**：探针在 `DEBUG_SHOP_FREE=1` 下编译；定位后移除探针（搜 WINPROBE）。
+根因是 M25（见 docs/REGRESSION_TESTS.md）：`s_cards_discarded` 音高计数器在 HAND_SHUFFLING 下复位不可达 → 跨回合泄漏 → 音效 rate 变负 → maxmod 野跳转。与构筑无关。WINPROBE 标记已随修复移除（commit 42b2830 的探针已撤）。
 
 ## 🔍 调查中：幽灵卡面（2026-08-18 立案）
 

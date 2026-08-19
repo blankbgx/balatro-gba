@@ -102,6 +102,11 @@ static void speed_change_update(void)
 
 void play_sfx(mm_word id, mm_word rate, mm_byte volume)
 {
+    // M25: a negative rate (e.g. pitch-step counter leak across rounds) wraps
+    // to a huge u32 and makes maxmod jump wild (crash). Clamp anything
+    // non-positive to the base rate - defensive net for future counter leaks.
+    if ((s32)rate <= 0)
+        rate = MM_BASE_PITCH_RATE;
     int adj_volume = volume * g_game_vars.sound_volume / VOLUME_OPTION_MAX;
     mm_sound_effect sfx = {
         {id},

@@ -770,18 +770,6 @@ static inline void game_round_handle_round_over(void)
         next_state = GAME_STATE_LOSE;
     }
 
-    // [WINPROBE] temporary stage markers for the "freeze before the win
-    // screen" hunt (2026-08-19): each marker overwrites the same screen
-    // cell, so on a freeze the last visible marker localizes the stage:
-    //   "RO"    = handle_round_over entered (shuffle-back finished)
-    //   "J<id>" = dispatching ON_ROUND_END to joker <id> (freeze => that
-    //             joker's effect hung)
-    //   "GO<n>" = about to change state to <n> (10=WIN)
-    // Remove once root-caused.
-#if DEBUG_SHOP_FREE
-    tte_printf("#{P:96,2; cx:0x%X000}RO   ", TTE_RED_PB);
-#endif
-
     // Dispatch ON_ROUND_END to all jokers before transitioning state
     // This allows jokers like Egg (gain value) and Riff-Raff (reset flag)
     // to work correctly at round boundaries.
@@ -795,18 +783,11 @@ static inline void game_round_handle_round_over(void)
         JokerObject* joker_obj;
         while ((joker_obj = list_itr_next(&itr)))
         {
-#if DEBUG_SHOP_FREE
-            tte_printf("#{P:96,2; cx:0x%X000}J%-3d", TTE_RED_PB, joker_obj->joker->id);
-#endif
             joker_object_score(joker_obj, NULL, JOKER_EVENT_ON_ROUND_END);
         }
         // Auto-clear the event messages after a short delay
         schedule_joker_event_text_clear();
     }
-
-#if DEBUG_SHOP_FREE
-    tte_printf("#{P:96,2; cx:0x%X000}GO%-2d", TTE_RED_PB, next_state);
-#endif
 
     game_change_state(next_state);
 }
@@ -2279,6 +2260,14 @@ void game_round_on_init(void)
     set_hand_state(HAND_DRAW);
     hand_set_nb_selected_cards(0);
     s_cards_drawn = 0;
+    // M25: s_cards_discarded must also reset here. It is reused as the pitch
+    // step counter for the round-end shuffle-back flight sfx, but its only
+    // other reset lives in a block that is unreachable during HAND_SHUFFLING
+    // (see the "never reached" comment in card_in_hand_loop_handle_discard_
+    // and_shuffling). Without this reset the counter grows across rounds and
+    // the sfx pitch rate goes NEGATIVE (mm_word is u32 -> wraps huge) ->
+    // maxmod jumps wild (crash/freeze, e.g. at the ante-8 win transition).
+    s_cards_discarded = 0;
 
     sprite_destroy(&g_game_vars.playing_blind_token);
     g_game_vars.playing_blind_token = blind_token_new(

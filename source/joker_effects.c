@@ -2271,11 +2271,14 @@ static u32 wee_joker_effect(
             }
             break;
 
-        case JOKER_EVENT_ON_HAND_SCORED_END:
-            // Add accumulated chips to base chips so they participate
-            // in the final Chips × Mult calculation. Copies mirror the
-            // original's final accumulated value once.
+        case JOKER_EVENT_INDEPENDENT:
+            // M26: apply the accumulated chips HERE, at Wee's own slot in the
+            // left-to-right independent pass (原版: Wee gains chips at
+            // On-Scored, adds them at Independent). Applying them at
+            // ON_HAND_SCORED_END made the chips pop after every other joker
+            // (e.g. after Gros Michel's +15), breaking slot order.
             {
+                // Copies mirror the original's final accumulated value once.
                 s32 chips_to_apply;
                 if (s_is_copying_joker && s_copied_joker_source != NULL)
                     chips_to_apply = s_copied_joker_source->scoring_state;
@@ -3195,23 +3198,56 @@ static u32 riding_the_bus_joker_effect(
             joker->persistent_state = 0;
             break;
 
+        case JOKER_EVENT_ON_HAND_PLAYED:
+        {
+            // M26: growth belongs to the On-Played phase (原版 timing per the
+            // wiki phase table: "On Played (成长) + Independent") — the +1
+            // upgrade pop fires when the hand is played, decoupled from the
+            // mult application at Independent (which now pops in slot order
+            // like every other joker). The current hand still benefits from
+            // the +1, exactly as before. Copies stay silent (Blueprint
+            // mirrors only the mult at Independent).
+            if (s_is_copying_joker)
+                break;
+
+            extern CardObject** get_played_hand(void);
+            extern int get_played_top(void);
+            CardObject** played = get_played_hand();
+            int top = get_played_top();
+            bool face_card_will_score = false;
+            for (int i = 0; i <= top; i++)
+            {
+                if (played[i] != NULL && card_object_is_scoring(played[i]) &&
+                    card_is_face(played[i]->card))
+                {
+                    face_card_will_score = true;
+                    break;
+                }
+            }
+
+            if (!face_card_will_score)
+            {
+                (*p_accumulated_mult)++;
+                *joker_effect = &s_shared_joker_effect;
+                (*joker_effect)->message = "Upgrade!";
+                effect_flags_ret = JOKER_EFFECT_FLAG_MESSAGE;
+            }
+            break;
+        }
+
         case JOKER_EVENT_INDEPENDENT:
         {
-            bool is_copy = s_is_copying_joker;
-            s32 mult_to_apply = *p_accumulated_mult;
-
-            if (!is_copy)
-            {
-                // No scoring face card this hand -> extend the streak NOW so
-                // the current hand already benefits from the new mult
-                if (joker->persistent_state == 0)
-                    (*p_accumulated_mult)++;
-                mult_to_apply = *p_accumulated_mult;
-            }
-            else if (s_copied_joker_source != NULL)
+            // M26: apply ONLY the accumulated mult here (slot order); the
+            // growth/upgrade animation moved to ON_HAND_PLAYED.
+            s32 mult_to_apply;
+            if (s_is_copying_joker && s_copied_joker_source != NULL)
             {
                 // Copy mode: mirror the original's accumulated value
                 mult_to_apply = s_copied_joker_source->scoring_state;
+            }
+            else
+            {
+                mult_to_apply = *p_accumulated_mult;
             }
 
             if (mult_to_apply > 0)
@@ -3219,15 +3255,6 @@ static u32 riding_the_bus_joker_effect(
                 *joker_effect = &s_shared_joker_effect;
                 (*joker_effect)->mult = mult_to_apply;
                 effect_flags_ret = JOKER_EFFECT_FLAG_MULT;
-
-                // Only the real joker pops the message (copies stay silent)
-                // Unify with Wee Joker pattern: white "Upgrade!" message;
-                // the red +N (MULT flag) is the colored settlement value.
-                if (!is_copy)
-                {
-                    (*joker_effect)->message = "Upgrade!";
-                    effect_flags_ret |= JOKER_EFFECT_FLAG_MESSAGE;
-                }
             }
             break;
         }
@@ -3238,9 +3265,6 @@ static u32 riding_the_bus_joker_effect(
             if (scored_card != NULL && !s_is_copying_joker &&
                 card_is_face(scored_card))
             {
-                // Always mark the hand (blocks the +1 at INDEPENDENT)
-                joker->persistent_state = 1;
-
                 // Only animate/reset if there is a streak to break
                 if (*p_accumulated_mult > 0)
                 {
@@ -3250,14 +3274,6 @@ static u32 riding_the_bus_joker_effect(
                     effect_flags_ret = JOKER_EFFECT_FLAG_MESSAGE;
                 }
             }
-            break;
-
-        case JOKER_EVENT_ON_HAND_SCORED_END:
-            // Copies don't touch the flag (they mirror the original)
-            if (s_is_copying_joker)
-                break;
-            // Clear the per-hand face-card flag for the next hand
-            joker->persistent_state = 0;
             break;
 
         default:

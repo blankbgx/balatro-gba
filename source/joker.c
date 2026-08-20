@@ -717,6 +717,31 @@ Sprite* joker_object_get_sprite(JokerObject* joker_object)
     return sprite_object_get_sprite((SpriteObject*)joker_object);
 }
 
+// Serialized message display for the ON_PLAYED growth animation queue
+// (joker_effects.c growth_msg_*): draws "Upgrade!"-style text above a
+// joker OUTSIDE the synchronous joker_object_score path. Mirrors the
+// message layout used there (joker x + score offset, row 48, white).
+// The message is self-clearing via the same clear-timer machinery
+// (safe during scoring: the clear timer skips while HAND_PLAYING and
+// waits 90 frames anyway).
+void joker_show_message(JokerObject* joker_object, const char* message)
+{
+    if (joker_object == NULL || message == NULL)
+        return;
+
+    int cursorPosX = fx2int(joker_object->x);
+    int cursorPosY = JOKER_SCORE_TEXT_Y;
+    const int joker_score_display_offset_px = (MAX_CARD_SCORE_STR_LEN + 1) * TTE_CHAR_SIZE;
+    cursorPosX += joker_score_display_offset_px;
+
+    schedule_joker_event_text_clear();
+    set_and_shift_text((char*)message, &cursorPosX, &cursorPosY, TTE_WHITE_PB);
+    // Keep the trigger shake the joker would have had when returning a
+    // synchronous MESSAGE flag (UNDEFINED = visual shake, no sound - the
+    // old MESSAGE-only path passed an uninitialized sfx_id anyway).
+    joker_object_shake(joker_object, UNDEFINED);
+}
+
 static int s_get_num_spritesheets()
 {
     return MAX_NUM_JOKERS_SPRITESHEETS;

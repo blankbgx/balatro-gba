@@ -116,6 +116,15 @@ enum JokerEvent
 #define GREEN_JOKER_ID        74
 #define SQUARE_JOKER_ID       75
 
+// Serialized "Upgrade!"-style message pop above a joker, used by the
+// ON_PLAYED growth animation queue (joker_effects.c growth_msg_*).
+void joker_show_message(JokerObject* joker_object, const char* message);
+// Growth-message queue scheduler: advances one message per DEFER_DELAY
+// beat while the queue is non-empty. Called every frame from game.c.
+void growth_msg_process_pending(void);
+// Aborts any pending growth messages (round transitions / resets).
+void growth_msg_clear(void);
+
 // Credit Card: shop purchases may go into debt down to -20$ per REAL
 // Credit Card held. Blueprint/Brainstorm cannot copy this passive effect
 // (no event trigger - copies invoke a no-op), so only real cards count.

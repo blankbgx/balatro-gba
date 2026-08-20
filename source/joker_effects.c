@@ -2351,6 +2351,104 @@ static u32 s_deferred_fire_at = 0;
 static bool s_deferred_settle_wait = false;
 static u32 s_deferred_next_beat_at = 0;
 
+// --- ON_PLAYED growth message queue (2026-08-20, user req) ---
+// Ride the Bus / Green Joker / Square Joker all grow on
+// JOKER_EVENT_ON_HAND_PLAYED and used to pop "Upgrade!" synchronously -
+// two growth jokers (e.g. Green Joker + Ride the Bus) popped on the same
+// frame, overlapping animations. Growth still applies INSTANTLY inside
+// the effect (semantics unchanged - the current hand benefits from the
+// new value); ONLY the message pop is serialized: one joker per
+// DEFER_DELAY beat, in dispatch order (left-to-right), like 原版's
+// staggered per-joker upgrade pops.
+static JokerObject* s_growth_msg_queue[MAX_JOKERS_HELD_SIZE];
+static const char* s_growth_msg_text[MAX_JOKERS_HELD_SIZE];
+static int s_growth_msg_count = 0;
+static int s_growth_msg_active = -1;
+static u32 s_growth_msg_next_at = 0;
+
+static void growth_msg_enqueue(Joker* joker, const char* message)
+{
+    if (s_growth_msg_count >= MAX_JOKERS_HELD_SIZE)
+        return; // Decorational animation: never block gameplay.
+
+    ListItr itr = list_itr_create(get_jokers_list());
+    JokerObject* self_object = NULL;
+    JokerObject* cur;
+    while ((cur = list_itr_next(&itr)))
+    {
+        if (cur->joker == joker)
+        {
+            self_object = cur;
+            break;
+        }
+    }
+    if (self_object == NULL)
+        return;
+
+    s_growth_msg_queue[s_growth_msg_count] = self_object;
+    s_growth_msg_text[s_growth_msg_count] = message;
+    s_growth_msg_count++;
+}
+
+// Fires happen FRAMES after enqueue; the joker may have been sold/destroyed
+// in between. Skip the whole queue on a dead source (decorational only).
+static bool growth_msg_source_is_alive(JokerObject* jo)
+{
+    ListItr itr = list_itr_create(get_jokers_list());
+    JokerObject* cur;
+    while ((cur = list_itr_next(&itr)))
+    {
+        if (cur == jo)
+            return true;
+    }
+    return false;
+}
+
+void growth_msg_process_pending(void)
+{
+    if (s_growth_msg_count == 0)
+        return;
+
+    if (s_growth_msg_active < 0)
+    {
+        // Fire the first message now, next one after one beat.
+        s_growth_msg_active = 0;
+        if (!growth_msg_source_is_alive(s_growth_msg_queue[0]))
+        {
+            growth_msg_clear();
+            return;
+        }
+        joker_show_message(s_growth_msg_queue[0], s_growth_msg_text[0]);
+        s_growth_msg_next_at = game_get_ui_tick() + DEFER_DELAY;
+        return;
+    }
+
+    if (game_get_ui_tick() >= s_growth_msg_next_at)
+    {
+        s_growth_msg_active++;
+        if (s_growth_msg_active >= s_growth_msg_count)
+        {
+            s_growth_msg_count = 0;
+            s_growth_msg_active = -1;
+            return;
+        }
+        if (!growth_msg_source_is_alive(s_growth_msg_queue[s_growth_msg_active]))
+        {
+            growth_msg_clear();
+            return;
+        }
+        joker_show_message(s_growth_msg_queue[s_growth_msg_active],
+                           s_growth_msg_text[s_growth_msg_active]);
+        s_growth_msg_next_at = game_get_ui_tick() + DEFER_DELAY;
+    }
+}
+
+void growth_msg_clear(void)
+{
+    s_growth_msg_count = 0;
+    s_growth_msg_active = -1;
+}
+
 // Burglar-only serial pacing: after the +3 hands/discards fire, wait for
 // the HUD value roll to fully drain before the next trigger activates.
 // This serializes shake -> number roll (matching 原版); without it the
@@ -3267,9 +3365,10 @@ static u32 riding_the_bus_joker_effect(
             if (!face_card_will_score)
             {
                 (*p_accumulated_mult)++;
-                *joker_effect = &s_shared_joker_effect;
-                (*joker_effect)->message = "Upgrade!";
-                effect_flags_ret = JOKER_EFFECT_FLAG_MESSAGE;
+                // Serialized pop: growth applies instantly, the "Upgrade!"
+                // animation goes through the growth message queue so
+                // multiple growth jokers don't pop on the same frame.
+                growth_msg_enqueue(joker, "Upgrade!");
             }
             break;
         }
@@ -3930,9 +4029,7 @@ static u32 green_joker_effect(
             if (!s_is_copying_joker)
             {
                 joker->scoring_state += 1;
-                *joker_effect = &s_shared_joker_effect;
-                (*joker_effect)->message = "Upgrade!";
-                return JOKER_EFFECT_FLAG_MESSAGE;
+                growth_msg_enqueue(joker, "Upgrade!");
             }
             break;
 
@@ -3942,9 +4039,7 @@ static u32 green_joker_effect(
                 if (joker->scoring_state > 0)
                 {
                     joker->scoring_state -= 1;
-                    *joker_effect = &s_shared_joker_effect;
-                    (*joker_effect)->message = "Downgrade!";
-                    return JOKER_EFFECT_FLAG_MESSAGE;
+                    growth_msg_enqueue(joker, "Downgrade!");
                 }
             }
             break;
@@ -4010,9 +4105,7 @@ static u32 square_joker_effect(
                 if (get_played_size() == 4)
                 {
                     joker->scoring_state += 4;
-                    *joker_effect = &s_shared_joker_effect;
-                    (*joker_effect)->message = "Upgrade!";
-                    return JOKER_EFFECT_FLAG_MESSAGE;
+                    growth_msg_enqueue(joker, "Upgrade!");
                 }
             }
             break;

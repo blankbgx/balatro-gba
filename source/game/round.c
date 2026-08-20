@@ -2340,6 +2340,10 @@ void game_round_on_init(void)
     for (int i = 0; i < HAND_TYPE_MAX; i++)
         g_game_vars.nb_played_hands[i] = 0;
 
+    // Drop any growth-message animations still queued from the previous
+    // round's last hand (decorational only - never carry across rounds).
+    growth_msg_clear();
+
     // Display the HUD BEFORE dispatching ON_BLIND_SELECTED: jokers may
     // mutate hands/discards (e.g. Burglar +3 / lose all discards) and
     // enqueue roll animations that tween from the OLD value. Redrawing

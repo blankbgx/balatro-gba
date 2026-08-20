@@ -356,6 +356,7 @@ static inline void jokers_update_loop(void)
     // Deferred blind-selected joker effects (Riff-Raff spawns, Ceremonial
     // Dagger sacrifice, ...) run through the unified left-to-right queue.
     deferred_effects_process_pending();
+    growth_msg_process_pending();
 }
 
 // ---- One-shot event message auto-clear -------------------------------------

@@ -2188,9 +2188,9 @@ static int wee_joker_desc(Joker* joker, Rect dest_rect)
 {
     // Dynamic: shows current accumulated chips
     static const char desc_format[] =
-        TTE_BLACK_TAG "Each scored " TTE_RED_TAG "2" TTE_BLACK_TAG
-        " gives " TTE_RED_TAG "+8 " TTE_BLACK_TAG "Chips "
-        "(Now " TTE_RED_TAG "+%ld " TTE_BLACK_TAG "Chips)";
+        TTE_BLACK_TAG "Each scored " TTE_YELLOW_TAG "2" TTE_BLACK_TAG
+        " gives " TTE_BLUE_TAG "+8 " TTE_BLACK_TAG "Chips "
+        "(Now " TTE_BLUE_TAG "+%ld " TTE_BLACK_TAG "Chips)";
     char desc[256];
     snprintf(desc, sizeof(desc), desc_format, (long)joker->scoring_state);
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
@@ -2199,8 +2199,8 @@ static int wee_joker_desc(Joker* joker, Rect dest_rect)
 static int riff_raff_joker_desc(Joker* joker, Rect dest_rect)
 {
     static const char desc[] =
-        TTE_BLACK_TAG "When blind starts, create " TTE_RED_TAG "2 " TTE_BLACK_TAG
-        "random " TTE_RED_TAG "Common " TTE_BLACK_TAG
+        TTE_BLACK_TAG "When blind starts, create " TTE_YELLOW_TAG "2 " TTE_BLACK_TAG
+        "random " TTE_YELLOW_TAG "Common " TTE_BLACK_TAG
         "Jokers (Must have room)";
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
@@ -2208,7 +2208,7 @@ static int riff_raff_joker_desc(Joker* joker, Rect dest_rect)
 static int baron_joker_desc(Joker* joker, Rect dest_rect)
 {
     static const char desc[] =
-        TTE_BLACK_TAG "Each " TTE_RED_TAG "King " TTE_BLACK_TAG "held in hand "
+        TTE_BLACK_TAG "Each " TTE_YELLOW_TAG "King " TTE_BLACK_TAG "held in hand "
         "gives " TTE_RED_TAG "X1.5 " TTE_BLACK_TAG "Mult";
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
@@ -2216,14 +2216,14 @@ static int baron_joker_desc(Joker* joker, Rect dest_rect)
 static int mime_joker_desc(Joker* joker, Rect dest_rect)
 {
     static const char desc[] =
-        TTE_BLACK_TAG "Retrigger all " TTE_RED_TAG "cards held in hand";
+        TTE_BLACK_TAG "Retrigger all " TTE_YELLOW_TAG "cards held in hand";
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
 
 static int egg_joker_desc(Joker* joker, Rect dest_rect)
 {
     static const char desc[] =
-        TTE_BLACK_TAG "Gains " TTE_RED_TAG "$3 " TTE_BLACK_TAG "of sell value "
+        TTE_BLACK_TAG "Gains " TTE_YELLOW_TAG "$3 " TTE_BLACK_TAG "of sell value "
         "each round";
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
@@ -2231,9 +2231,9 @@ static int egg_joker_desc(Joker* joker, Rect dest_rect)
 static int smeared_joker_desc(Joker* joker, Rect dest_rect)
 {
     static const char desc[] =
-        TTE_RED_TAG "Clubs " TTE_BLACK_TAG "and " TTE_RED_TAG "Spades "
+        TTE_DARK_GREEN_TAG "Clubs " TTE_BLACK_TAG "and " TTE_DARK_BLUE_TAG "Spades "
         TTE_BLACK_TAG "are the same suit, "
-        TTE_RED_TAG "Diamonds " TTE_BLACK_TAG "and " TTE_RED_TAG "Hearts "
+        TTE_YELLOW_TAG "Diamonds " TTE_BLACK_TAG "and " TTE_RED_TAG "Hearts "
         TTE_BLACK_TAG "are the same suit";
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
@@ -2889,8 +2889,8 @@ static int faceless_joker_desc(Joker* joker, Rect dest_rect)
 {
     static const char desc[] =
         TTE_BLACK_TAG "If discarded hand contains "
-        TTE_RED_TAG "3 or more Face Cards"
-        TTE_BLACK_TAG ", earn " TTE_RED_TAG "$5";
+        TTE_YELLOW_TAG "3 or more Face Cards"
+        TTE_BLACK_TAG ", earn " TTE_YELLOW_TAG "$5";
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
 
@@ -2898,7 +2898,7 @@ static int gros_michel_joker_desc(Joker* joker, Rect dest_rect)
 {
     static const char desc[] =
         TTE_BLACK_TAG "Provides " TTE_RED_TAG "+15 Mult"
-        TTE_BLACK_TAG ". " TTE_RED_TAG "1 in 6"
+        TTE_BLACK_TAG ". " TTE_YELLOW_TAG "1 in 6"
         TTE_BLACK_TAG " chance this card is destroyed at end of round";
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
@@ -2907,7 +2907,7 @@ static int cavendish_joker_desc(Joker* joker, Rect dest_rect)
 {
     static const char desc[] =
         TTE_BLACK_TAG "Provides " TTE_RED_TAG "X3 Mult"
-        TTE_BLACK_TAG ". " TTE_RED_TAG "1 in 1000"
+        TTE_BLACK_TAG ". " TTE_YELLOW_TAG "1 in 1000"
         TTE_BLACK_TAG " chance this card is destroyed at end of round";
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
@@ -3013,7 +3013,7 @@ static int flower_pot_desc(Joker* joker, Rect dest_rect)
 {
     static const char desc[] =
         TTE_BLACK_TAG "If played hand has "
-        TTE_RED_TAG "all 4 suits"
+        TTE_YELLOW_TAG "all 4 suits"
         TTE_BLACK_TAG ", give "
         TTE_RED_TAG "X3 Mult";
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
@@ -3068,8 +3068,8 @@ static int loyalty_card_joker_desc(Joker* joker, Rect dest_rect)
     snprintf(
         desc,
         sizeof(desc),
-        TTE_BLACK_TAG "Every " TTE_RED_TAG "6 hands" TTE_BLACK_TAG " played, "
-        TTE_RED_TAG "X4 Mult" TTE_BLACK_TAG ", " TTE_RED_TAG "%d" TTE_BLACK_TAG " remaining",
+        TTE_BLACK_TAG "Every " TTE_YELLOW_TAG "6 hands" TTE_BLACK_TAG " played, "
+        TTE_RED_TAG "X4 Mult" TTE_BLACK_TAG ", " TTE_YELLOW_TAG "%d" TTE_BLACK_TAG " remaining",
         remaining
     );
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
@@ -3166,7 +3166,7 @@ static int riding_the_bus_joker_desc(Joker* joker, Rect dest_rect)
         sizeof(desc),
         TTE_BLACK_TAG "Gains " TTE_RED_TAG "+1 Mult"
         TTE_BLACK_TAG " per consecutive hand played without a scoring "
-        TTE_RED_TAG "Face Card" TTE_BLACK_TAG " (currently " TTE_RED_TAG "+%ld "
+        TTE_YELLOW_TAG "Face Card" TTE_BLACK_TAG " (currently " TTE_RED_TAG "+%ld "
         TTE_BLACK_TAG "Mult)",
         (long)joker->scoring_state
     );
@@ -3293,7 +3293,7 @@ static int ceremonial_dagger_joker_desc(Joker* joker, Rect dest_rect)
     snprintf(
         desc,
         sizeof(desc),
-        TTE_BLACK_TAG "On blind select, destroy " TTE_RED_TAG "Joker to the right"
+        TTE_BLACK_TAG "On blind select, destroy " TTE_YELLOW_TAG "Joker to the right"
         TTE_BLACK_TAG " and add double its sell value to " TTE_RED_TAG "Mult"
         TTE_BLACK_TAG " (now " TTE_RED_TAG "+%ld " TTE_BLACK_TAG "Mult)",
         (long)joker->scoring_state
@@ -3444,7 +3444,7 @@ static int credit_card_joker_desc(Joker* joker, Rect dest_rect)
 {
     (void)joker;
     static const char desc[] =
-        TTE_BLUE_TAG "Go up to -20$" TTE_BLACK_TAG " in debt";
+        TTE_YELLOW_TAG "Go up to -20$" TTE_BLACK_TAG " in debt";
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
 
@@ -3504,7 +3504,7 @@ static int flash_card_joker_desc(Joker* joker, Rect dest_rect)
         desc,
         sizeof(desc),
         TTE_BLACK_TAG "Gains " TTE_RED_TAG "+2 Mult" TTE_BLACK_TAG
-        " per " TTE_BLUE_TAG "reroll" TTE_BLACK_TAG
+        " per " TTE_YELLOW_TAG "reroll" TTE_BLACK_TAG
         " in the shop (currently " TTE_RED_TAG "+%ld Mult" TTE_BLACK_TAG ")",
         (long)joker->scoring_state
     );
@@ -3575,7 +3575,7 @@ static int burglar_joker_desc(Joker* joker, Rect dest_rect)
     (void)joker;
     static const char desc[] =
         TTE_BLUE_TAG "Gain +3 Hands" TTE_BLACK_TAG " and\n"
-        TTE_BLUE_TAG "lose all discards" TTE_BLACK_TAG;
+        TTE_RED_TAG "lose all discards" TTE_BLACK_TAG;
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
 
@@ -3639,9 +3639,9 @@ static int showman_joker_desc(Joker* joker, Rect dest_rect)
     snprintf(
         desc,
         sizeof(desc),
-        TTE_BLACK_TAG "Joker, " TTE_BLUE_TAG "Tarot" TTE_BLACK_TAG ", "
-        TTE_BLUE_TAG "Planet" TTE_BLACK_TAG " and " TTE_BLUE_TAG "Spectral"
-        TTE_BLACK_TAG " cards may appear " TTE_RED_TAG "multiple times"
+        TTE_BLACK_TAG "Joker, " TTE_YELLOW_TAG "Tarot" TTE_BLACK_TAG ", "
+        TTE_YELLOW_TAG "Planet" TTE_BLACK_TAG " and " TTE_YELLOW_TAG "Spectral"
+        TTE_BLACK_TAG " cards may appear " TTE_YELLOW_TAG "multiple times"
         TTE_BLACK_TAG " (shop & packs)"
     );
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
@@ -3679,8 +3679,8 @@ static int card_sharp_joker_desc(Joker* joker, Rect dest_rect)
         desc,
         sizeof(desc),
         TTE_BLACK_TAG "X" TTE_RED_TAG "3 Mult" TTE_BLACK_TAG
-        " if played " TTE_BLUE_TAG "poker hand" TTE_BLACK_TAG
-        " has already been played " TTE_BLUE_TAG "this round"
+        " if played " TTE_YELLOW_TAG "poker hand" TTE_BLACK_TAG
+        " has already been played " TTE_YELLOW_TAG "this round"
         TTE_BLACK_TAG
     );
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
@@ -3729,8 +3729,8 @@ static int to_the_moon_joker_desc(Joker* joker, Rect dest_rect)
     snprintf(
         desc,
         sizeof(desc),
-        TTE_BLACK_TAG "Earn an extra " TTE_RED_TAG "$1 of interest"
-        TTE_BLACK_TAG " for every " TTE_BLUE_TAG "$5" TTE_BLACK_TAG
+        TTE_BLACK_TAG "Earn an extra " TTE_YELLOW_TAG "$1 of interest"
+        TTE_BLACK_TAG " for every " TTE_YELLOW_TAG "$5" TTE_BLACK_TAG
         " you have at end of round"
     );
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
@@ -3783,7 +3783,7 @@ static int splash_joker_desc(Joker* joker, Rect dest_rect)
     snprintf(
         desc,
         sizeof(desc),
-        TTE_BLACK_TAG "Every played card counts " TTE_RED_TAG "as scoring"
+        TTE_BLACK_TAG "Every played card counts " TTE_YELLOW_TAG "as scoring"
     );
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }

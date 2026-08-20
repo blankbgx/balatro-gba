@@ -2342,6 +2342,14 @@ static u32 s_deferred_fire_at = 0;
 static bool s_deferred_settle_wait = false;
 static u32 s_deferred_next_beat_at = 0;
 
+// Burglar-only serial pacing: after the +3 hands/discards fire, wait for
+// the HUD value roll to fully drain before the next trigger activates.
+// This serializes shake -> number roll (matching 原版); without it the
+// 30-frame deferred beat races ahead of the ~98-frame/item roll and 5
+// copies overflow the 8-slot HUD queue, dropping the final roll and
+// freezing the HUD at 16 instead of reaching 19.
+static bool s_deferred_wait_hud_roll = false;
+
 // True once any queued request has actually shown its trigger animation or
 // locked a real effect this round (i.e. the queue wasn't entirely silent -
 // e.g. Riff-Raff found no free slot, Dagger found no right neighbor). The
@@ -2407,6 +2415,16 @@ void deferred_effects_process_pending(void)
 {
     if (s_deferred_count == 0)
         return;
+    // Burglar serial pacing: wait for the HUD value roll to drain before
+    // the next trigger activates (set by the Burglar fire branch).
+    if (s_deferred_wait_hud_roll)
+    {
+        if (hud_roll_is_active())
+            return;
+        s_deferred_wait_hud_roll = false;
+        s_deferred_next_beat_at = game_get_ui_tick() + DEFER_DELAY;
+        return;
+    }
     // Post-fire pacing: after the last effect fired, wait for the rack to
     // settle (entry/re-layout animations finished), then hold one beat
     // before the next request activates.
@@ -2716,11 +2734,22 @@ void deferred_effects_process_pending(void)
         // for the rack to settle (spawned jokers' entry / re-layout) plus
         // one beat, so the next trigger animation plays against a still rack.
         s_deferred_fire_at = 0;
-        s_deferred_settle_wait = true;
         if (s_deferred_active + 1 >= s_deferred_count)
         {
             s_deferred_count = 0;
             s_deferred_active = -1;
+        }
+        else if (s_deferred_kind[s_deferred_active] == DEFER_BURGLAR)
+        {
+            // Burglar: serialize the shake with its HUD number roll. Wait
+            // for the roll queue to drain before the next trigger activates
+            // (the rack doesn't re-layout for Burglar, so settle_wait is
+            // meaningless here - what must settle is the HUD roll).
+            s_deferred_wait_hud_roll = true;
+        }
+        else
+        {
+            s_deferred_settle_wait = true;
         }
     }
 }
@@ -2776,6 +2805,7 @@ static u32 riff_raff_joker_effect(
                     s_deferred_ran_animation = false;
                     s_deferred_settle_wait = false;
                     s_deferred_next_beat_at = 0;
+                    s_deferred_wait_hud_roll = false;
                 }
                 s_deferred_queue[s_deferred_count] = self_object;
                 s_deferred_kind[s_deferred_count] = DEFER_RIFF_RAFF;
@@ -3384,6 +3414,7 @@ static u32 ceremonial_dagger_joker_effect(
                             s_deferred_ran_animation = false;
                             s_deferred_settle_wait = false;
                             s_deferred_next_beat_at = 0;
+                            s_deferred_wait_hud_roll = false;
                         }
                         s_deferred_count++;
                         break;
@@ -3616,6 +3647,7 @@ static u32 burglar_joker_effect(
                 s_deferred_ran_animation = false;
                 s_deferred_settle_wait = false;
                 s_deferred_next_beat_at = 0;
+                s_deferred_wait_hud_roll = false;
             }
             s_deferred_queue[s_deferred_count] = self_object;
             s_deferred_kind[s_deferred_count] = DEFER_BURGLAR;

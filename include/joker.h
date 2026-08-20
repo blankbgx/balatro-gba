@@ -124,6 +124,9 @@ void joker_show_message(JokerObject* joker_object, const char* message);
 void growth_msg_process_pending(void);
 // Aborts any pending growth messages (round transitions / resets).
 void growth_msg_clear(void);
+// True while any growth message is queued/playing. round.c gates the
+// hand-play -> scoring transition on this.
+bool growth_msg_pending(void);
 
 // Credit Card: shop purchases may go into debt down to -20$ per REAL
 // Credit Card held. Blueprint/Brainstorm cannot copy this passive effect

@@ -1648,6 +1648,15 @@ static inline bool play_before_scoring_cards_update(void)
         return true;
     }
 
+    // M29: ON_PLAYED growth animations (Upgrade!/Downgrade! pops) play
+    // through the serialized growth message queue. Do NOT start scoring
+    // until every pop has been shown - 原版 runs the whole On Played
+    // phase (incl. per-joker upgrade animations) before scoring begins.
+    if (growth_msg_pending())
+    {
+        return true;
+    }
+
     play_state = PLAY_SCORING_CARDS;
     return false;
 }

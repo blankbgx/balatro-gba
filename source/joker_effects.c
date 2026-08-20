@@ -2449,6 +2449,15 @@ void growth_msg_clear(void)
     s_growth_msg_active = -1;
 }
 
+// True while any ON_PLAYED growth message is still queued or being shown.
+// round.c gates the hand-play -> scoring transition on this: 原版 runs
+// the whole On Played phase (incl. per-joker upgrade pops) before the
+// cards start scoring.
+bool growth_msg_pending(void)
+{
+    return s_growth_msg_count > 0;
+}
+
 // Burglar-only serial pacing: after the +3 hands/discards fire, wait for
 // the HUD value roll to fully drain before the next trigger activates.
 // This serializes shake -> number roll (matching 原版); without it the

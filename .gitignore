@@ -44,3 +44,4 @@ __pycache__/
 /state_machine.o
 graphics/splash_dl/
 graphics/credit_card_v2/
+graphics/square_dl/

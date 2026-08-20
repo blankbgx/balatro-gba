@@ -44,7 +44,7 @@
 
 ## 🎯 主线目标：完成全部小丑实装（当务之急）
 
-当前自定义小丑已实装 **19 张（53-71）**：53 Wee、54 Riff-Raff、55 Baron、56 Mime、57 Egg、58 Smeared、59 Faceless、60 Gros Michel、61 Cavendish、62 Flower Pot、63 Loyalty Card、64 Riding the Bus、65 Ceremonial Dagger、66 Credit Card、67 Burglar、68 Flash Card、69 Showman、70 Card Sharp、**71 To the Moon（冲向月球，利息翻倍，被动不可复制，gfx0 slot 31）**。注册表已含全部已实现条目（0-71）；原版其余 joker（72+）尚未加入，需完整走：效果实现 → 精灵量化 → 注册 → 映射 → 测试。每个交付照常走：编译 → 命名时间戳 ROM → upload_rom.sh 上传。
+当前自定义小丑已实装 **22 张（53-75）**：53 Wee、54 Riff-Raff、55 Baron、56 Mime、57 Egg、58 Smeared、59 Faceless、60 Gros Michel、61 Cavendish、62 Flower Pot、63 Loyalty Card、64 Riding the Bus、65 Ceremonial Dagger、66 Credit Card、67 Burglar、68 Flash Card、69 Showman、70 Card Sharp、**71 To the Moon（冲向月球，利息翻倍，被动不可复制，gfx0 slot 31）**、72 Splash（飞溅，上游美术 #69）、**73 Supernova（超新星，run 级牌型计数→倍率）、74 Green Joker（绿色小丑，出牌+1/弃牌-1）、75 Square Joker（方形小丑，4 张牌+4 筹码）**。注册表已含全部已实现条目（0-75）；原版其余 joker（76+）尚未加入，需完整走：效果实现 → 精灵量化 → 注册 → 映射 → 测试。每个交付照常走：编译 → 命名时间戳 ROM → upload_rom.sh 上传。⚠️ **73-75 卡面素材待用户自绘上传**（当前占位 sheet 0 slot 31），素材就位后：量化 → 落位 → 改映射 → 交付 ROM。
 
 ## 🌐 上游命名规范化跟踪（2026-08-10 记，待定案）
 

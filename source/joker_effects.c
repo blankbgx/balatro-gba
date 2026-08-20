@@ -126,6 +126,9 @@ REGISTER_JOKER_DESC_FUNC(showman_joker_desc)
 REGISTER_JOKER_DESC_FUNC(card_sharp_joker_desc)
 REGISTER_JOKER_DESC_FUNC(to_the_moon_joker_desc)
 REGISTER_JOKER_DESC_FUNC(splash_joker_desc)
+REGISTER_JOKER_DESC_FUNC(supernova_joker_desc)
+REGISTER_JOKER_DESC_FUNC(green_joker_desc)
+REGISTER_JOKER_DESC_FUNC(square_joker_desc)
 REGISTER_JOKER_EFFECT_FUNC(credit_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(burglar_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(flash_card_joker_effect)
@@ -133,6 +136,9 @@ REGISTER_JOKER_EFFECT_FUNC(showman_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(card_sharp_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(to_the_moon_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(splash_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(supernova_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(green_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(square_joker_effect)
 
 // Joker Effect functions
 
@@ -310,6 +316,9 @@ const JokerInfo joker_registry[] =
         { "Card Sharp",       UNCOMMON_JOKER,  6, false, card_sharp_joker_desc,     card_sharp_joker_effect         }, // 70 Card Sharp (orig #62)
         { "To the Moon",      UNCOMMON_JOKER,  5, false, to_the_moon_joker_desc,     to_the_moon_joker_effect       }, // 71 To the Moon (orig #84)
         { "Splash",           COMMON_JOKER,    3, false, splash_joker_desc,           splash_joker_effect             }, // 72 Splash (orig #52), art by @MathisMartin31 (Discussion #69, 2026-05-14)
+        { "Supernova",        COMMON_JOKER,    5, false, supernova_joker_desc,        supernova_joker_effect          }, // 73 Supernova (orig #43)
+        { "Green Joker",      COMMON_JOKER,    4, false, green_joker_desc,            green_joker_effect              }, // 74 Green Joker (orig #58)
+        { "Square Joker",     COMMON_JOKER,    4, false, square_joker_desc,           square_joker_effect             }, // 75 Square Joker (orig #65)
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -3833,6 +3842,196 @@ static u32 splash_joker_effect(
     (void)scored_card;
     (void)joker_event;
     (void)joker_effect;
+
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// --- Supernova (ID 73) ---
+// (Official EN: "Adds the number of times poker hand has been played this
+// run to Mult" - fandom Nr 43, $5 Common)
+// The counter is run-scoped and stored in g_game_vars.run_played_hands
+// (incremented in round.c on every hand play, NEVER reset mid-run).
+// Blueprint/Brainstorm copies read the same global array, so they mirror
+// the exact same value as the original - identical to the original game.
+static int supernova_joker_desc(Joker* joker, Rect dest_rect)
+{
+    (void)joker;
+    static const char desc[] =
+        TTE_BLACK_TAG "Adds the number of times this\npoker hand has been played this\nrun to " TTE_RED_TAG "Mult" TTE_BLACK_TAG;
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 supernova_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    (void)joker;
+    (void)scored_card;
+
+    if (joker_event == JOKER_EVENT_INDEPENDENT)
+    {
+        // Copies mirror the same run counter (no special-casing needed):
+        // both report the same +Mult, exactly like the original game where
+        // Blueprint duplicates the bonus.
+        u32 times_played = g_game_vars.run_played_hands[get_hand_type() - 1];
+        if (times_played > 0)
+        {
+            *joker_effect = &s_shared_joker_effect;
+            (*joker_effect)->mult = times_played;
+            return JOKER_EFFECT_FLAG_MULT;
+        }
+    }
+
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// --- Green Joker (ID 74) ---
+// (Official EN: "+1 Mult per hand played -1 Mult per discard" - fandom
+// Nr 58, $4 Common. Mult cannot drop below 0.)
+// Real card accumulates in scoring_state; copies stay silent during
+// accumulation and mirror the value at INDEPENDENT (Flash Card pattern).
+static int green_joker_desc(Joker* joker, Rect dest_rect)
+{
+    char desc[200];
+    snprintf(
+        desc,
+        sizeof(desc),
+        TTE_BLACK_TAG "+1 " TTE_RED_TAG "Mult" TTE_BLACK_TAG " per hand played\n"
+        "-1 " TTE_RED_TAG "Mult" TTE_BLACK_TAG " per discard\n"
+        "(currently " TTE_RED_TAG "+%ld" TTE_BLACK_TAG ")",
+        (long)joker->scoring_state
+    );
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 green_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    (void)scored_card;
+
+    switch (joker_event)
+    {
+        case JOKER_EVENT_ON_JOKER_CREATED:
+            joker->scoring_state = 0;
+            break;
+
+        case JOKER_EVENT_ON_HAND_PLAYED:
+            // Copies stay silent: accumulation belongs to the real joker,
+            // the copy mirrors the value at INDEPENDENT.
+            if (!s_is_copying_joker)
+            {
+                joker->scoring_state += 1;
+                *joker_effect = &s_shared_joker_effect;
+                (*joker_effect)->message = "Upgrade!";
+                return JOKER_EFFECT_FLAG_MESSAGE;
+            }
+            break;
+
+        case JOKER_EVENT_ON_HAND_DISCARDED:
+            if (!s_is_copying_joker)
+            {
+                if (joker->scoring_state > 0)
+                {
+                    joker->scoring_state -= 1;
+                    *joker_effect = &s_shared_joker_effect;
+                    (*joker_effect)->message = "Downgrade!";
+                    return JOKER_EFFECT_FLAG_MESSAGE;
+                }
+            }
+            break;
+
+        case JOKER_EVENT_INDEPENDENT:
+        {
+            u32 accumulated =
+                s_is_copying_joker ? s_copied_joker_source->scoring_state
+                                   : joker->scoring_state;
+            if (accumulated > 0)
+            {
+                *joker_effect = &s_shared_joker_effect;
+                (*joker_effect)->mult = accumulated;
+                return JOKER_EFFECT_FLAG_MULT;
+            }
+            break;
+        }
+
+        default:
+            break;
+    }
+
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// --- Square Joker (ID 75) ---
+// (Official EN: "This Joker gains +4 Chips if played hand has exactly 4
+// cards" - fandom Nr 65, $4 Common.)
+// Growth only applies when exactly 4 cards are played (get_played_size()==4).
+static int square_joker_desc(Joker* joker, Rect dest_rect)
+{
+    char desc[200];
+    snprintf(
+        desc,
+        sizeof(desc),
+        TTE_BLACK_TAG "This Joker gains " TTE_BLUE_TAG "+4 Chips" TTE_BLACK_TAG "\n"
+        "if played hand has " TTE_YELLOW_TAG "exactly 4 cards" TTE_BLACK_TAG "\n"
+        "(currently " TTE_BLUE_TAG "+%ld" TTE_BLACK_TAG ")",
+        (long)joker->scoring_state
+    );
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 square_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    (void)scored_card;
+
+    switch (joker_event)
+    {
+        case JOKER_EVENT_ON_JOKER_CREATED:
+            joker->scoring_state = 0;
+            break;
+
+        case JOKER_EVENT_ON_HAND_PLAYED:
+            // Copies stay silent: accumulation belongs to the real joker.
+            if (!s_is_copying_joker)
+            {
+                if (get_played_size() == 4)
+                {
+                    joker->scoring_state += 4;
+                    *joker_effect = &s_shared_joker_effect;
+                    (*joker_effect)->message = "Upgrade!";
+                    return JOKER_EFFECT_FLAG_MESSAGE;
+                }
+            }
+            break;
+
+        case JOKER_EVENT_INDEPENDENT:
+        {
+            u32 accumulated =
+                s_is_copying_joker ? s_copied_joker_source->scoring_state
+                                   : joker->scoring_state;
+            if (accumulated > 0)
+            {
+                *joker_effect = &s_shared_joker_effect;
+                (*joker_effect)->chips = accumulated;
+                return JOKER_EFFECT_FLAG_CHIPS;
+            }
+            break;
+        }
+
+        default:
+            break;
+    }
 
     return JOKER_EFFECT_FLAG_NONE;
 }

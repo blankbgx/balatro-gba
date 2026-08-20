@@ -52,6 +52,10 @@ typedef struct
 
     u32 best_hand_score;
     u32 nb_played_hands[HAND_TYPE_MAX];
+    // Run-scoped hand counters (Supernova 73): total times each hand type
+    // has been played this RUN. Unlike nb_played_hands (per-round, reset at
+    // blind select for Card Sharp), this NEVER resets mid-run.
+    u32 run_played_hands[HAND_TYPE_MAX];
 
     // Blind variables
 

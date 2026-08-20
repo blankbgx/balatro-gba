@@ -525,6 +525,9 @@ static inline void game_round_execute_play_hand(void)
     display_hands();
 
     g_game_vars.nb_played_hands[get_hand_type() - 1]++;
+    // Supernova (73): run-scoped counter - never reset between rounds
+    // (unlike nb_played_hands above, which Card Sharp relies on resetting).
+    g_game_vars.run_played_hands[get_hand_type() - 1]++;
 }
 
 /**

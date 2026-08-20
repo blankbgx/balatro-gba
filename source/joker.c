@@ -104,6 +104,11 @@ static const int JOKER_ID_TO_SPRITE_MAP[] = {
     0,  // 70 Card Sharp
     0,  // 71 To the Moon
     5,  // 72 Splash
+    // 73-75 (Supernova/Green Joker/Square Joker): PLACEHOLDER - map to an
+    // existing sprite until user-drawn art lands, then point to real sheet.
+    0,  // 73 Supernova (PLACEHOLDER -> sheet 0, slot 31)
+    0,  // 74 Green Joker (PLACEHOLDER -> sheet 0, slot 31)
+    0,  // 75 Square Joker (PLACEHOLDER -> sheet 0, slot 31)
 };
 
 // Map of Joker ID -> sprite index within its spritesheet
@@ -153,6 +158,9 @@ static const int JOKER_ID_TO_SPRITE_IDX_IN_SHEET[] = {
     30, // 70 Card Sharp   -> sheet 0, slot 30
     31, // 71 To the Moon  -> sheet 0, slot 31
     4,  // 72 Splash       -> sheet 5, slot 4
+    31, // 73 Supernova    -> sheet 0, slot 31 (PLACEHOLDER)
+    31, // 74 Green Joker  -> sheet 0, slot 31 (PLACEHOLDER)
+    31, // 75 Square Joker -> sheet 0, slot 31 (PLACEHOLDER)
     };
 
 // Lookup table of Joker Rarity strings. Used to display at the bottom of the description screen.

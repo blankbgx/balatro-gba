@@ -3890,7 +3890,9 @@ static u32 supernova_joker_effect(
 
 // --- Green Joker (ID 74) ---
 // (Official EN: "+1 Mult per hand played -1 Mult per discard" - fandom
-// Nr 58, $4 Common. Mult cannot drop below 0.)
+// Nr 58, $4 Common. Mult FLOORS at 0: discarding at 0 Mult does nothing.
+// Floor-0 is VANILLA behaviour, verified via bwiki 2026-08-20 - NOT a
+// local u32-architecture compromise. Do not "fix" this to allow negatives.)
 // Real card accumulates in scoring_state; copies stay silent during
 // accumulation and mirror the value at INDEPENDENT (Flash Card pattern).
 static int green_joker_desc(Joker* joker, Rect dest_rect)

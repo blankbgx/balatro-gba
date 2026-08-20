@@ -34,51 +34,6 @@ const static u16 DECK_SPRITE_LUT[DECK_TYPE_MAX] = {0, 16, 32, 48, 64, 80};
 static bool s_high_contrast = DEFAULT_HIGH_CONTRAST;
 static bool s_more_readable = DEFAULT_MORE_READABLE;
 
-#if DEBUG_SHOP_FREE
-// Ghost-face hunt (2026-08-18): ring buffer of recent VRAM slot writes.
-// When the watchdog finds a slot holding the wrong face, this names the
-// last writer to that slot (layer, face copied, tick). face_down writes
-// are recorded with suit/rank = -2 (deck back art).
-#define CARD_WRITER_LOG_SIZE 16
-static struct
-{
-    int layer;
-    int suit;
-    int rank;
-    u32 tick;
-} s_card_writer_log[CARD_WRITER_LOG_SIZE];
-static int s_card_writer_log_pos = 0;
-
-static void card_debug_log_write(int layer, int suit, int rank)
-{
-    s_card_writer_log[s_card_writer_log_pos].layer = layer;
-    s_card_writer_log[s_card_writer_log_pos].suit = suit;
-    s_card_writer_log[s_card_writer_log_pos].rank = rank;
-    s_card_writer_log[s_card_writer_log_pos].tick = game_get_ui_tick();
-    s_card_writer_log_pos = (s_card_writer_log_pos + 1) % CARD_WRITER_LOG_SIZE;
-}
-
-/**
- * @brief Most recent recorded write to `layer`, walking the ring backwards.
- * @return false if no write to that layer is in the buffer.
- */
-bool card_debug_last_writer(int layer, int* suit, int* rank, u32* tick)
-{
-    for (int n = 1; n <= CARD_WRITER_LOG_SIZE; n++)
-    {
-        int idx = (s_card_writer_log_pos - n + CARD_WRITER_LOG_SIZE) % CARD_WRITER_LOG_SIZE;
-        if (s_card_writer_log[idx].layer == layer)
-        {
-            *suit = s_card_writer_log[idx].suit;
-            *rank = s_card_writer_log[idx].rank;
-            *tick = s_card_writer_log[idx].tick;
-            return true;
-        }
-    }
-    return false;
-}
-#endif // DEBUG_SHOP_FREE
-
 void card_init()
 {
     GRIT_CPY(&pal_obj_mem[DECK_SPRITES_PB * PAL_ROW_LEN], decks_face_down_gfxPal);
@@ -178,9 +133,6 @@ void card_object_set_sprite(CardObject* card_object, s16 layer)
         &card_tiles[CARD_SPRITE_LUT[card_object->card->suit][card_object->card->rank] * TILE_SIZE],
         TILE_SIZE * CARD_SPRITE_OFFSET
     );
-#if DEBUG_SHOP_FREE
-    card_debug_log_write(layer, card_object->card->suit, card_object->card->rank);
-#endif
     Sprite* sprite = sprite_new(
         ATTR0_SQUARE | ATTR0_4BPP,
         ATTR1_SIZE_32,
@@ -199,9 +151,6 @@ void card_object_set_sprite_face_down(CardObject* card_object, enum DeckType dec
         &decks_face_down_gfxTiles[DECK_SPRITE_LUT[deck] * TILE_SIZE],
         TILE_SIZE * CARD_SPRITE_OFFSET
     );
-#if DEBUG_SHOP_FREE
-    card_debug_log_write(layer, -2, -2); // deck back art
-#endif
     Sprite* sprite = sprite_new(
         ATTR0_SQUARE | ATTR0_4BPP,
         ATTR1_SIZE_32,
@@ -216,54 +165,6 @@ void card_object_shake(CardObject* card_object, mm_word sound_id)
 {
     sprite_object_shake((SpriteObject*)card_object, sound_id);
 }
-
-#if DEBUG_SHOP_FREE
-/**
- * @brief DEBUG watchdog helper: verify a card's VRAM slot holds ITS face.
- *
- * Compares the 16 tiles at the card's slot (CARD_TID + layer*offset) with
- * the expected face from the active sheet. On mismatch, searches BOTH deck
- * sheets (all 52 faces) to identify what the slot actually contains -
- * identifying the displayed face names the overwriter (see the "A♦ shown
- * as 2♦" ghost-face hunt, 2026-08-18).
- *
- * @return true if the slot holds the correct face. On false, the
- *         shown_suit / shown_rank out-params identify the displayed face
- *         (-1/-1 = content matches no known card face).
- */
-bool card_debug_slot_matches(const Card* card, int layer, int* shown_suit, int* shown_rank)
-{
-    const int tile_index = CARD_TID + (layer * CARD_SPRITE_OFFSET);
-    const u32* vram = (const u32*)&tile_mem[TILE_MEM_OBJ_CHARBLOCK0_IDX][tile_index];
-    const u32 copy_words = TILE_SIZE * CARD_SPRITE_OFFSET;
-
-    const unsigned int* card_tiles = s_more_readable ? deck_big_gfxTiles : deck_gfxTiles;
-    const u32* expected = (const u32*)&card_tiles[CARD_SPRITE_LUT[card->suit][card->rank] * TILE_SIZE];
-    if (memcmp(expected, vram, copy_words * sizeof(u32)) == 0)
-        return true;
-
-    for (int sheet = 0; sheet < 2; sheet++)
-    {
-        const unsigned int* tiles = sheet ? deck_big_gfxTiles : deck_gfxTiles;
-        for (int s = 0; s < NUM_SUITS; s++)
-        {
-            for (int r = 0; r < NUM_RANKS; r++)
-            {
-                if (memcmp(&tiles[CARD_SPRITE_LUT[s][r] * TILE_SIZE], vram,
-                           copy_words * sizeof(u32)) == 0)
-                {
-                    *shown_suit = s;
-                    *shown_rank = r;
-                    return false;
-                }
-            }
-        }
-    }
-    *shown_suit = -1;
-    *shown_rank = -1;
-    return false;
-}
-#endif // DEBUG_SHOP_FREE
 
 void card_object_set_selected(CardObject* card_object, bool selected)
 {

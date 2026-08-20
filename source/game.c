@@ -500,77 +500,6 @@ u32 game_get_ui_tick(void)
     return s_ui_tick;
 }
 
-#if DEBUG_SHOP_FREE
-/**
- * @brief Ghost-face watchdog (2026-08-18 "A♦ shown as 2♦ for rounds").
- *
- * Every 15 frames during a round, verify each hand card's VRAM slot
- * against its (suit, rank). On mismatch we know the card's DATA is fine
- * (jokers/poker hands still read it correctly), so the fault is in the
- * render layer; identifying WHICH face the slot holds names the writer.
- * Reports via mgba log AND on-screen text (Delta has no log console).
- */
-static void gfx_face_watchdog(void)
-{
-    static bool s_alert_on_screen = false;
-
-    if (game_get_state() != GAME_STATE_ROUND)
-        return;
-    if (s_ui_tick % 15 != 0)
-        return;
-
-    CardObject** hand = get_hand_array();
-    const int top = get_hand_top();
-    bool any_bad = false;
-
-    for (int i = 0; i <= top && i < MAX_HAND_SIZE; i++)
-    {
-        if (hand[i] == NULL || hand[i]->card == NULL || hand[i]->sprite == NULL)
-            continue;
-
-        int shown_suit = -1, shown_rank = -1;
-        if (!card_debug_slot_matches(hand[i]->card, i, &shown_suit, &shown_rank))
-        {
-            any_bad = true;
-            // Name the overwriter: last recorded write to this slot.
-            int w_suit = -9, w_rank = -9;
-            u32 w_tick = 0;
-            card_debug_last_writer(i, &w_suit, &w_rank, &w_tick);
-            mgba_printf(
-                MGBA_LOG_ERROR,
-                "GFXWD: slot %d card s%d r%d shows s%d r%d; last write s%d r%d @%lu (tick %lu)",
-                i,
-                hand[i]->card->suit,
-                hand[i]->card->rank,
-                shown_suit,
-                shown_rank,
-                w_suit,
-                w_rank,
-                w_tick,
-                s_ui_tick
-            );
-            tte_printf(
-                "#{P:88,2; cx:0x%X000}GB%d:%d,%d>%d,%d W%d,%d",
-                TTE_RED_PB,
-                i,
-                hand[i]->card->suit,
-                hand[i]->card->rank,
-                shown_suit,
-                shown_rank,
-                w_suit,
-                w_rank
-            );
-        }
-    }
-
-    if (!any_bad && s_alert_on_screen)
-    {
-        tte_erase_rect_wrapper((Rect){88, 2, 240, 10});
-    }
-    s_alert_on_screen = any_bad;
-}
-#endif // DEBUG_SHOP_FREE
-
 void hud_clear_value_roll_queue(void)
 {
     s_hud_roll_queue.count = 0;
@@ -719,10 +648,6 @@ void game_update()
     jokers_update_loop();
     joker_event_text_clear_update_loop();
     hud_roll_update_loop();
-
-#if DEBUG_SHOP_FREE
-    gfx_face_watchdog();
-#endif
 
     state_machine_update();
 

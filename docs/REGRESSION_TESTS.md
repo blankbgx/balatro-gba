@@ -18,6 +18,21 @@
 
 ---
 
+### M28. 窃贼生效动画与手数滚动解耦 + 5 复制时手数停 16（P1）— 2026-08-20, commit ac52b09
+
+**背景**：窃贼触发时小丑 shake（deferred 队列 30 帧 beat）与手数滚动（HUD roll ~98帧/item）并行推进，视觉解耦（shake 先放完、手数后滚）。5 个窃贼复制（蓝图+窃贼+脑暴+窃贼+窃贼）各排队 2 个 HUD roll item = 10 个，超过 `HUD_ROLL_QUEUE_MAX=8`，最后的手数滚动（16→19）被丢弃，HUD 停在 16（实际 `g_game_vars.hands`=19 逻辑正确，纯显示丢失）。
+
+**修复**：DEFER_BURGLAR fire 后不走 settle_wait（窃贼不重排 rack），改为 `s_deferred_wait_hud_roll` —— 等 HUD roll 队列排空（`hud_roll_is_active()==false`）再推进下一个窃贼，实现串行（shake → 手数滚动 → 下一个 joker）。三处入队重置点补 `s_deferred_wait_hud_roll = false` 防跨回合残留。
+
+**复测步骤**：
+1. 单窃贼：选盲注 → shake + "+3 hands!" → 手数滚动 +3 → 弃牌滚到 0，**串行**（不再 shake 先放完、手数后滚）
+2. 蓝图+窃贼+脑暴+窃贼+窃贼：选盲注 → 5 个小丑逐个 shake，每个 shake 后手数滚动一次，最终手数 **19**（4+3×5），HUD 不卡在 16
+3. 窃贼 + Riff-Raff 混搭：Riff-Raff 生成动画与窃贼手数滚动互不干扰
+
+**复测结果**：⏳ 待 Delta 实测
+
+---
+
 ### M27. 幽灵卡牌：大麦克消亡 double-free 越界写破坏 s_deck 的 Card* 指针（P0）— 2026-08-20, commit bb8a8f2
 
 **背景**：幽灵卡（错误筹码/贴图/触发错误小丑）根因。存档取证定位野指针 `0x030000d2`（红桃7 合法指针 `0x030031d2` 第二字节清零），用户 Delta 实测（`PTR X0@30000bee`） + git blame 定位根因链：

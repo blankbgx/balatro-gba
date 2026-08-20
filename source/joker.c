@@ -683,7 +683,14 @@ bool joker_object_score(
     if (effect_flags_ret & JOKER_EFFECT_FLAG_EXPIRE && joker_effect->expire)
     {
         joker_object_shake(joker_object, UNDEFINED);
-        list_push_back(get_expired_jokers_list(), joker_object);
+        // M27 dedup: an effect may already have pushed this joker into the
+        // expired list itself (Gros Michel's global extinction pushes EVERY
+        // Gros Michel, including this one). Pushing again double-schedules
+        // joker_object_destroy -> use-after-free (sprite_get_layer reads freed
+        // memory, s_used_layers[layer]=false goes OOB and corrupts the s_deck
+        // Card* slots -> ghost cards).
+        if (!list_contains(get_expired_jokers_list(), joker_object))
+            list_push_back(get_expired_jokers_list(), joker_object);
     }
 
     // Update displays

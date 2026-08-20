@@ -245,6 +245,16 @@ bool list_remove_at_idx(List* list, unsigned int idx);
 bool list_remove_data(List* list, void* data);
 
 /**
+ * Check if a list contains an entry with the matching data pointer
+ *
+ * @param list pointer to a @ref List
+ * @param data pointer to data to search for
+ *
+ * @return `true` if the list contains an entry with `data`, `false` otherwise
+ */
+bool list_contains(List* list, const void* data);
+
+/**
  * Get the number of elements in a @ref List
  *
  * @param list pointer to a @ref List

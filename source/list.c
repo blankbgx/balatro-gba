@@ -329,3 +329,17 @@ bool list_remove_data(List* list, void* data)
 
     return false;
 }
+
+bool list_contains(List* list, const void* data)
+{
+    ListItr itr = list_itr_create(list);
+    void* d;
+
+    while ((d = list_itr_next(&itr)))
+    {
+        if (d == data)
+            return true;
+    }
+
+    return false;
+}

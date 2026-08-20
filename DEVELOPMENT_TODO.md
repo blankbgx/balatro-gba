@@ -4,16 +4,25 @@
 
 ## ✅ 已修复：8 底注通关前卡死（2026-08-19 立案，同日修复）
 
-根因是 M25（见 docs/REGRESSION_TESTS.md）：`s_cards_discarded` 音高计数器在 HAND_SHUFFLING 下复位不可达 → 跨回合泄漏 → 音效 rate 变负 → maxmod 野跳转。与构筑无关。WINPROBE 标记已随修复移除（commit 42b2830 的探针已撤）。
+根因是 M25（见 docs/REGRESSION_TESTS.md）：`s_cards_discarded` 音高计数器在 HAND_SHUFFLING 下复位不可达 → 跨回合泄漏 → 音效 rate 变负 → maxmod 野跳转。与构筑无关。WINPROBE 标记已随修复移除（commit 42b2830 的探针已撤）。**用户 Delta 实测（2026-08-20）：通关 8 底注后结算画面正常、无崩溃——验证通过，长期观察中**。
 
-## 🔍 调查中：幽灵卡面（2026-08-18 立案）
+## ✅ 幽灵卡面：根因已定位、修复并实测通过（M27，大麦克消亡 double-free）
 
-**现象**：一张数据完全正常的方片A（能被小丑正确识别、能组 3A 葫芦）卡面显示为方片2，**持续数回合**，新开游戏消失（偶发）。
-**已排除**：两张素材表图块均正确无重复；LUT 索引与素材布局一致；OBJ tile 静态分区无重叠（手牌 0-255 / 出牌 256-335 / 盲注 336-415 / 小丑 416+）；4 个 VRAM 写入点（card.c×2、blind.c、joker.c）均按 layer 分区。
-**嫌疑**：动态 layer/slot 碰撞——卡面每次抽牌都会重拷，持续错面说明覆写在拷贝之后反复发生。
-**手段**：DEBUG 构建内置看门狗（`gfx_face_watchdog`，game.c，ROUND 状态每 15 帧校验手牌 VRAM 槽，不匹配时识别槽内实际是**哪张牌面**=覆写者身份），mgba 日志 + 屏幕顶部红色 `GFXBUG slot:card>shown` 文本（Delta 无日志控制台，靠屏显）。
-**下一步**：用户持 DEBUG ROM 复现 → 上报 GFXBUG 行的数字（槽位:真实花色点数>显示花色点数）→ 定位覆写路径。
-**坑**：看门狗只在 `DEBUG_SHOP_FREE=1` 构建编译；`-1 -1` 表示槽内容不是任何已知卡面（→ 覆写者是非卡面图形或野指针）。
+**根因**（见 `../ghost_hunt/GHOST_CARD_ROOT_CAUSE.md` 第 8 节）：大麦克（Gros Michel）消亡时，`expire_all_gros_michel()`（用户代码 `9e73e3e4`）把 Gros Michel push 进 expired 列表，`joker_object_score` 的 EXPIRE 通用处理（`joker.c:686`，上游 Geralt）又 push 一次 → 同一 JokerObject 在 expired 列表出现两次 → `expired_jokers_update_loop` 对重复节点 **double-free** → 第二次 `joker_object_destroy` 读已释放 sprite 得垃圾 layer → `s_used_layers[layer]=false` 越界写 → 破坏 `s_deck` 的 Card\* 指针（byte1 清零）→ 野指针随发牌/弃牌流转 = 幽灵卡。
+
+**修复（M27）**：`joker.c:686` EXPIRE push 前用 `list_contains` 去重；`list.c/h` 新增 `list_contains()`。详见 docs/REGRESSION_TESTS.md M27。
+
+**症状对照**：野指针读出 `suit=0x21(33)/rank=0x61(97)` → 99 筹码（`97+RANK_OFFSET`）、触发奇数托德（97 奇数）、排序最大（97>12）、显示方块2（LUT 越界 `[33][97]` 读到 D2 tile）。
+
+**看门狗为何瞎**：看门狗和渲染读同一份坏 suit/rank、做同一个越界 LUT 查询 → 预期脸=实际脸 → 判"匹配"。
+
+**时序**：大麦克消亡（ON_ROUND_END 触发 1/6 概率）→ 重复 push expired → double-free 越界写坏 `s_deck` 的 Card* byte1 → 下一回合洗牌抽牌 → 野指针进 CardObject → 每回合"出牌→弃牌→回收→洗牌"循环（故持续数回合）；新开游戏重填牌堆覆盖（故消失）。
+
+**探针已装**（2026-08-20）：`card_ptr_watchdog`（game.c，每 5 帧）+ `card_debug_card_ptr_valid`（card.c），扫描手牌/牌堆/弃牌堆/出牌堆所有 Card\*，发现越界野指针即红字 `PTR <源><索引>@<ptr>` + mgba 日志。**待查**：清零 byte1 的那条写指令（静态上 s_deck/s_discard 只经 deck_push/shuffle/discard_push/pop，均写整 4 字节，嫌疑在越界 u8/u16 写）。
+
+**手段**：看门狗（`gfx_face_watchdog`，VRAM 槽校验）+ 新指针探针（`card_ptr_watchdog`）。Delta 无日志控制台，靠屏显红字。
+
+**坑**：看门狗只在 `DEBUG_SHOP_FREE=1` 构建编译；野指针 `0x030000d2` 是偶数、落在 IWRAM 范围，解引用不崩溃只是读到错字节——必须**先做指针范围校验再解引用 suit/rank**。
 
 ## 🧪 开发期交付默认 DEBUG 构建（2026-08-18 定）
 

@@ -18,6 +18,31 @@
 
 ---
 
+### M27. 幽灵卡牌：大麦克消亡 double-free 越界写破坏 s_deck 的 Card* 指针（P0）— 2026-08-20, commit bb8a8f2
+
+**背景**：幽灵卡（错误筹码/贴图/触发错误小丑）根因。存档取证定位野指针 `0x030000d2`（红桃7 合法指针 `0x030031d2` 第二字节清零），用户 Delta 实测（`PTR X0@30000bee`） + git blame 定位根因链：
+
+1. `expire_all_gros_michel()`（`game.c:907`，用户代码 `9e73e3e4`，"全局灭绝"规则）把每个 Gros Michel push 进 expired 列表
+2. `joker_object_score` 的 EXPIRE 通用处理（`joker.c:686`，上游 Geralt）又把当前 joker push 一次 → **同一 JokerObject 在 expired 列表出现两次**
+3. `expired_jokers_update_loop`（`game.c:313`）对重复节点执行两次 `remove_owned_joker` + `joker_object_destroy` → **double-free**
+4. 第二次 `joker_object_destroy` 读已释放 sprite → `sprite_get_layer` 返回垃圾 → `s_used_layers[layer]=false` 越界写
+5. `s_used_layers`（0x030024c0）紧贴 `s_deck`（0x030023f0~0x030024c0），负向越界写清零 `s_deck[k]` 某个 Card* 的 byte1 → 野指针 `0x030000d2`/`0x03000bee` 等
+6. 坏指针随"发牌→手牌→弃牌→回收"流转 = 幽灵卡（错误筹码/贴图）
+
+**修复**：
+- `list.c`/`list.h` 新增 `list_contains()`
+- `joker.c:686` EXPIRE push 前 `if (!list_contains(get_expired_jokers_list(), joker_object))` 去重
+
+**复测步骤**：
+1. 持有大麦克（Gros Michel）+ 其他小丑，反复打回合直到大麦克消亡（1/6 概率，ON_ROUND_END）→ EXTINCT! 动画正常、小丑正常移除
+2. 大麦克消亡后继续打 5+ 回合 → **不应出现幽灵卡**（错误筹码/杂乱贴图/触发错误小丑）
+3. 持有多个大麦克（蓝印刷 Showman 凑多张）→ 一张消亡时全部一起消亡，**无重复销毁/越界写**
+4. 消亡后正常出牌/弃牌/洗牌/抽牌，牌面筹码/贴图/小丑触发全部正常
+
+**复测结果**：✅ Delta 实测通过（2026-08-20，用户实测：大麦克消亡后多轮大量出牌/弃牌，**未再刷出幽灵牌**）
+
+---
+
 ### M26. 小小丑筹码在结算末尾才提供 + 搭乘公交倍率与升级动画耦合（P2）— 2026-08-20
 
 **背景**：两处的 independent 阶段时机偏离原版相位表（docs/balatro_wiki_summary.md:160/344）：
@@ -54,7 +79,7 @@
 2. 通关 8 底注 → 胜利画面正常出现（用户原场景）
 3. 听感回归：弃牌/收牌音效音高应每回合从同一基准步进，不再持续走低
 
-**复测结果**：✅ 无头验证（修复前固定在第 5 回合崩溃、rate 出现负值；修复后跑到 ante 4+ 无崩溃、rate 无负值）；待 Delta 确认通关场景
+**复测结果**：✅ 无头验证（修复前固定在第 5 回合崩溃、rate 出现负值；修复后跑到 ante 4+ 无崩溃、rate 无负值）；✅ Delta 实测（2026-08-20，用户 `GBAlatro_2608192221_DEBUG.gba` 通关 8 底注后**结算画面正常出现、无崩溃/卡死**）——M25 原复现场景验证通过。⏳ **长期观察中**：防计数器类泄漏复发，关注连续多局通关稳定性与弃牌/收牌音高是否随回合数走低
 
 ### M24. 窃贼回合开始动画：数字乱跳 + 发牌后数字仍变动 + 蓝图时弃牌卡"1"（P1）— 2026-08-18
 

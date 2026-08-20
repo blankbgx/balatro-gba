@@ -22,7 +22,7 @@
 
 **背景**：绿色小丑（74）/搭乘巴士（64）/方形小丑（75）都在 `JOKER_EVENT_ON_HAND_PLAYED` 成长并同步弹 "Upgrade!"——两个成长卡同帧弹消息，动画重叠。
 
-**修复**：新增成长消息队列（joker_effects.c `growth_msg_*`）：成长数值**立即生效**（当手收益语义不变），仅消息弹窗串行——按派发顺序（左→右）每 `DEFER_DELAY`（30 帧）弹一条。`joker.c` 新增 `joker_show_message()`（消息 + 触发 shake，UNDEFINED 音效——原 MESSAGE-only 路径传的是未初始化 sfx_id）。死源防护：动画期间 joker 被卖出则整队丢弃；回合初始化清队防跨回合残留。
+**修复**：新增成长消息队列（joker_effects.c `growth_msg_*`）：成长数值**立即生效**（当手收益语义不变），仅消息弹窗串行——按派发顺序（左→右）每 `DEFER_DELAY`（30 帧）弹一条。`joker.c` 新增 `joker_show_message()`（消息 + 触发 shake，UNDEFINED 音效——原 MESSAGE-only 路径传的是未初始化 sfx_id）。死源防护：动画期间 joker 被卖出则整队丢弃；回合初始化清队防跨回合残留。**follow-up（3fc4efb）**：round.c `play_before_scoring_cards_update` 在 ON_HAND_PLAYED 派发完成后、进入计分前等待 `growth_msg_pending()` 排空——原版整个 On Played 阶段（含逐个升级动画）播完才开始计分；迭代器此时已到底（无重复派发），队列自清 + 死源防护，无卡死风险。
 
 **复测步骤**：
 1. 绿色小丑 + 搭乘巴士同场：出牌（无人脸）→ 两个 Upgrade! **逐个弹**（30 帧间隔，左→右），不再同帧重叠

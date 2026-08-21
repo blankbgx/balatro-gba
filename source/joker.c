@@ -104,8 +104,8 @@ static const int JOKER_ID_TO_SPRITE_MAP[] = {
     0,  // 70 Card Sharp
     0,  // 71 To the Moon
     5,  // 72 Splash
-    // 73-75: 73 Supernova still PLACEHOLDER (art pending); 74/75 have real art.
-    0,  // 73 Supernova (PLACEHOLDER -> sheet 0, slot 31)
+    // 73-75: all have real art now (Supernova gfx6/4, Green Joker gfx2/2, Square gfx0/32).
+    6,  // 73 Supernova -> sheet 6, slot 4 (art: user-drawn 2026-08-21)
     2,  // 74 Green Joker -> sheet 2, slot 2 (art: user-drawn 2026-08-20)
     0,  // 75 Square Joker -> sheet 0, slot 32 (art: user-drawn 2026-08-20)
 };
@@ -157,7 +157,7 @@ static const int JOKER_ID_TO_SPRITE_IDX_IN_SHEET[] = {
     30, // 70 Card Sharp   -> sheet 0, slot 30
     31, // 71 To the Moon  -> sheet 0, slot 31
     4,  // 72 Splash       -> sheet 5, slot 4
-    31, // 73 Supernova    -> sheet 0, slot 31 (PLACEHOLDER)
+    4,  // 73 Supernova    -> sheet 6, slot 4 (art: user-drawn 2026-08-21)
     2,  // 74 Green Joker  -> sheet 2, slot 2 (art: user-drawn 2026-08-20)
     32, // 75 Square Joker -> sheet 0, slot 32 (art: user-drawn 2026-08-20)
     };

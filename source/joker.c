@@ -579,32 +579,19 @@ bool joker_object_score(
     // resolving to one via the chain). 原版 Act = "On Other Jokers". Applied
     // BEFORE the NONE-return check so silent/static Uncommon jokers (e.g.
     // Smeared) grant the bonus too - matching original Balatro where rarity
-    // is checked for every scored joker. The multiplier applies INSTANTLY
-    // (order-correct: the Uncommon's own +Mult already landed, then X1.5);
-    // only the shake + "X1.5" pop is serialized through baseball_anim_*.
+    // is checked for every scored joker.
     if (joker_event == JOKER_EVENT_INDEPENDENT &&
         joker_object->joker->id != BASEBALL_CARD_ID)
     {
         const JokerInfo* info = get_joker_registry_entry(joker_object->joker->id);
         if (info != NULL && info->rarity == UNCOMMON_JOKER)
         {
-            int baseball_count = count_baseball_card_effects();
-            if (baseball_count > 0)
-            {
-                // Apply X1.5 per effect: round-half-up, saturate on overflow
-                // (never UINT32_MAX + 1/2 wrap - same rule as the XMULT path).
-                for (int i = 0; i < baseball_count; i++)
-                {
-                    u32 mult_times_num = u32_protected_mult(g_game_vars.mult, 3);
-                    g_game_vars.mult =
-                        (mult_times_num > UINT32_MAX - 1) ? UINT32_MAX
-                                                          : (mult_times_num + 1) / 2;
-                }
-                display_mult();
-                // Serialize the animation (源分轮 shake + X1.5 pop below
-                // target), one (source, target) pair per DEFER_DELAY beat.
-                baseball_anim_register_trigger(joker_object);
-            }
+            // The X1.5 values are NOT applied here - they accumulate one
+            // per (source, target) animation pair as the baseball_anim_*
+            // queue plays (HUD follows the animation, 原版观感). The queue
+            // drains before the phase advances and PLAY_ENDING settles, so
+            // the final mult is always complete and order-correct.
+            baseball_anim_register_trigger(joker_object);
         }
     }
 
@@ -779,24 +766,35 @@ void joker_show_message(JokerObject* joker_object, const char* message)
 }
 
 // Plays one Baseball Card trigger animation pair (原版: 每个棒球效果源
-// 只在自身轮次触发时与目标同帧 shake，目标下方弹红色 "X1.5"):
+// 只在自身轮次触发时与目标同帧 shake，目标下方弹红色 "X1.5"，HUD 倍率
+// 随每对累乘一步):
+//  - apply ONE X1.5 to g_game_vars.mult (round-half-up, saturate) and
+//    refresh the HUD - the multiplier accumulates with the animation;
 //  - shake the SOURCE (the Baseball Card effect instance whose round it
 //    is) and the TARGET Uncommon joker on the SAME frame - a source never
 //    shakes alongside another source's round;
 //  - pop "X1.5" in red just BELOW the target joker.
-// Called by the baseball_anim_* queue scheduler (one pair per beat).
+// Called by the baseball_anim_* queue scheduler (one pair per beat). The
+// queue drains before PLAY_ENDING settles, so the final mult is complete.
 void joker_play_baseball_animation(JokerObject* source, JokerObject* target)
 {
     if (source == NULL || target == NULL)
         return;
 
-    // Shake source + target together (same frame, 原版).
+    // 1. Accumulate one X1.5 (HUD follows the animation).
+    u32 mult_times_num = u32_protected_mult(g_game_vars.mult, 3);
+    g_game_vars.mult =
+        (mult_times_num > UINT32_MAX - 1) ? UINT32_MAX
+                                          : (mult_times_num + 1) / 2;
+    display_mult();
+
+    // 2. Shake source + target together (same frame, 原版).
     joker_object_shake(source, UNDEFINED);
     joker_object_shake(target, UNDEFINED);
 
-    // Red "X1.5" just below the target joker card.
+    // 3. Red "X1.5" just below the target joker card (card is 32px tall).
     int bx = TILE_SIZE + fx2int(target->x);
-    int by = fx2int(target->y) + TILE_SIZE * 2; // one card height below
+    int by = fx2int(target->y) + TILE_SIZE * 5; // 8px below the card bottom
     set_and_shift_text("X1.5", &bx, &by, TTE_RED_PB);
     schedule_joker_event_text_clear();
 }

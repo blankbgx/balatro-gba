@@ -1182,9 +1182,13 @@ static inline void game_round_process_input_and_state(void)
 // Stuntman held (copies do NOT apply - silent-state rule). hand_size
 // keeps its stored default; the effective value is derived on use
 // (3DS demake pattern: query-time derivation, single source of truth).
+// FLOOR OF 1: 4+ Stuntmen would drive the cap to 0/negative - a 0-cap
+// hand can never be dealt, playing/discarding becomes impossible and
+// the game soft-locks (user-mandated 2026-08-22).
 static inline int get_effective_hand_size(void)
 {
-    return g_game_vars.hand_size - 2 * count_stuntman_effects();
+    int size = g_game_vars.hand_size - 2 * count_stuntman_effects();
+    return size > 0 ? size : 1;
 }
 
 static inline void card_draw(void)

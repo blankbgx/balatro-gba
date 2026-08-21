@@ -129,6 +129,7 @@ REGISTER_JOKER_DESC_FUNC(splash_joker_desc)
 REGISTER_JOKER_DESC_FUNC(supernova_joker_desc)
 REGISTER_JOKER_DESC_FUNC(green_joker_desc)
 REGISTER_JOKER_DESC_FUNC(square_joker_desc)
+REGISTER_JOKER_DESC_FUNC(baseball_card_desc)
 REGISTER_JOKER_EFFECT_FUNC(credit_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(burglar_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(flash_card_joker_effect)
@@ -139,6 +140,7 @@ REGISTER_JOKER_EFFECT_FUNC(splash_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(supernova_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(green_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(square_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(baseball_card_effect)
 
 // Joker Effect functions
 
@@ -319,6 +321,7 @@ const JokerInfo joker_registry[] =
         { "Supernova",        COMMON_JOKER,    5, false, supernova_joker_desc,        supernova_joker_effect          }, // 73 Supernova (orig #43)
         { "Green Joker",      COMMON_JOKER,    4, false, green_joker_desc,            green_joker_effect              }, // 74 Green Joker (orig #58)
         { "Square Joker",     COMMON_JOKER,    4, false, square_joker_desc,           square_joker_effect             }, // 75 Square Joker (orig #65)
+        { "Baseball Card",    RARE_JOKER,      8, false, baseball_card_desc,          baseball_card_effect            }, // 76 Baseball Card (orig #92)
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -4138,4 +4141,67 @@ static u32 square_joker_effect(
     }
 
     return JOKER_EFFECT_FLAG_NONE;
+}
+
+// --- Baseball Card (ID 76) ---
+// (Official EN: "Uncommon Jokers each give X1.5 Mult" - fandom Nr 92,
+// $8 Rare. Act = "On Other Jokers": every OTHER joker scored at
+// INDEPENDENT that is Uncommon rarity triggers X1.5 per Baseball Card.)
+// Implemented as a passive (no-op effect): the multiplier is applied by
+// joker.c's joker_object_score INDEPENDENT hook, which queries
+// count_baseball_card_effects() for every Uncommon joker scored. The
+// hook runs BEFORE the NONE-return check, so silent/static Uncommon
+// jokers (e.g. Smeared) grant the bonus too - matching original.
+static int baseball_card_desc(Joker* joker, Rect dest_rect)
+{
+    (void)joker;
+    static const char desc[] =
+        TTE_BLACK_TAG "Each " TTE_YELLOW_TAG "Uncommon Joker" TTE_BLACK_TAG
+        " gives " TTE_RED_TAG "X1.5" TTE_BLACK_TAG " Mult";
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 baseball_card_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    // Passive: the effect is implemented in joker.c's INDEPENDENT hook.
+    (void)joker;
+    (void)scored_card;
+    (void)joker_event;
+    (void)joker_effect;
+
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// Number of active Baseball Card effects: real cards + Blueprint/Brainstorm
+// copies whose chain-resolved target is a Baseball Card (Blueprint copies
+// its right neighbor, Brainstorm the leftmost - resolve_copy_target handles
+// the chain, e.g. Brainstorm -> Blueprint -> Baseball Card). Each effect
+// contributes one X1.5 per Uncommon joker scored.
+int count_baseball_card_effects(void)
+{
+    int count = 0;
+    ListItr itr = list_itr_create(get_jokers_list());
+    JokerObject* cur;
+    while ((cur = list_itr_next(&itr)))
+    {
+        if (cur == NULL || cur->joker == NULL)
+            continue;
+        if (cur->joker->id == BASEBALL_CARD_ID)
+        {
+            count++;
+            continue;
+        }
+        JokerObject* target = resolve_copy_target(cur);
+        if (target != NULL && target->joker != NULL &&
+            target->joker->id == BASEBALL_CARD_ID)
+        {
+            count++;
+        }
+    }
+    return count;
 }

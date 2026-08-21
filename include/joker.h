@@ -115,6 +115,7 @@ enum JokerEvent
 #define SUPERNOVA_JOKER_ID    73
 #define GREEN_JOKER_ID        74
 #define SQUARE_JOKER_ID       75
+#define BASEBALL_CARD_ID      76
 
 // Serialized "Upgrade!"-style message pop above a joker, used by the
 // ON_PLAYED growth animation queue (joker_effects.c growth_msg_*).
@@ -127,6 +128,10 @@ void growth_msg_clear(void);
 // True while any growth message is queued/playing. round.c gates the
 // hand-play -> scoring transition on this.
 bool growth_msg_pending(void);
+// Baseball Card (76): number of active Baseball Card effects (real cards +
+// Blueprint/Brainstorm copies resolving to one via the chain). joker.c's
+// INDEPENDENT hook applies X1.5 per effect for every Uncommon joker scored.
+int count_baseball_card_effects(void);
 
 // Credit Card: shop purchases may go into debt down to -20$ per REAL
 // Credit Card held. Blueprint/Brainstorm cannot copy this passive effect

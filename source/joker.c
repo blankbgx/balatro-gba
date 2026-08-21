@@ -108,6 +108,7 @@ static const int JOKER_ID_TO_SPRITE_MAP[] = {
     6,  // 73 Supernova -> sheet 6, slot 4 (art: user-drawn 2026-08-21)
     2,  // 74 Green Joker -> sheet 2, slot 2 (art: user-drawn 2026-08-20)
     0,  // 75 Square Joker -> sheet 0, slot 32 (art: user-drawn 2026-08-20)
+    9,  // 76 Baseball Card -> sheet 9, slot 1 (art: user-drawn 2026-08-21)
 };
 
 // Map of Joker ID -> sprite index within its spritesheet
@@ -160,6 +161,7 @@ static const int JOKER_ID_TO_SPRITE_IDX_IN_SHEET[] = {
     4,  // 73 Supernova    -> sheet 6, slot 4 (art: user-drawn 2026-08-21)
     2,  // 74 Green Joker  -> sheet 2, slot 2 (art: user-drawn 2026-08-20)
     32, // 75 Square Joker -> sheet 0, slot 32 (art: user-drawn 2026-08-20)
+    1,  // 76 Baseball Card -> sheet 9, slot 1 (art: user-drawn 2026-08-21)
     };
 
 // Lookup table of Joker Rarity strings. Used to display at the bottom of the description screen.
@@ -571,6 +573,40 @@ bool joker_object_score(
     Card* card = card_object ? card_object->card : NULL;
     u32 effect_flags_ret =
         joker_get_score_effect(joker_object->joker, card, joker_event, &joker_effect);
+
+    // Baseball Card (76): every Uncommon joker scored at INDEPENDENT gives
+    // X1.5 Mult per Baseball Card effect (real + Blueprint/Brainstorm copies
+    // resolving to one via the chain). 原版 Act = "On Other Jokers". Applied
+    // BEFORE the NONE-return check so silent/static Uncommon jokers (e.g.
+    // Smeared, Brainstorm itself) grant the bonus too - matching original
+    // Balatro where rarity is checked for every scored joker.
+    if (joker_event == JOKER_EVENT_INDEPENDENT &&
+        joker_object->joker->id != BASEBALL_CARD_ID)
+    {
+        const JokerInfo* info = get_joker_registry_entry(joker_object->joker->id);
+        if (info != NULL && info->rarity == UNCOMMON_JOKER)
+        {
+            int baseball_count = count_baseball_card_effects();
+            if (baseball_count > 0)
+            {
+                // Apply X1.5 per effect: round-half-up, saturate on overflow
+                // (never UINT32_MAX + 1/2 wrap - same rule as the XMULT path).
+                for (int i = 0; i < baseball_count; i++)
+                {
+                    u32 mult_times_num = u32_protected_mult(g_game_vars.mult, 3);
+                    g_game_vars.mult =
+                        (mult_times_num > UINT32_MAX - 1) ? UINT32_MAX
+                                                          : (mult_times_num + 1) / 2;
+                }
+                int bx = TILE_SIZE + fx2int(joker_object->x) +
+                         (MAX_CARD_SCORE_STR_LEN + 1) * TTE_CHAR_SIZE;
+                int by = JOKER_SCORE_TEXT_Y;
+                set_and_shift_text("X1.5", &bx, &by, TTE_RED_PB);
+                schedule_joker_event_text_clear();
+                display_mult();
+            }
+        }
+    }
 
     if (effect_flags_ret == JOKER_EFFECT_FLAG_NONE)
     {

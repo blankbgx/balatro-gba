@@ -18,6 +18,27 @@
 
 ---
 
+### M31. Stuntman 特技演员（77）实装：+250 筹码可复制 / -2 手牌上限被动不可复制（P1）— 2026-08-22, commit e4d9af2
+
+**功能**：Stuntman 特技演员（orig #136，$7 Rare，Act Indep）——**+250 Chips**（INDEPENDENT 阶段提供）+ **-2 hand size**（入手即生效的被动）。
+
+**实现**：
+- **+250 Chips = 结算型值**（INDEPENDENT 返回 FLAG_CHIPS）——蓝图/脑暴复制**有效**（每个复制体再报 +250，无 guard）
+- **-2 hand size = 静默被动**（effect no-op）——蓝图/脑暴复制**无效**（静默态规则）。`count_stuntman_effects()` 只数真身（Showman 重复持有叠加 -2×n）；round.c 新增 `get_effective_hand_size()` **派生函数**（3DS demake 查询时派生模式：hand_size 保持存储默认值，4 个使用点——发牌 card_draw / 发牌流程 deal / HUD 显示 ×2——读派生值）
+- 素材：gfx0 扩展 1056→1088px（slot 33），6 色精确命中 + 最大 ΔE=1.0，前 1056px 零差异
+
+**复测步骤**：
+1. 商店买 Stuntman（$7 Rare，DEBUG 免费）→ 卡面显示正常（gfx0 slot 33）；**HUD 手牌上限立即变 6/6**（8-2）
+2. 出牌 → INDEPENDENT 阶段 +250 Chips（蓝色，结算型）
+3. **蓝图复制 Stuntman** → +500 Chips（复制体再报 +250）；**手牌上限仍 6**（-2 不被复制）
+4. Showman 构筑两张真身 → 手牌上限 4（-2×2）
+5. 卖出 Stuntman → 手牌上限恢复 8（派生值实时，无残留）
+6. 发牌上限同步：手牌上限 6 时只发 6 张
+
+**复测结果**：⏳ 待 Delta 实测
+
+---
+
 ### M30. Baseball Card（76）实装：罕见小丑 ×1.5 倍率（P1）— 2026-08-21, commit 99808b9
 
 **功能**：Baseball Card 棒球卡（orig #92，$8 Rare，Act "On Other Jokers"）——**场上每张罕见（Uncommon）小丑计分时 ×1.5**（n 张 Uncommon = ×1.5ⁿ）。参照男爵的分数 XMULT 通道（`(mult*3+1)/2` round-half-up + 溢出饱和）。

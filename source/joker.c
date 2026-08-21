@@ -109,6 +109,7 @@ static const int JOKER_ID_TO_SPRITE_MAP[] = {
     2,  // 74 Green Joker -> sheet 2, slot 2 (art: user-drawn 2026-08-20)
     0,  // 75 Square Joker -> sheet 0, slot 32 (art: user-drawn 2026-08-20)
     9,  // 76 Baseball Card -> sheet 9, slot 1 (art: user-drawn 2026-08-21)
+    0,  // 77 Stuntman -> sheet 0, slot 33 (art: user-drawn 2026-08-22)
 };
 
 // Map of Joker ID -> sprite index within its spritesheet
@@ -162,6 +163,7 @@ static const int JOKER_ID_TO_SPRITE_IDX_IN_SHEET[] = {
     2,  // 74 Green Joker  -> sheet 2, slot 2 (art: user-drawn 2026-08-20)
     32, // 75 Square Joker -> sheet 0, slot 32 (art: user-drawn 2026-08-20)
     1,  // 76 Baseball Card -> sheet 9, slot 1 (art: user-drawn 2026-08-21)
+    33, // 77 Stuntman      -> sheet 0, slot 33 (art: user-drawn 2026-08-22)
     };
 
 // Lookup table of Joker Rarity strings. Used to display at the bottom of the description screen.

@@ -130,6 +130,7 @@ REGISTER_JOKER_DESC_FUNC(supernova_joker_desc)
 REGISTER_JOKER_DESC_FUNC(green_joker_desc)
 REGISTER_JOKER_DESC_FUNC(square_joker_desc)
 REGISTER_JOKER_DESC_FUNC(baseball_card_desc)
+REGISTER_JOKER_DESC_FUNC(stuntman_joker_desc)
 REGISTER_JOKER_EFFECT_FUNC(credit_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(burglar_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(flash_card_joker_effect)
@@ -141,6 +142,7 @@ REGISTER_JOKER_EFFECT_FUNC(supernova_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(green_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(square_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(baseball_card_effect)
+REGISTER_JOKER_EFFECT_FUNC(stuntman_joker_effect)
 
 // Joker Effect functions
 
@@ -322,6 +324,7 @@ const JokerInfo joker_registry[] =
         { "Green Joker",      COMMON_JOKER,    4, false, green_joker_desc,            green_joker_effect              }, // 74 Green Joker (orig #58)
         { "Square Joker",     COMMON_JOKER,    4, false, square_joker_desc,           square_joker_effect             }, // 75 Square Joker (orig #65)
         { "Baseball Card",    RARE_JOKER,      8, false, baseball_card_desc,          baseball_card_effect            }, // 76 Baseball Card (orig #92)
+        { "Stuntman",         RARE_JOKER,      7, false, stuntman_joker_desc,         stuntman_joker_effect           }, // 77 Stuntman (orig #136)
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -4373,6 +4376,62 @@ int count_baseball_card_effects(void)
         JokerObject* target = resolve_copy_target(cur);
         if (target != NULL && target->joker != NULL &&
             target->joker->id == BASEBALL_CARD_ID)
+        {
+            count++;
+        }
+    }
+    return count;
+}
+
+// --- Stuntman (ID 77) ---
+// (Official EN: "+250 Chips, -2 hand size" - fandom Nr 136, $7 Rare.
+// Act = Indep: the +250 Chips is a settlement-type value reported at
+// INDEPENDENT - Blueprint/Brainstorm copies re-report it (+250 per copy).
+// The -2 hand size is a PASSIVE stat applied the moment the card is
+// held; it is NOT a triggered action, so copies do NOT apply it -
+// count_stuntman_effects() counts real cards only, and round.c derives
+// the effective hand size on use.)
+static int stuntman_joker_desc(Joker* joker, Rect dest_rect)
+{
+    (void)joker;
+    static const char desc[] =
+        TTE_BLACK_TAG "+" TTE_BLUE_TAG "250" TTE_BLACK_TAG " " TTE_BLUE_TAG "Chips" TTE_BLACK_TAG
+        ", " TTE_YELLOW_TAG "-2 hand size" TTE_BLACK_TAG;
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 stuntman_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    if (joker_event == JOKER_EVENT_INDEPENDENT)
+    {
+        // Settlement-type value: no copy guard - every Blueprint/Brainstorm
+        // copy reports +250 Chips too, matching original.
+        *joker_effect = &s_shared_joker_effect;
+        (*joker_effect)->chips = 250;
+        return JOKER_EFFECT_FLAG_CHIPS;
+    }
+    (void)joker;
+    (void)scored_card;
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// Number of REAL Stuntmen held (Showman duplicates stack: -2 hand size
+// each). Blueprint/Brainstorm copies resolve to this check but the -2 is
+// a passive stat - copies are NOT counted (silent-state rule).
+int count_stuntman_effects(void)
+{
+    int count = 0;
+    ListItr itr = list_itr_create(get_jokers_list());
+    JokerObject* cur;
+    while ((cur = list_itr_next(&itr)))
+    {
+        if (cur != NULL && cur->joker != NULL &&
+            cur->joker->id == STUNTMAN_JOKER_ID)
         {
             count++;
         }

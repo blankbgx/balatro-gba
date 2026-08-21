@@ -1178,9 +1178,18 @@ static inline void game_round_process_input_and_state(void)
  * @brief Draw the next card at the top of the Deck and play a little Sprite animation to position
  *         it in our hand.
  */
+// Effective hand size: Stuntman (77) passively reduces it by 2 per REAL
+// Stuntman held (copies do NOT apply - silent-state rule). hand_size
+// keeps its stored default; the effective value is derived on use
+// (3DS demake pattern: query-time derivation, single source of truth).
+static inline int get_effective_hand_size(void)
+{
+    return g_game_vars.hand_size - 2 * count_stuntman_effects();
+}
+
 static inline void card_draw(void)
 {
-    if (get_deck_top() < 0 || get_hand_top() >= g_game_vars.hand_size - 1 ||
+    if (get_deck_top() < 0 || get_hand_top() >= get_effective_hand_size() - 1 ||
         get_hand_top() >= MAX_HAND_SIZE - 1)
         return;
 
@@ -1244,7 +1253,7 @@ static inline void game_round_process_card_draw(void)
     }
     s_deal_after_effects_at = 0;
 
-    if (get_hand_state() == HAND_DRAW && s_cards_drawn < g_game_vars.hand_size)
+    if (get_hand_state() == HAND_DRAW && s_cards_drawn < get_effective_hand_size())
     {
         // M24: don't deal while blind-select effects / HUD value rolls are
         // still playing - the player should see settled numbers (Burglar
@@ -1493,7 +1502,7 @@ static inline void game_round_ui_text_update(void)
                     HAND_SIZE_RECT_SELECT.top,
                     TTE_WHITE_PB,
                     hand_nb_held_cards(),
-                    g_game_vars.hand_size
+                    get_effective_hand_size()
                 );
                 break;
 
@@ -1505,7 +1514,7 @@ static inline void game_round_ui_text_update(void)
                     HAND_SIZE_RECT_PLAYING.top,
                     TTE_WHITE_PB,
                     hand_nb_held_cards(),
-                    g_game_vars.hand_size
+                    get_effective_hand_size()
                 );
                 break;
 

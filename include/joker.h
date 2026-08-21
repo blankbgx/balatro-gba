@@ -116,6 +116,7 @@ enum JokerEvent
 #define GREEN_JOKER_ID        74
 #define SQUARE_JOKER_ID       75
 #define BASEBALL_CARD_ID      76
+#define STUNTMAN_JOKER_ID     77
 
 // Serialized "Upgrade!"-style message pop above a joker, used by the
 // ON_PLAYED growth animation queue (joker_effects.c growth_msg_*).
@@ -145,6 +146,10 @@ bool baseball_anim_pending(void);
 // Baseball Card effect instance whose turn it is) and the TARGET
 // Uncommon joker together (same frame), pops "X1.5" below the target.
 void joker_play_baseball_animation(JokerObject* source, JokerObject* target);
+// Stuntman (77): passive -2 hand size per REAL Stuntman held. Blueprint/
+// Brainstorm copies do NOT apply (silent-state rule - the -2 is a passive
+// stat, not a triggered action). round.c derives the effective hand size.
+int count_stuntman_effects(void);
 
 // Credit Card: shop purchases may go into debt down to -20$ per REAL
 // Credit Card held. Blueprint/Brainstorm cannot copy this passive effect

@@ -22,7 +22,7 @@
 
 **功能**：Baseball Card 棒球卡（orig #92，$8 Rare，Act "On Other Jokers"）——**场上每张罕见（Uncommon）小丑计分时 ×1.5**（n 张 Uncommon = ×1.5ⁿ）。参照男爵的分数 XMULT 通道（`(mult*3+1)/2` round-half-up + 溢出饱和）。
 
-**实现**：被动 no-op + joker.c `joker_object_score` 的 INDEPENDENT 钩子——每张 Uncommon 小丑计分时（effect 调用后、NONE-return 前），按 `count_baseball_card_effects()`（真身 + 蓝图/脑暴链解析复制体）应用 ×1.5×n 并显示 "X1.5" 红字。钩子在 NONE-return 检查**之前**——静默型 Uncommon（Smeared）也触发（原版对每张计分卡查稀有度）。稀有度判定读注册表实际值（`get_joker_registry_entry(id)->rarity`）：蓝图/脑暴均为 **Rare**（注册表 41/52 行，wiki 验证）→ 复制体计分不触发，与 wiki 一致。**动画 follow-up（fdc45b0）**：数值仍立即应用（顺序正确性），动画走 `baseball_anim_*` 串行队列（30 帧/触发）——逐个 Uncommon shake，棒球卡自身与目标**同帧** shake，目标下方弹红 "X1.5"（原版观感）。
+**实现**：被动 no-op + joker.c `joker_object_score` 的 INDEPENDENT 钩子——每张 Uncommon 小丑计分时（effect 调用后、NONE-return 前），按 `count_baseball_card_effects()`（真身 + 蓝图/脑暴链解析复制体）应用 ×1.5×n 并显示 "X1.5" 红字。钩子在 NONE-return 检查**之前**——静默型 Uncommon（Smeared）也触发（原版对每张计分卡查稀有度）。稀有度判定读注册表实际值（`get_joker_registry_entry(id)->rarity`）：蓝图/脑暴均为 **Rare**（注册表 41/52 行，wiki 验证）→ 复制体计分不触发，与 wiki 一致。**动画 follow-up（fdc45b0 → 45bad5d）**：数值仍立即应用（顺序正确性），动画走 `baseball_anim_*` 二维串行队列——**按棒球源分轮**（列表顺序：蓝图轮→棒球本体轮→脑暴轮），轮内逐个 Uncommon shake（列表顺序），每对 (源, 目标) 同帧 shake + 目标下方弹红 "X1.5"（30 帧/对）；**每个源只在自身轮次 shake，不带动其他源**（原版观感）。
 
 **复测步骤**：
 1. 商店买 Baseball Card（$8 Rare，DEBUG 免费）+ 场上一张 Uncommon（如 Smeared 模糊小丑）→ 出牌，Smeared 计分时 mult ×1.5（显示 "X1.5"）
@@ -30,8 +30,9 @@
 3. 蓝图复制 Baseball Card → 每张 Uncommon ×1.5×2（双倍）
 4. 全 Common 场 → 无加成（Baseball Card 自己 Rare 不触发）
 5. Common/Rare 卡计分 → 不触发；蓝图/脑暴（均 Rare）计分 → 不触发
-6. 高倍率（mult ≥ ~14 亿）→ 饱和不溢出不归零
-7. 卡面：gfx9 slot 1（米白/玫红棒球构图）显示正常
+6. **动画时序（关键）**：`[蓝图, 棒球, 模糊, 哭与笑, 脑暴]` 出牌 → 独立阶段动画依次：蓝图轮（模糊 shake→哭与笑 shake）→ 棒球轮（同）→ 脑暴轮（同）；每对源+目标同帧 shake，目标下方弹 "X1.5"；**每轮排干后下一源**（30 帧/对）
+7. 高倍率（mult ≥ ~14 亿）→ 饱和不溢出不归零
+8. 卡面：gfx9 slot 1（米白/玫红棒球构图）显示正常
 
 **复测结果**：⏳ 待 Delta 实测
 

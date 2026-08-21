@@ -22,7 +22,7 @@
 
 **功能**：Baseball Card 棒球卡（orig #92，$8 Rare，Act "On Other Jokers"）——**场上每张罕见（Uncommon）小丑计分时 ×1.5**（n 张 Uncommon = ×1.5ⁿ）。参照男爵的分数 XMULT 通道（`(mult*3+1)/2` round-half-up + 溢出饱和）。
 
-**实现**：被动 no-op + joker.c `joker_object_score` 的 INDEPENDENT 钩子——每张 Uncommon 小丑计分时（effect 调用后、NONE-return 前），按 `count_baseball_card_effects()`（真身 + 蓝图/脑暴链解析复制体）应用 ×1.5×n 并显示 "X1.5" 红字。钩子在 NONE-return 检查**之前**——静默型 Uncommon（Smeared）也触发（原版对每张计分卡查稀有度）。稀有度判定读注册表实际值（`get_joker_registry_entry(id)->rarity`）：蓝图/脑暴均为 **Rare**（注册表 41/52 行，wiki 验证）→ 复制体计分不触发，与 wiki 一致。**动画 follow-up（fdc45b0 → 45bad5d → f145317）**：数值仍立即应用（顺序正确性），动画走 `baseball_anim_*` 二维串行队列——**按棒球源分轮**（列表顺序：蓝图轮→棒球本体轮→脑暴轮），轮内逐个 Uncommon shake（列表顺序），每对 (源, 目标) 同帧 shake + 目标下方弹红 "X1.5"（30 帧/对）；**每个源只在自身轮次 shake，不带动其他源**（原版观感）。**状态机门控（f145317）**：`play_scoring_independent_jokers_update` 在独立阶段派发完成后等待 `baseball_anim_pending()` 排空才推进 HAND_SCORED_END——动画不再与出牌归位并行（M29 动画×状态机阻塞规则）。
+**实现**：被动 no-op + joker.c `joker_object_score` 的 INDEPENDENT 钩子——每张 Uncommon 小丑计分时（effect 调用后、NONE-return 前）入队（钩子在 NONE-return 检查**之前**——静默型 Uncommon（Smeared）也触发）。稀有度判定读注册表实际值（`get_joker_registry_entry(id)->rarity`）：蓝图/脑暴均为 **Rare**（注册表 41/52 行，wiki 验证）→ 复制体计分不触发，与 wiki 一致。**动画 follow-up（fdc45b0 → 45bad5d → f145317 → 35fc1ac）**：`baseball_anim_*` 二维串行队列——**按棒球源分轮**（列表顺序），轮内逐个 Uncommon，每对 (源, 目标) 30 帧；**每对播放时应用一个 ×1.5 并刷新 HUD**（数值随动画累乘，原版观感——不再是钩子立即全乘）；源+目标同帧 shake，目标**卡下方 8px** 弹红 "X1.5"（位置修正：原 +16px 在卡中间不可见）；**每个源只在自身轮次 shake**。**状态机门控（f145317）**：独立阶段派发完成后等 `baseball_anim_pending()` 排空才推进——动画播完数值也全部应用，PLAY_ENDING 结算值完整。
 
 **复测步骤**：
 1. 商店买 Baseball Card（$8 Rare，DEBUG 免费）+ 场上一张 Uncommon（如 Smeared 模糊小丑）→ 出牌，Smeared 计分时 mult ×1.5（显示 "X1.5"）

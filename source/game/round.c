@@ -2010,6 +2010,17 @@ static inline bool play_scoring_independent_jokers_update(int played_idx)
             return true;
         }
 
+        // M30: Baseball Card trigger animations (per-source rounds of
+        // shake + X1.5 pops) must fully drain before leaving the
+        // INDEPENDENT phase - 原版 plays each per-joker animation to
+        // completion before the hand moves on. Without this gate the
+        // queue (3 sources x N uncommons x 30f can exceed a second)
+        // keeps playing while cards settle back into place.
+        if (baseball_anim_pending())
+        {
+            return true;
+        }
+
         // Reset the scored card index to past the top of the played stack
         s_scored_card_index = get_played_size();
 

@@ -18,6 +18,26 @@
 
 ---
 
+### M30. Baseball Card（76）实装：罕见小丑 ×1.5 倍率（P1）— 2026-08-21, commit 99808b9
+
+**功能**：Baseball Card 棒球卡（orig #92，$8 Rare，Act "On Other Jokers"）——**场上每张罕见（Uncommon）小丑计分时 ×1.5**（n 张 Uncommon = ×1.5ⁿ）。参照男爵的分数 XMULT 通道（`(mult*3+1)/2` round-half-up + 溢出饱和）。
+
+**实现**：被动 no-op + joker.c `joker_object_score` 的 INDEPENDENT 钩子——每张 Uncommon 小丑计分时（effect 调用后、NONE-return 前），按 `count_baseball_card_effects()`（真身 + 蓝图/脑暴链解析复制体）应用 ×1.5×n 并显示 "X1.5" 红字。钩子在 NONE-return 检查**之前**——静默型 Uncommon（Smeared、脑暴本体）也触发（原版对每张计分卡查稀有度）。蓝图（Rare）复制体不自我触发、脑暴（Uncommon）触发——与原版一致。
+
+**复测步骤**：
+1. 商店买 Baseball Card（$8 Rare，DEBUG 免费）+ 场上一张 Uncommon（如 Smeared 模糊小丑）→ 出牌，Smeared 计分时 mult ×1.5（显示 "X1.5"）
+2. 3 张 Uncommon → mult ×1.5³（×3.375）
+3. 蓝图复制 Baseball Card → 每张 Uncommon ×1.5×2（双倍）
+4. 全 Common 场 → 无加成（Baseball Card 自己 Rare 不触发）
+5. Common/Rare 卡计分 → 不触发
+6. 脑暴在场（Uncommon 本体）→ 脑暴自己计分也触发
+7. 高倍率（mult ≥ ~14 亿）→ 饱和不溢出不归零
+8. 卡面：gfx9 slot 1（米白/玫红棒球构图）显示正常
+
+**复测结果**：⏳ 待 Delta 实测
+
+---
+
 ### M29. ON_PLAYED 成长动画同帧重叠：绿色小丑 + 搭乘巴士一起弹 Upgrade!（P1）— 2026-08-20, commit 888bbc0
 
 **背景**：绿色小丑（74）/搭乘巴士（64）/方形小丑（75）都在 `JOKER_EVENT_ON_HAND_PLAYED` 成长并同步弹 "Upgrade!"——两个成长卡同帧弹消息，动画重叠。

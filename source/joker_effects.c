@@ -2461,6 +2461,87 @@ bool growth_msg_pending(void)
     return s_growth_msg_count > 0;
 }
 
+// --- Baseball Card trigger animation queue (2026-08-21) ---
+// 原版: at INDEPENDENT each Uncommon joker triggers X1.5 - the Baseball
+// Card shakes together with the target (same frame), "X1.5" pops below
+// the target, and Uncommon jokers shake one after another until the
+// effect ends. The multiplier itself applies INSTANTLY in joker.c's hook
+// (order-correct); ONLY this animation is serialized, one trigger per
+// DEFER_DELAY beat (same pattern as the growth_msg queue).
+static JokerObject* s_baseball_anim_targets[MAX_JOKERS_HELD_SIZE];
+static int s_baseball_anim_count = 0;
+static int s_baseball_anim_active = -1;
+static u32 s_baseball_anim_next_at = 0;
+
+void baseball_anim_enqueue(JokerObject* target)
+{
+    if (s_baseball_anim_count >= MAX_JOKERS_HELD_SIZE)
+        return; // Decorational animation: never block gameplay.
+    s_baseball_anim_targets[s_baseball_anim_count++] = target;
+}
+
+// Fires happen FRAMES after enqueue; the target may have been
+// sold/destroyed in between. Skip the whole queue on a dead source.
+static bool baseball_anim_target_is_alive(JokerObject* jo)
+{
+    ListItr itr = list_itr_create(get_jokers_list());
+    JokerObject* cur;
+    while ((cur = list_itr_next(&itr)))
+    {
+        if (cur == jo)
+            return true;
+    }
+    return false;
+}
+
+void baseball_anim_process_pending(void)
+{
+    if (s_baseball_anim_count == 0)
+        return;
+
+    if (s_baseball_anim_active < 0)
+    {
+        s_baseball_anim_active = 0;
+        if (!baseball_anim_target_is_alive(s_baseball_anim_targets[0]))
+        {
+            baseball_anim_clear();
+            return;
+        }
+        joker_play_baseball_animation(s_baseball_anim_targets[0]);
+        s_baseball_anim_next_at = game_get_ui_tick() + DEFER_DELAY;
+        return;
+    }
+
+    if (game_get_ui_tick() >= s_baseball_anim_next_at)
+    {
+        s_baseball_anim_active++;
+        if (s_baseball_anim_active >= s_baseball_anim_count)
+        {
+            s_baseball_anim_count = 0;
+            s_baseball_anim_active = -1;
+            return;
+        }
+        if (!baseball_anim_target_is_alive(s_baseball_anim_targets[s_baseball_anim_active]))
+        {
+            baseball_anim_clear();
+            return;
+        }
+        joker_play_baseball_animation(s_baseball_anim_targets[s_baseball_anim_active]);
+        s_baseball_anim_next_at = game_get_ui_tick() + DEFER_DELAY;
+    }
+}
+
+void baseball_anim_clear(void)
+{
+    s_baseball_anim_count = 0;
+    s_baseball_anim_active = -1;
+}
+
+bool baseball_anim_pending(void)
+{
+    return s_baseball_anim_count > 0;
+}
+
 // Burglar-only serial pacing: after the +3 hands/discards fire, wait for
 // the HUD value roll to fully drain before the next trigger activates.
 // This serializes shake -> number roll (matching 原版); without it the

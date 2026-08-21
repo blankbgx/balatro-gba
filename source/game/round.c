@@ -2352,6 +2352,7 @@ void game_round_on_init(void)
     // Drop any growth-message animations still queued from the previous
     // round's last hand (decorational only - never carry across rounds).
     growth_msg_clear();
+    baseball_anim_clear();
 
     // Display the HUD BEFORE dispatching ON_BLIND_SELECTED: jokers may
     // mutate hands/discards (e.g. Burglar +3 / lose all discards) and

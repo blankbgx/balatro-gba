@@ -578,8 +578,10 @@ bool joker_object_score(
     // X1.5 Mult per Baseball Card effect (real + Blueprint/Brainstorm copies
     // resolving to one via the chain). 原版 Act = "On Other Jokers". Applied
     // BEFORE the NONE-return check so silent/static Uncommon jokers (e.g.
-    // Smeared, Brainstorm itself) grant the bonus too - matching original
-    // Balatro where rarity is checked for every scored joker.
+    // Smeared) grant the bonus too - matching original Balatro where rarity
+    // is checked for every scored joker. The multiplier applies INSTANTLY
+    // (order-correct: the Uncommon's own +Mult already landed, then X1.5);
+    // only the shake + "X1.5" pop is serialized through baseball_anim_*.
     if (joker_event == JOKER_EVENT_INDEPENDENT &&
         joker_object->joker->id != BASEBALL_CARD_ID)
     {
@@ -598,12 +600,10 @@ bool joker_object_score(
                         (mult_times_num > UINT32_MAX - 1) ? UINT32_MAX
                                                           : (mult_times_num + 1) / 2;
                 }
-                int bx = TILE_SIZE + fx2int(joker_object->x) +
-                         (MAX_CARD_SCORE_STR_LEN + 1) * TTE_CHAR_SIZE;
-                int by = JOKER_SCORE_TEXT_Y;
-                set_and_shift_text("X1.5", &bx, &by, TTE_RED_PB);
-                schedule_joker_event_text_clear();
                 display_mult();
+                // Serialize the animation (shake + X1.5 pop below target),
+                // one trigger per DEFER_DELAY beat.
+                baseball_anim_enqueue(joker_object);
             }
         }
     }
@@ -776,6 +776,46 @@ void joker_show_message(JokerObject* joker_object, const char* message)
     // synchronous MESSAGE flag (UNDEFINED = visual shake, no sound - the
     // old MESSAGE-only path passed an uninitialized sfx_id anyway).
     joker_object_shake(joker_object, UNDEFINED);
+}
+
+// Plays one Baseball Card trigger animation on a target Uncommon joker
+// (原版: 自身与目标同帧 shake，目标下方弹红色 "X1.5"):
+//  - shake the target Uncommon joker AND every Baseball Card effect source
+//    (real card + Blueprint/Brainstorm copies resolving to one via chain)
+//    on the SAME frame - no extra serialization between them;
+//  - pop "X1.5" in red just BELOW the target joker.
+// Called by the baseball_anim_* queue scheduler (one beat per trigger).
+void joker_play_baseball_animation(JokerObject* target)
+{
+    if (target == NULL)
+        return;
+
+    // 1. Shake the target Uncommon joker.
+    joker_object_shake(target, UNDEFINED);
+
+    // 2. Shake every Baseball Card effect source (real + copies) - same frame.
+    ListItr itr = list_itr_create(get_jokers_list());
+    JokerObject* cur;
+    while ((cur = list_itr_next(&itr)))
+    {
+        if (cur == NULL || cur->joker == NULL)
+            continue;
+        bool is_source = (cur->joker->id == BASEBALL_CARD_ID);
+        if (!is_source)
+        {
+            JokerObject* copy_target = resolve_copy_target(cur);
+            is_source = (copy_target != NULL && copy_target->joker != NULL &&
+                         copy_target->joker->id == BASEBALL_CARD_ID);
+        }
+        if (is_source)
+            joker_object_shake(cur, UNDEFINED);
+    }
+
+    // 3. Red "X1.5" just below the target joker card.
+    int bx = TILE_SIZE + fx2int(target->x);
+    int by = fx2int(target->y) + TILE_SIZE * 2; // one card height below
+    set_and_shift_text("X1.5", &bx, &by, TTE_RED_PB);
+    schedule_joker_event_text_clear();
 }
 
 static int s_get_num_spritesheets()

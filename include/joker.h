@@ -132,18 +132,19 @@ bool growth_msg_pending(void);
 // Blueprint/Brainstorm copies resolving to one via the chain). joker.c's
 // INDEPENDENT hook applies X1.5 per effect for every Uncommon joker scored.
 int count_baseball_card_effects(void);
-// Baseball trigger animation queue (串行 shake + X1.5 pop, one per beat):
-// the multiplier applies instantly in joker.c's hook; ONLY the animation
-// is serialized. Called from the hook to enqueue; process_pending runs
-// every frame from game.c; clear at round init.
-void baseball_anim_enqueue(JokerObject* target);
+// Baseball trigger animation queue (二维串行: 按棒球源分轮, 轮内逐个
+// Uncommon - 原版观感): the multiplier applies instantly in joker.c's
+// hook; ONLY the animation is serialized. One beat per (source, target)
+// pair: source轮次内逐个 target shake, 一轮排干后下一源. 每个源只在
+// 自身轮次 shake, 不带动其他源.
+void baseball_anim_register_trigger(JokerObject* target);
 void baseball_anim_process_pending(void);
 void baseball_anim_clear(void);
 bool baseball_anim_pending(void);
-// Plays one baseball trigger animation on a target Uncommon joker:
-// shakes the target + every Baseball Card effect source, pops "X1.5"
-// below the target (原版: 自身与目标同帧 shake，目标下方弹红字).
-void joker_play_baseball_animation(JokerObject* target);
+// Plays one baseball trigger animation pair: shakes the SOURCE (the
+// Baseball Card effect instance whose turn it is) and the TARGET
+// Uncommon joker together (same frame), pops "X1.5" below the target.
+void joker_play_baseball_animation(JokerObject* source, JokerObject* target);
 
 // Credit Card: shop purchases may go into debt down to -20$ per REAL
 // Credit Card held. Blueprint/Brainstorm cannot copy this passive effect

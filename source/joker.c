@@ -601,9 +601,9 @@ bool joker_object_score(
                                                           : (mult_times_num + 1) / 2;
                 }
                 display_mult();
-                // Serialize the animation (shake + X1.5 pop below target),
-                // one trigger per DEFER_DELAY beat.
-                baseball_anim_enqueue(joker_object);
+                // Serialize the animation (源分轮 shake + X1.5 pop below
+                // target), one (source, target) pair per DEFER_DELAY beat.
+                baseball_anim_register_trigger(joker_object);
             }
         }
     }
@@ -778,40 +778,23 @@ void joker_show_message(JokerObject* joker_object, const char* message)
     joker_object_shake(joker_object, UNDEFINED);
 }
 
-// Plays one Baseball Card trigger animation on a target Uncommon joker
-// (原版: 自身与目标同帧 shake，目标下方弹红色 "X1.5"):
-//  - shake the target Uncommon joker AND every Baseball Card effect source
-//    (real card + Blueprint/Brainstorm copies resolving to one via chain)
-//    on the SAME frame - no extra serialization between them;
+// Plays one Baseball Card trigger animation pair (原版: 每个棒球效果源
+// 只在自身轮次触发时与目标同帧 shake，目标下方弹红色 "X1.5"):
+//  - shake the SOURCE (the Baseball Card effect instance whose round it
+//    is) and the TARGET Uncommon joker on the SAME frame - a source never
+//    shakes alongside another source's round;
 //  - pop "X1.5" in red just BELOW the target joker.
-// Called by the baseball_anim_* queue scheduler (one beat per trigger).
-void joker_play_baseball_animation(JokerObject* target)
+// Called by the baseball_anim_* queue scheduler (one pair per beat).
+void joker_play_baseball_animation(JokerObject* source, JokerObject* target)
 {
-    if (target == NULL)
+    if (source == NULL || target == NULL)
         return;
 
-    // 1. Shake the target Uncommon joker.
+    // Shake source + target together (same frame, 原版).
+    joker_object_shake(source, UNDEFINED);
     joker_object_shake(target, UNDEFINED);
 
-    // 2. Shake every Baseball Card effect source (real + copies) - same frame.
-    ListItr itr = list_itr_create(get_jokers_list());
-    JokerObject* cur;
-    while ((cur = list_itr_next(&itr)))
-    {
-        if (cur == NULL || cur->joker == NULL)
-            continue;
-        bool is_source = (cur->joker->id == BASEBALL_CARD_ID);
-        if (!is_source)
-        {
-            JokerObject* copy_target = resolve_copy_target(cur);
-            is_source = (copy_target != NULL && copy_target->joker != NULL &&
-                         copy_target->joker->id == BASEBALL_CARD_ID);
-        }
-        if (is_source)
-            joker_object_shake(cur, UNDEFINED);
-    }
-
-    // 3. Red "X1.5" just below the target joker card.
+    // Red "X1.5" just below the target joker card.
     int bx = TILE_SIZE + fx2int(target->x);
     int by = fx2int(target->y) + TILE_SIZE * 2; // one card height below
     set_and_shift_text("X1.5", &bx, &by, TTE_RED_PB);

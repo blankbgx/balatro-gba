@@ -2462,84 +2462,177 @@ bool growth_msg_pending(void)
 }
 
 // --- Baseball Card trigger animation queue (2026-08-21) ---
-// 原版: at INDEPENDENT each Uncommon joker triggers X1.5 - the Baseball
-// Card shakes together with the target (same frame), "X1.5" pops below
-// the target, and Uncommon jokers shake one after another until the
-// effect ends. The multiplier itself applies INSTANTLY in joker.c's hook
-// (order-correct); ONLY this animation is serialized, one trigger per
-// DEFER_DELAY beat (same pattern as the growth_msg queue).
-static JokerObject* s_baseball_anim_targets[MAX_JOKERS_HELD_SIZE];
-static int s_baseball_anim_count = 0;
-static int s_baseball_anim_active = -1;
+// 原版 (user-observed): at INDEPENDENT the animation is TWO-DIMENSIONALLY
+// serial. Each Baseball Card effect source (real card + Blueprint/Brainstorm
+// copies resolving to one via chain) has its OWN turn, in list order
+// (e.g. [Blueprint, Baseball, Smeared, Sock&Buskin, Brainstorm] ->
+// Blueprint round -> Baseball round -> Brainstorm round). Within a round
+// the Uncommon targets shake one after another (list order), each pair
+// being: SOURCE shakes + TARGET shakes (same frame), red "X1.5" pops
+// below the target. A source shakes ONLY during its own round - it never
+// shakes alongside another source's round.
+// The multiplier applies INSTANTLY in joker.c's hook (order-correct);
+// ONLY this animation is serialized, one beat per (source, target) pair.
+#define BASEBALL_MAX_SOURCES MAX_JOKERS_HELD_SIZE
+
+typedef struct
+{
+    JokerObject* source;                            // this round's effect instance
+    JokerObject* targets[MAX_JOKERS_HELD_SIZE];     // Uncommon targets, list order
+    int target_count;
+} BaseballAnimSource;
+
+static BaseballAnimSource s_baseball_sources[BASEBALL_MAX_SOURCES];
+static int s_baseball_source_count = 0;
+static int s_baseball_active_source = -1;
+static int s_baseball_active_target = 0;
 static u32 s_baseball_anim_next_at = 0;
 
-void baseball_anim_enqueue(JokerObject* target)
+// True if the joker is a Baseball Card effect source (real or a copy whose
+// chain-resolved target is a Baseball Card).
+static bool baseball_joker_is_source(JokerObject* jo)
 {
-    if (s_baseball_anim_count >= MAX_JOKERS_HELD_SIZE)
-        return; // Decorational animation: never block gameplay.
-    s_baseball_anim_targets[s_baseball_anim_count++] = target;
+    if (jo == NULL || jo->joker == NULL)
+        return false;
+    if (jo->joker->id == BASEBALL_CARD_ID)
+        return true;
+    JokerObject* copy_target = resolve_copy_target(jo);
+    return (copy_target != NULL && copy_target->joker != NULL &&
+            copy_target->joker->id == BASEBALL_CARD_ID);
 }
 
-// Fires happen FRAMES after enqueue; the target may have been
-// sold/destroyed in between. Skip the whole queue on a dead source.
-static bool baseball_anim_target_is_alive(JokerObject* jo)
+// Called from joker.c's INDEPENDENT hook when an Uncommon joker scored:
+// append the target to EVERY baseball source's round (sources built in
+// list order on first use).
+void baseball_anim_register_trigger(JokerObject* target)
 {
     ListItr itr = list_itr_create(get_jokers_list());
     JokerObject* cur;
     while ((cur = list_itr_next(&itr)))
     {
-        if (cur == jo)
-            return true;
+        if (!baseball_joker_is_source(cur))
+            continue;
+
+        // Find or append this source's round.
+        int src_idx = -1;
+        for (int i = 0; i < s_baseball_source_count; i++)
+        {
+            if (s_baseball_sources[i].source == cur)
+            {
+                src_idx = i;
+                break;
+            }
+        }
+        if (src_idx < 0)
+        {
+            if (s_baseball_source_count >= BASEBALL_MAX_SOURCES)
+                return; // Decorational: never block gameplay.
+            src_idx = s_baseball_source_count++;
+            s_baseball_sources[src_idx].source = cur;
+            s_baseball_sources[src_idx].target_count = 0;
+        }
+
+        BaseballAnimSource* src = &s_baseball_sources[src_idx];
+        if (src->target_count < MAX_JOKERS_HELD_SIZE)
+            src->targets[src->target_count++] = target;
     }
-    return false;
+}
+
+// Fires happen FRAMES after enqueue; source/target may have been
+// sold/destroyed in between. Skip the whole queue on a dead pair.
+static bool baseball_anim_pair_is_alive(JokerObject* source, JokerObject* target)
+{
+    bool seen_source = false;
+    bool seen_target = false;
+    ListItr itr = list_itr_create(get_jokers_list());
+    JokerObject* cur;
+    while ((cur = list_itr_next(&itr)))
+    {
+        if (cur == source)
+            seen_source = true;
+        if (cur == target)
+            seen_target = true;
+    }
+    return seen_source && seen_target;
+}
+
+static void baseball_anim_play_active_pair(void)
+{
+    BaseballAnimSource* src = &s_baseball_sources[s_baseball_active_source];
+    joker_play_baseball_animation(src->source,
+                                  src->targets[s_baseball_active_target]);
 }
 
 void baseball_anim_process_pending(void)
 {
-    if (s_baseball_anim_count == 0)
+    if (s_baseball_source_count == 0)
         return;
 
-    if (s_baseball_anim_active < 0)
+    if (s_baseball_active_source < 0)
     {
-        s_baseball_anim_active = 0;
-        if (!baseball_anim_target_is_alive(s_baseball_anim_targets[0]))
+        s_baseball_active_source = 0;
+        s_baseball_active_target = 0;
+        // Skip rounds with no targets (shouldn't happen - register_trigger
+        // only creates rounds when it appends a target).
+        if (s_baseball_sources[0].target_count == 0)
         {
             baseball_anim_clear();
             return;
         }
-        joker_play_baseball_animation(s_baseball_anim_targets[0]);
+        if (!baseball_anim_pair_is_alive(s_baseball_sources[0].source,
+                                         s_baseball_sources[0].targets[0]))
+        {
+            baseball_anim_clear();
+            return;
+        }
+        baseball_anim_play_active_pair();
         s_baseball_anim_next_at = game_get_ui_tick() + DEFER_DELAY;
         return;
     }
 
     if (game_get_ui_tick() >= s_baseball_anim_next_at)
     {
-        s_baseball_anim_active++;
-        if (s_baseball_anim_active >= s_baseball_anim_count)
+        // Advance within the current round.
+        s_baseball_active_target++;
+        while (s_baseball_active_source < s_baseball_source_count)
         {
-            s_baseball_anim_count = 0;
-            s_baseball_anim_active = -1;
+            BaseballAnimSource* src = &s_baseball_sources[s_baseball_active_source];
+            if (s_baseball_active_target < src->target_count)
+                break; // Next pair in this round.
+            // This round is done - move to the next source's round.
+            s_baseball_active_source++;
+            s_baseball_active_target = 0;
+        }
+
+        if (s_baseball_active_source >= s_baseball_source_count)
+        {
+            s_baseball_source_count = 0;
+            s_baseball_active_source = -1;
             return;
         }
-        if (!baseball_anim_target_is_alive(s_baseball_anim_targets[s_baseball_anim_active]))
+
+        BaseballAnimSource* src = &s_baseball_sources[s_baseball_active_source];
+        if (!baseball_anim_pair_is_alive(src->source,
+                                         src->targets[s_baseball_active_target]))
         {
             baseball_anim_clear();
             return;
         }
-        joker_play_baseball_animation(s_baseball_anim_targets[s_baseball_anim_active]);
+        baseball_anim_play_active_pair();
         s_baseball_anim_next_at = game_get_ui_tick() + DEFER_DELAY;
     }
 }
 
 void baseball_anim_clear(void)
 {
-    s_baseball_anim_count = 0;
-    s_baseball_anim_active = -1;
+    s_baseball_source_count = 0;
+    s_baseball_active_source = -1;
+    s_baseball_active_target = 0;
 }
 
 bool baseball_anim_pending(void)
 {
-    return s_baseball_anim_count > 0;
+    return s_baseball_source_count > 0;
 }
 
 // Burglar-only serial pacing: after the +3 hands/discards fire, wait for

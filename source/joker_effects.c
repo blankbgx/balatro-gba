@@ -4454,15 +4454,16 @@ int count_stuntman_effects(void)
 // State: persistent_state = current suit (0-3, card.h NUM_SUITS); the
 // copy mechanism syncs it to Blueprint/Brainstorm copies, so copies
 // trigger on the same suit automatically (per-card X1.5 each, no guard).
+static const char* const s_ancient_suit_tags[NUM_SUITS] =
+{
+    TTE_DIAMOND_TAG, // 0 Diamonds (yellow)
+    TTE_CLUB_TAG,    // 1 Clubs (dark green)
+    TTE_HEART_TAG,   // 2 Hearts (red)
+    TTE_SPADE_TAG,   // 3 Spades (dark blue)
+};
+
 static int ancient_joker_desc(Joker* joker, Rect dest_rect)
 {
-    static const char* suit_tags[NUM_SUITS] =
-    {
-        TTE_DIAMOND_TAG, // 0 Diamonds (yellow)
-        TTE_CLUB_TAG,    // 1 Clubs (dark green)
-        TTE_HEART_TAG,   // 2 Hearts (red)
-        TTE_SPADE_TAG,   // 3 Spades (dark blue)
-    };
     u8 suit = (joker != NULL) ? (u8)joker->persistent_state : 0;
     if (suit >= NUM_SUITS)
         suit = 0;
@@ -4471,7 +4472,7 @@ static int ancient_joker_desc(Joker* joker, Rect dest_rect)
         desc, sizeof(desc),
         "Each played " TTE_YELLOW_TAG "%s" TTE_BLACK_TAG
         " card gives " TTE_RED_TAG "X1.5" TTE_BLACK_TAG " Mult when scored",
-        suit_tags[suit]
+        s_ancient_suit_tags[suit]
     );
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
@@ -4499,6 +4500,22 @@ static u32 ancient_joker_effect(
             *joker_effect = &s_shared_joker_effect;
             joker_effect_set_xmult_den(&s_shared_joker_effect, 3, 2);
             return JOKER_EFFECT_FLAG_XMULT;
+        }
+    }
+    else if (joker_event == JOKER_EVENT_ON_BLIND_SELECTED)
+    {
+        // In-round there is no desc view, so announce the current suit
+        // with a colored message at each round start (花色在 ON_ROUND_END
+        // 已滚动好，这里报的是新回合的花色). Real joker only - copies
+        // stay silent (they mirror the same suit anyway).
+        if (!s_is_copying_joker)
+        {
+            u8 suit = (u8)joker->persistent_state;
+            if (suit >= NUM_SUITS)
+                suit = 0;
+            *joker_effect = &s_shared_joker_effect;
+            (*joker_effect)->message = (char*)s_ancient_suit_tags[suit];
+            return JOKER_EFFECT_FLAG_MESSAGE;
         }
     }
     else if (joker_event == JOKER_EVENT_ON_ROUND_END)

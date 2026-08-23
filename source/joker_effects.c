@@ -4462,19 +4462,27 @@ static const char* const s_ancient_suit_tags[NUM_SUITS] =
     TTE_SPADE_TAG,   // 3 Spades (dark blue)
 };
 
+// 4 pre-built static descs (one per suit): avoids snprintf/%s and the
+// double-`#{...}#{...}` tag run that the sprintf-joined variant produced
+// (描述界面卡死 2026-08-23 - M32 follow-up). Each desc is a single
+// well-formed TTE string with ONE suit tag - same shape as every other
+// joker desc in the codebase.
+static const char* const s_ancient_descs[NUM_SUITS] =
+{
+    TTE_BLACK_TAG "Each played " TTE_DIAMOND_TAG "card gives " TTE_RED_TAG "X1.5" TTE_BLACK_TAG " Mult when scored",
+    TTE_BLACK_TAG "Each played " TTE_CLUB_TAG "card gives " TTE_RED_TAG "X1.5" TTE_BLACK_TAG " Mult when scored",
+    TTE_BLACK_TAG "Each played " TTE_HEART_TAG "card gives " TTE_RED_TAG "X1.5" TTE_BLACK_TAG " Mult when scored",
+    TTE_BLACK_TAG "Each played " TTE_SPADE_TAG "card gives " TTE_RED_TAG "X1.5" TTE_BLACK_TAG " Mult when scored",
+};
+
 static int ancient_joker_desc(Joker* joker, Rect dest_rect)
 {
     u8 suit = (joker != NULL) ? (u8)joker->persistent_state : 0;
     if (suit >= NUM_SUITS)
         suit = 0;
-    char desc[160];
-    snprintf(
-        desc, sizeof(desc),
-        "Each played " TTE_YELLOW_TAG "%s" TTE_BLACK_TAG
-        " card gives " TTE_RED_TAG "X1.5" TTE_BLACK_TAG " Mult when scored",
-        s_ancient_suit_tags[suit]
+    return tte_printf_justified_in_rect(
+        s_ancient_descs[suit], dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true
     );
-    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
 
 static u32 ancient_joker_effect(

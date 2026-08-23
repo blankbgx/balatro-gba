@@ -148,6 +148,17 @@ REGISTER_JOKER_EFFECT_FUNC(ancient_joker_effect)
 
 // Joker Effect functions
 
+// Suit display tags used by Ancient Joker (78): colored suit name for
+// desc + round-start suit message. Defined here (file head) because the
+// deferred queue (DEFER_ANCIENT_SUIT) uses it before the ancient section.
+static const char* const s_ancient_suit_tags[NUM_SUITS] =
+{
+    TTE_DIAMOND_TAG, // 0 Diamonds (yellow)
+    TTE_CLUB_TAG,    // 1 Clubs (dark green)
+    TTE_HEART_TAG,   // 2 Hearts (red)
+    TTE_SPADE_TAG,   // 3 Spades (dark blue)
+};
+
 static u32 sinful_joker_effect(
     Card* scored_card,
     u8 sinful_suit,
@@ -2340,6 +2351,7 @@ typedef enum
     DEFER_RIFF_RAFF, // activate: lock spawn count; fire: spawn jokers
     DEFER_DAGGER,    // activate: lock right neighbor; fire: sacrifice it
     DEFER_BURGLAR,   // activate: lock nothing; fire: +3 hands, 0 discards + HUD pulse
+    DEFER_ANCIENT_SUIT, // activate: show colored suit message; fire: nothing
 } DeferredKind;
 
 static JokerObject* s_deferred_queue[MAX_JOKERS_HELD_SIZE];
@@ -2869,6 +2881,24 @@ void deferred_effects_process_pending(void)
                 s_deferred_ran_animation = true;
                 break;
             }
+
+            case DEFER_ANCIENT_SUIT:
+            {
+                // Activate: show the current suit as a COLORED message
+                // (TTE tags embedded in the text) - in-round there is no
+                // desc view, so each round announces the suit. No fire
+                // effect (the message IS the whole effect).
+                u8 suit = (u8)source->joker->persistent_state;
+                if (suit >= NUM_SUITS)
+                    suit = 0;
+                tte_set_pos(fx2int(source->x) + TILE_SIZE, JOKER_SCORE_TEXT_Y);
+                tte_set_special(TTE_WHITE_PB * TTE_SPECIAL_PB_MULT_OFFSET);
+                tte_write(s_ancient_suit_tags[suit]);
+                joker_object_shake(source, UNDEFINED);
+                schedule_joker_event_text_clear();
+                s_deferred_ran_animation = true;
+                break;
+            }
         }
 
         s_deferred_fire_at = game_get_ui_tick() + DEFER_DELAY; // M24
@@ -3023,6 +3053,13 @@ void deferred_effects_process_pending(void)
                     old_discards,
                     g_game_vars.discards
                 );
+                break;
+            }
+
+            case DEFER_ANCIENT_SUIT:
+            {
+                // Fire: nothing - the colored suit message shown at
+                // activation IS the whole effect.
                 break;
             }
         }
@@ -4454,13 +4491,6 @@ int count_stuntman_effects(void)
 // State: persistent_state = current suit (0-3, card.h NUM_SUITS); the
 // copy mechanism syncs it to Blueprint/Brainstorm copies, so copies
 // trigger on the same suit automatically (per-card X1.5 each, no guard).
-static const char* const s_ancient_suit_tags[NUM_SUITS] =
-{
-    TTE_DIAMOND_TAG, // 0 Diamonds (yellow)
-    TTE_CLUB_TAG,    // 1 Clubs (dark green)
-    TTE_HEART_TAG,   // 2 Hearts (red)
-    TTE_SPADE_TAG,   // 3 Spades (dark blue)
-};
 
 // 4 pre-built static descs (one per suit): avoids snprintf/%s and the
 // double-`#{...}#{...}` tag run that the sprintf-joined variant produced
@@ -4520,17 +4550,31 @@ static u32 ancient_joker_effect(
     else if (joker_event == JOKER_EVENT_ON_BLIND_SELECTED)
     {
         // In-round there is no desc view, so announce the current suit
-        // with a colored message at each round start (花色在 ON_ROUND_END
-        // 已滚动好，这里报的是新回合的花色). Real joker only - copies
-        // stay silent (they mirror the same suit anyway).
+        // at each round start (花色在 ON_ROUND_END 已滚动好，这里报的是
+        // 新回合的花色). Enqueue into the unified deferred queue (M24
+        // blind-selected serialization - plays left-to-right, one beat
+        // each, gated with HUD rolls) instead of a synchronous MESSAGE
+        // that would overlap other blind-selected effects. Real joker
+        // only - copies stay silent (they mirror the same suit anyway).
         if (!s_is_copying_joker)
         {
-            u8 suit = (u8)joker->persistent_state;
-            if (suit >= NUM_SUITS)
-                suit = 0;
-            *joker_effect = &s_shared_joker_effect;
-            (*joker_effect)->message = (char*)s_ancient_suit_tags[suit];
-            return JOKER_EFFECT_FLAG_MESSAGE;
+            ListItr itr = list_itr_create(get_jokers_list());
+            JokerObject* self_object = NULL;
+            JokerObject* cur;
+            while ((cur = list_itr_next(&itr)))
+            {
+                if (cur->joker == joker)
+                {
+                    self_object = cur;
+                    break;
+                }
+            }
+            if (self_object != NULL)
+            {
+                s_deferred_queue[s_deferred_count] = self_object;
+                s_deferred_kind[s_deferred_count] = DEFER_ANCIENT_SUIT;
+                s_deferred_count++;
+            }
         }
     }
     else if (joker_event == JOKER_EVENT_ON_ROUND_END)

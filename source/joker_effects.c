@@ -4492,10 +4492,17 @@ static u32 ancient_joker_effect(
     }
     else if (joker_event == JOKER_EVENT_ON_CARD_SCORED && scored_card != NULL)
     {
-        // Per-card settlement: each scored card of the current suit gives
-        // X1.5 (Baron-style - N matching cards = X1.5^N). Copies mirror
-        // persistent_state (synced) so they trigger on the same suit.
-        if (scored_card->suit == (u8)joker->persistent_state)
+        // Per-card settlement: each scored card matching the current suit
+        // gives X1.5 (Baron-style - N matching cards = X1.5^N). Smeared
+        // Joker merges red/black suits via card_effective_suit_mask()
+        // (原版: Hearts counts Diamonds too when Smeared is active - the
+        // suit check goes through the merged suit semantics, M32 follow-up).
+        // Copies mirror persistent_state (synced) so they trigger on the
+        // same suit.
+        u8 current_suit = (u8)joker->persistent_state;
+        if (current_suit >= NUM_SUITS)
+            current_suit = 0;
+        if ((card_effective_suit_mask(scored_card->suit) & (1 << current_suit)) != 0)
         {
             *joker_effect = &s_shared_joker_effect;
             joker_effect_set_xmult_den(&s_shared_joker_effect, 3, 2);

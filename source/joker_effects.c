@@ -131,6 +131,7 @@ REGISTER_JOKER_DESC_FUNC(green_joker_desc)
 REGISTER_JOKER_DESC_FUNC(square_joker_desc)
 REGISTER_JOKER_DESC_FUNC(baseball_card_desc)
 REGISTER_JOKER_DESC_FUNC(stuntman_joker_desc)
+REGISTER_JOKER_DESC_FUNC(ancient_joker_desc)
 REGISTER_JOKER_EFFECT_FUNC(credit_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(burglar_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(flash_card_joker_effect)
@@ -143,6 +144,7 @@ REGISTER_JOKER_EFFECT_FUNC(green_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(square_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(baseball_card_effect)
 REGISTER_JOKER_EFFECT_FUNC(stuntman_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(ancient_joker_effect)
 
 // Joker Effect functions
 
@@ -325,6 +327,7 @@ const JokerInfo joker_registry[] =
         { "Square Joker",     COMMON_JOKER,    4, false, square_joker_desc,           square_joker_effect             }, // 75 Square Joker (orig #65)
         { "Baseball Card",    RARE_JOKER,      8, false, baseball_card_desc,          baseball_card_effect            }, // 76 Baseball Card (orig #92)
         { "Stuntman",         RARE_JOKER,      7, false, stuntman_joker_desc,         stuntman_joker_effect           }, // 77 Stuntman (orig #136)
+        { "Ancient Joker",    RARE_JOKER,      8, false, ancient_joker_desc,          ancient_joker_effect            }, // 78 Ancient Joker (orig #99)
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -4437,4 +4440,85 @@ int count_stuntman_effects(void)
         }
     }
     return count;
+}
+
+// --- Ancient Joker (ID 78) ---
+// (Official EN: "Each played card with [suit] gives X1.5 Mult when
+// scored, suit changes at end of round" - fandom Nr 99, $8 Rare.
+// Act = On Scored: per-card settlement, Baron-style.)
+// USER-MANDATED SPECIAL RULES (2026-08-23):
+//  - the suit NEVER repeats across consecutive rounds (each round's suit
+//    differs from the previous round's);
+//  - the suit is drawn from all 4 suits regardless of deck composition
+//    (even a 1-suit deck still rolls any of the 4).
+// State: persistent_state = current suit (0-3, card.h NUM_SUITS); the
+// copy mechanism syncs it to Blueprint/Brainstorm copies, so copies
+// trigger on the same suit automatically (per-card X1.5 each, no guard).
+static int ancient_joker_desc(Joker* joker, Rect dest_rect)
+{
+    static const char* suit_tags[NUM_SUITS] =
+    {
+        TTE_DIAMOND_TAG, // 0 Diamonds (yellow)
+        TTE_CLUB_TAG,    // 1 Clubs (dark green)
+        TTE_HEART_TAG,   // 2 Hearts (red)
+        TTE_SPADE_TAG,   // 3 Spades (dark blue)
+    };
+    u8 suit = (joker != NULL) ? (u8)joker->persistent_state : 0;
+    if (suit >= NUM_SUITS)
+        suit = 0;
+    char desc[160];
+    snprintf(
+        desc, sizeof(desc),
+        "Each played " TTE_YELLOW_TAG "%s" TTE_BLACK_TAG
+        " card gives " TTE_RED_TAG "X1.5" TTE_BLACK_TAG " Mult when scored",
+        suit_tags[suit]
+    );
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 ancient_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    if (joker_event == JOKER_EVENT_ON_JOKER_CREATED)
+    {
+        // First-round suit: fully random (no previous-round exclusion).
+        if (!s_is_copying_joker)
+            joker->persistent_state = rng_get_u32(RNG_SEQ_JOKER_ANCIENT) % NUM_SUITS;
+    }
+    else if (joker_event == JOKER_EVENT_ON_CARD_SCORED && scored_card != NULL)
+    {
+        // Per-card settlement: each scored card of the current suit gives
+        // X1.5 (Baron-style - N matching cards = X1.5^N). Copies mirror
+        // persistent_state (synced) so they trigger on the same suit.
+        if (scored_card->suit == (u8)joker->persistent_state)
+        {
+            *joker_effect = &s_shared_joker_effect;
+            joker_effect_set_xmult_den(&s_shared_joker_effect, 3, 2);
+            return JOKER_EFFECT_FLAG_XMULT;
+        }
+    }
+    else if (joker_event == JOKER_EVENT_ON_ROUND_END)
+    {
+        // Suit changes at end of round. NEVER the same as the current
+        // round's suit: roll among the other 3 (map 0-2 skipping current),
+        // independent of deck composition. Only the real joker rolls -
+        // copies keep mirroring persistent_state.
+        if (!s_is_copying_joker)
+        {
+            u8 current = (u8)joker->persistent_state;
+            if (current >= NUM_SUITS)
+                current = 0;
+            u32 r = rng_get_u32(RNG_SEQ_JOKER_ANCIENT) % (NUM_SUITS - 1);
+            if (r >= current)
+                r++;
+            joker->persistent_state = r;
+        }
+    }
+    (void)joker;
+    (void)joker_effect;
+    return JOKER_EFFECT_FLAG_NONE;
 }

@@ -29,6 +29,7 @@ enum RngSequence
     RNG_SEQ_JOKER_RIFF_RAFF,
     RNG_SEQ_JOKER_GROS_MICHEL,
     RNG_SEQ_JOKER_CAVENDISH,
+    RNG_SEQ_JOKER_ANCIENT,
 
     // For non-gameplay related things such as sound effects or visual effects, so as to not
     // interfere with important stuff like Shop rolls or Joker effects.

@@ -38,7 +38,7 @@
 7. **Smeared 联动（0fc501f）**：Ancient 花色=Hearts + Smeared → 红套卡（Heart+Diamond）都 ×1.5；黑套同理（走 `card_effective_suit_mask()`）
 8. **描述界面卡死（3100790 修复）**：初版 desc 用 `snprintf` + `%s` 拼带标记短语 → 文本出现连续双标记 `#{cx:0xB000}#{cx:0xB000}` → **tonc tte_write 解析死循环**（现象：打印 "Each played" 后卡死）。修复：4 花色各一条编译期静态 desc（零 snprintf、零连续标记）。**铁律：desc/消息文本禁止连续 TTE 标记**（详见 gbalatro-joker-dev skill `references/desc-color-convention.md`）
 
-**复测结果**：⏳ 待 Delta 实测（描述界面卡死修复待验；花色消息/联动待验）
+**复测结果**：✅ Delta 实测通过（2026-08-23）——回合开始花色消息（白色，deferred 队列串行）正常播放；每次购买时随机初始花色；Smeared 联动（红/黑套互认）；无 Smeared 时精确匹配；蓝图/脑暴复制（同花色双倍逐卡、复制体静默不滚动）。描述界面卡死已修复（静态 desc 无双标记）。
 
 ---
 

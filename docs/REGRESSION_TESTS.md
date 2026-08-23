@@ -35,8 +35,10 @@
 4. **牌组无关**：DEBUG 改纯单花色牌组（或卖光其他花色）→ 花色仍在 4 种间随机
 5. 蓝图/脑暴复制 → 同花色双倍逐卡 ×1.5；复制体不独立滚动（镜像真身）
 6. 卡面：gfx18 slot 0（米色古老主题）显示正常
+7. **Smeared 联动（0fc501f）**：Ancient 花色=Hearts + Smeared → 红套卡（Heart+Diamond）都 ×1.5；黑套同理（走 `card_effective_suit_mask()`）
+8. **描述界面卡死（3100790 修复）**：初版 desc 用 `snprintf` + `%s` 拼带标记短语 → 文本出现连续双标记 `#{cx:0xB000}#{cx:0xB000}` → **tonc tte_write 解析死循环**（现象：打印 "Each played" 后卡死）。修复：4 花色各一条编译期静态 desc（零 snprintf、零连续标记）。**铁律：desc/消息文本禁止连续 TTE 标记**（详见 gbalatro-joker-dev skill `references/desc-color-convention.md`）
 
-**复测结果**：⏳ 待 Delta 实测
+**复测结果**：⏳ 待 Delta 实测（描述界面卡死修复待验；花色消息/联动待验）
 
 ---
 

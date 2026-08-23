@@ -148,15 +148,16 @@ REGISTER_JOKER_EFFECT_FUNC(ancient_joker_effect)
 
 // Joker Effect functions
 
-// Suit display tags used by Ancient Joker (78): colored suit name for
-// desc + round-start suit message. Defined here (file head) because the
-// deferred queue (DEFER_ANCIENT_SUIT) uses it before the ancient section.
-static const char* const s_ancient_suit_tags[NUM_SUITS] =
+// Plain suit names for the Ancient Joker (78) round-start MESSAGE
+// (user 2026-08-23: 特殊颜色看不清——花色播放统一白色). The desc uses
+// pre-built static strings with embedded colored suit tags
+// (s_ancient_descs), so this array carries only the plain names.
+static const char* const s_ancient_suit_names[NUM_SUITS] =
 {
-    TTE_DIAMOND_TAG, // 0 Diamonds (yellow)
-    TTE_CLUB_TAG,    // 1 Clubs (dark green)
-    TTE_HEART_TAG,   // 2 Hearts (red)
-    TTE_SPADE_TAG,   // 3 Spades (dark blue)
+    "Diamond ",
+    "Club ",
+    "Hearts ",
+    "Spade ",
 };
 
 static u32 sinful_joker_effect(
@@ -2884,16 +2885,17 @@ void deferred_effects_process_pending(void)
 
             case DEFER_ANCIENT_SUIT:
             {
-                // Activate: show the current suit as a COLORED message
-                // (TTE tags embedded in the text) - in-round there is no
-                // desc view, so each round announces the suit. No fire
-                // effect (the message IS the whole effect).
+                // Activate: show the current suit as a WHITE message (user
+                // 2026-08-23: 特殊颜色看不清——统一白色; the special-color
+                // pb is already set white below). In-round there is no desc
+                // view, so each round announces the suit. No fire effect
+                // (the message IS the whole effect).
                 u8 suit = (u8)source->joker->persistent_state;
                 if (suit >= NUM_SUITS)
                     suit = 0;
                 tte_set_pos(fx2int(source->x) + TILE_SIZE, JOKER_SCORE_TEXT_Y);
                 tte_set_special(TTE_WHITE_PB * TTE_SPECIAL_PB_MULT_OFFSET);
-                tte_write(s_ancient_suit_tags[suit]);
+                tte_write(s_ancient_suit_names[suit]);
                 joker_object_shake(source, UNDEFINED);
                 schedule_joker_event_text_clear();
                 s_deferred_ran_animation = true;

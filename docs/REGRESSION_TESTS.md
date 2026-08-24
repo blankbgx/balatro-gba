@@ -18,6 +18,29 @@
 
 ---
 
+### M33. Swashbuckler 侠盗（79）实装：其他小丑售价总和 → 倍率（P1）— 2026-08-24, commit 7e81a52
+
+**功能**：Swashbuckler 侠盗（orig #110，$4 Common，Act Indep）——**其他所有已持有小丑的售价总和加到倍率**（+m 结算型）。
+
+**实现**：
+- INDEPENDENT：`swashbuckler_sell_total()` 遍历 owned 累加除自己外所有 joker 的 `joker_get_sell_value()`（实时 value/2——成长的 Egg 售价也被正确吸收）
+- **复制语义**：结算型 → 蓝图/脑暴复制**有效**（复制体把真身算进"其他"→ 双加）
+- desc 动态显示当前售价总和（`snprintf %ld`，Flash Card 模式）
+- 素材：**gfx18 扩展 32→64px（slot 1）+ 4 新色**（红 #FD5F55 / 橙 #FDB139 / 金棕 #B99C61 / 淡青 #E7FEFE）**追加在 Ancient 色块之后**——Ancient slot 0 像素索引不变（前缀零差异）；palette 11→15（16 上限内）
+
+**复测步骤**：
+1. 商店买 Swashbuckler（$4 Common）→ 卡面正常（gfx18 slot 1 海盗主题）；desc 显示当前 +N Mult（其他小丑售价总和）
+2. 无其他小丑 → 无加成；带 1 张 $4 卡（售价 $2）→ +2 Mult
+3. 多张混合 → 售价总和（$6 卡 = +$3、$8 卡 = +$4…）
+4. **蓝图复制 Swashbuckler** → 双倍（复制体把真身算"其他"）
+5. **Egg 联动**：Egg 长到 $6 售价后 → Swashbuckler 吸收 +$3（实时值）
+6. **Ancient Joker 卡面不受影响**（gfx18 slot 0 像素零差异）
+7. desc 花色/数字显示正常（无卡死——snprintf %ld 模式已验证）
+
+**复测结果**：⏳ 待 Delta 实测
+
+---
+
 ### M32. Ancient Joker 古老小丑（78）实装：当前花色计分卡逐张 ×1.5 + 花色不重复规则（P1）— 2026-08-23, commit f809c04
 
 **功能**：Ancient Joker 古老小丑（orig #99，$8 Rare，Act On Scored）——**当前花色的计分卡逐张 ×1.5**（Baron 式，N 张匹配 = ×1.5^N）。花色回合结束变化。

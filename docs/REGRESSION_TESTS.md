@@ -56,18 +56,19 @@
 - 素材：**gfx1 扩展 64→96px（slot 2）+ 1 新色 #FEBC43**（橙黄，填满 palette 16）；Greedy/Lusty 槽零差异；红橙系匹配完美（素材主色 #FF6367→#FF6368 dE=1、玫红 #F03563→#F03464 dE≈1.4）
 - **消息串行化（9ba9f42）**：回合结束消息统一走 deferred 队列（新增通用 `DEFER_MSG` kind + 深拷贝文本数组）——Egg "+$3" / Gift Card / Ancient 花色消息逐个播放（30 帧/条），不再同帧重叠；数值变更仍立即生效。Ancient 的 DEFER_ANCIENT_SUIT 特化并入 DEFER_MSG（统一）。GM/Cavendish 的 EXTINCT! 保持同步（EXPIRE 语义耦合，稀有事件）
 - **复制放行 + 消息文案（345fced）**：`blueprint_brainstorm_joker_effect` 原来在 ON_ROUND_END 直接 early-return → 复制体从不跑回合结束效果（Gift Card 无法被复制）。修复：移除 ON_ROUND_END 排除（ON_JOKER_CREATED 保留）；**自身变更类效果复制时必须定向 `s_copied_joker_source`**（Egg 的 value +6 落到真身，复制机制给的是复制体 joker——这是早期 return 存在的原因）。Gift Card 遍历全列表天然正确，消息 `"+$1"` → **"Value Up!"**（用户：全卡增值用数值不明晰）
+- **⚠️ 修正（本轮，社区实机攻略证实）**：**鸡蛋和礼品卡在原版不可复制**（merged.md Act 列 = N/A，增值消息是被动效果的通知而非可触发事件）。上一轮的"复制放行"是误判（3DS demake 此处与原版不符）。已回退：`blueprint_brainstorm_joker_effect` 恢复 ON_ROUND_END 排除；Egg 的 s_copied_joker_source 定向回退（死代码清除）。复制时**完全静默**：无效果、无消息、目标售价不增长。**规则沉淀：Act = N/A（被动/回合结束收益类）→ 不可复制；Act 有值（Indep/On Scored/...）→ 可复制**。3DS demake 的复制机制（委托触发 + blueprint_compat）与原版有出入，此类判定以社区实机/wiki 为准
 - **消息防遮盖（8232118）**：队列 30 帧/条播放但文本 90 帧才自清 → 前 2 条还显示时新条画上 = 同 row 叠加遮盖（连续 "Value Up!" 互盖）。修复：每次激活新消息前**先擦除消息行**（`PLAYED_CARDS_SCORES_RECT`，守卫 `get_hand_state() != HAND_PLAYING` 防误伤计分数字）——任一时刻只显示一条，与串行播放节奏一致。覆盖所有 deferred kind（Riff-Raff/Burglar/DEFER_MSG）
 
 **复测步骤**（与 M33 侠盗一并测）：
 1. 商店买 Gift Card（$6 Uncommon）→ 卡面正常（gfx1 slot 2 礼品卡主题）
-2. 回合结束 → 所有小丑售价 +$1（含 Gift Card 自己）；" +$1" 消息播放
-3. **蓝图复制** → 双倍（每回合 +$2 售价）
+2. 回合结束 → 所有小丑售价 +$1（含 Gift Card 自己）；"Value Up!" 消息播放
+3. **蓝图/脑暴复制** → **完全静默**：无效果、无消息、目标售价不增长（Act = N/A 被动，不可复制——社区实机攻略证实）
 4. **与侠盗联动**：Gift Card 让 Swashbuckler 售价涨 → 侠盗倍率随之涨（每回合 +$1 → +1 Mult）
 5. **与 Egg 联动**：两者叠加（Egg 自身 +$3 + Gift Card +$1 = 每回合 +$4 售价）
 6. 连续多回合 → 售价持续累积；卖出价格实时正确
 7. desc 无卡死
 
-**复测结果**：✅ Delta 实测通过（2026-08-24）——本体与蓝图/脑暴复制均正常；**双蛋+复制**（各蛋各自涨、复制定向被复制的蛋、不误伤）✅；**回合结束消息擦除防遮盖**（8232118，连续 Value Up! 不叠加）✅；**双侠盗互算对方售价**（other=只排除自己，原版/3DS 一致）✅
+**复测结果**：✅ Delta 实测通过（2026-08-24）——本体正常；回合结束消息串行 + 防遮盖（8232118）✅；Egg 多实例各涨各 ✅。**复制行为已按社区证据修正（本轮）：蓝图/脑暴复制 Gift Card 完全静默（无效果无消息）——此前"复制双倍"的实现是误判，已回退**
 
 ---
 

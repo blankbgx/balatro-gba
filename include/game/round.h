@@ -10,6 +10,12 @@
 
 typedef struct CardObject CardObject;
 
+// Mr. Bones (81): true if the current round was saved from death by
+// Mr. Bones (score >= 25% of requirement at hands exhaustion). The round
+// end flow reads this to skip the blind reward + remaining-hands bonus
+// (interest still applies). Reset each round init.
+bool game_round_was_saved_by_mr_bones(void);
+
 /**
  * @brief Checks whether the score that would result from the current Chips and Mult exceeds the
  *         current Blind's score requirement, and applies the flaming effect if needed.

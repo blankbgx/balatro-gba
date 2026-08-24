@@ -134,6 +134,7 @@ REGISTER_JOKER_DESC_FUNC(stuntman_joker_desc)
 REGISTER_JOKER_DESC_FUNC(ancient_joker_desc)
 REGISTER_JOKER_DESC_FUNC(swashbuckler_joker_desc)
 REGISTER_JOKER_DESC_FUNC(gift_card_joker_desc)
+REGISTER_JOKER_DESC_FUNC(mr_bones_desc)
 REGISTER_JOKER_EFFECT_FUNC(credit_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(burglar_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(flash_card_joker_effect)
@@ -149,6 +150,7 @@ REGISTER_JOKER_EFFECT_FUNC(stuntman_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(ancient_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(swashbuckler_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(gift_card_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(mr_bones_effect)
 
 // Joker Effect functions
 
@@ -346,6 +348,7 @@ const JokerInfo joker_registry[] =
         { "Ancient Joker",    RARE_JOKER,      8, false, ancient_joker_desc,          ancient_joker_effect            }, // 78 Ancient Joker (orig #99)
         { "Swashbuckler",     COMMON_JOKER,    4, false, swashbuckler_joker_desc,     swashbuckler_joker_effect       }, // 79 Swashbuckler (orig #110)
         { "Gift Card",        UNCOMMON_JOKER,  6, false, gift_card_joker_desc,        gift_card_joker_effect          }, // 80 Gift Card (orig #79)
+        { "Mr. Bones",        UNCOMMON_JOKER,  5, false, mr_bones_desc,               mr_bones_effect                 }, // 81 Mr. Bones (orig #107)
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -4748,5 +4751,37 @@ static u32 gift_card_joker_effect(
     }
     (void)joker;
     (void)scored_card;
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// --- Mr. Bones (ID 81) ---
+// (Official EN: "Prevents Death if chips scored are at least 25% of
+// required chips. Self destructs." - fandom Nr 107, $5 Uncommon. Act =
+// N/A reactive passive: NOT an event effect - the save lives in round.c
+// (mr_bones_can_save / mr_bones_activate, fired at PLAY_ENDED when the
+// final score locks in, BEFORE cards return to the deck). Blueprint/
+// Brainstorm can NOT copy it (reactive passive, no trigger point - and
+// is_joker_owned checks the real ID anyway).)
+static int mr_bones_desc(Joker* joker, Rect dest_rect)
+{
+    (void)joker;
+    static const char desc[] =
+        TTE_BLACK_TAG "Prevents " TTE_RED_TAG "Death" TTE_BLACK_TAG " if chips scored are at least "
+        TTE_BLUE_TAG "25%" TTE_BLACK_TAG " of required " TTE_BLUE_TAG "Chips" TTE_BLACK_TAG
+        ". " TTE_YELLOW_TAG "Self destructs" TTE_BLACK_TAG;
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 mr_bones_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    (void)joker;
+    (void)scored_card;
+    (void)joker_event;
+    (void)joker_effect;
     return JOKER_EFFECT_FLAG_NONE;
 }

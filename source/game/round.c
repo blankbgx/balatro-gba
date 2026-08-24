@@ -217,6 +217,65 @@ static int s_discard_top = -1;
 
 // Keeping track of cards scored
 static int s_scored_card_index = 0;
+
+// Mr. Bones (81): saves the run from death when the final score is at
+// least 25% of the blind requirement at hands exhaustion. The save fires
+// at PLAY_ENDED when the lerp locks the final score - BEFORE cards
+// return to the deck (user-observed 原版 timing). A saved round skips the
+// blind reward + remaining-hands bonus; interest still applies (3DS
+// demake reference, game.lua handle_failed_blind_reset).
+static bool s_mr_bones_saved = false;
+
+bool game_round_was_saved_by_mr_bones(void)
+{
+    return s_mr_bones_saved;
+}
+
+// True if Mr. Bones can save this round: hands exhausted, score below the
+// requirement, score >= 25% of it, and an alive Mr. Bones is owned.
+// (f64 note: 原版 can't save a NaN score - score overflowed to NaN. With
+// u32+clamp that's impossible; add `if (isnan(score)) return false` when
+// the f64 score rework lands.)
+static bool mr_bones_can_save(void)
+{
+    if (g_game_vars.hands != 0)
+        return false;
+    u32 requirement =
+        blind_get_requirement(g_game_vars.current_blind, g_game_vars.ante);
+    if (g_game_vars.score >= requirement)
+        return false; // won outright - nothing to save
+    if (g_game_vars.score < requirement / 4)
+        return false; // below the 25% threshold
+    return is_joker_owned(MR_BONES_JOKER_ID);
+}
+
+// Show "saved!" on Mr. Bones and self-destruct it (expire animation via
+// the expired-joker loop; M27 dedup guard applies).
+static void mr_bones_activate(void)
+{
+    ListItr itr = list_itr_create(get_jokers_list());
+    JokerObject* bones = NULL;
+    JokerObject* cur;
+    while ((cur = list_itr_next(&itr)))
+    {
+        if (cur->joker != NULL && cur->joker->id == MR_BONES_JOKER_ID &&
+            !list_contains(get_expired_jokers_list(), cur))
+        {
+            bones = cur;
+            break;
+        }
+    }
+    if (bones == NULL)
+        return;
+
+    s_mr_bones_saved = true;
+    tte_set_pos(fx2int(bones->x) + TILE_SIZE, JOKER_SCORE_TEXT_Y);
+    tte_set_special(TTE_WHITE_PB * TTE_SPECIAL_PB_MULT_OFFSET);
+    tte_write("saved!");
+    joker_object_shake(bones, UNDEFINED);
+    schedule_joker_event_text_clear();
+    list_push_back(get_expired_jokers_list(), bones);
+}
 static bool s_retrigger = false;
 
 // Keeping track of what Jokers are scored at each step
@@ -750,8 +809,14 @@ static inline void game_round_handle_round_over(void)
 {
     enum GameState next_state = GAME_STATE_ROUND_END;
 
-    if (g_game_vars.score >= blind_get_requirement(g_game_vars.current_blind, g_game_vars.ante))
+    if (g_game_vars.score >= blind_get_requirement(g_game_vars.current_blind, g_game_vars.ante) ||
+        s_mr_bones_saved)
     {
+        // The blind counts as PASSED when Mr. Bones saved the run
+        // (s_mr_bones_saved implies score >= 25% requirement at hands
+        // exhaustion). Boss progression (ante++/blind beaten) runs as for
+        // a normal win; only the cash rewards differ (skipped in
+        // round_end.c via game_round_was_saved_by_mr_bones()).
         if (g_game_vars.current_blind > BLIND_TYPE_BIG)
         {
             if (g_game_vars.ante < MAX_ANTE)
@@ -1170,6 +1235,11 @@ static inline void game_round_process_input_and_state(void)
 
             erase_temp_score();
             display_score(g_game_vars.score);
+
+            // Mr. Bones (81): the final score is locked in NOW, before the
+            // cards return to the deck - this is where 原版 fires the save.
+            if (!s_mr_bones_saved && mr_bones_can_save())
+                mr_bones_activate();
         }
     }
 }
@@ -2414,6 +2484,9 @@ void game_round_on_init(void)
     // round's last hand (decorational only - never carry across rounds).
     growth_msg_clear();
     baseball_anim_clear();
+
+    // Mr. Bones (81): fresh round - no save has fired.
+    s_mr_bones_saved = false;
 
     // Display the HUD BEFORE dispatching ON_BLIND_SELECTED: jokers may
     // mutate hands/discards (e.g. Burglar +3 / lose all discards) and

@@ -7,6 +7,7 @@
 #include "game_variables.h"
 #include "joker.h"
 #include "layout.h"
+#include "round.h"
 #include "state_machine.h"
 #include "timer.h"
 #include "util.h"
@@ -110,6 +111,14 @@ static void game_round_end_start(void)
         interest_reward = calculate_interest_reward();
         interest_to_count = interest_reward;
         interest_start_time = UNDEFINED;
+
+        // Mr. Bones (81): a saved round grants NO blind reward and NO
+        // remaining-hands bonus - only interest (3DS demake reference).
+        if (game_round_was_saved_by_mr_bones())
+        {
+            blind_reward = 0;
+            hand_reward = 0;
+        }
     }
 }
 
@@ -375,9 +384,17 @@ static void game_round_end_display_rewards(void)
 
 static inline void game_round_end_cashout(void)
 {
-    // Reward the player
-    g_game_vars.money += g_game_vars.hands + blind_get_reward(g_game_vars.current_blind) +
-                         calculate_interest_reward();
+    // Reward the player. Mr. Bones save: interest only - the saved round
+    // grants no blind reward and no remaining-hands bonus.
+    if (game_round_was_saved_by_mr_bones())
+    {
+        g_game_vars.money += calculate_interest_reward();
+    }
+    else
+    {
+        g_game_vars.money += g_game_vars.hands + blind_get_reward(g_game_vars.current_blind) +
+                             calculate_interest_reward();
+    }
     display_money();
 
     g_game_vars.hands = MAX_HANDS;       // Reset the hands to the maximum
@@ -399,6 +416,9 @@ static void game_round_end_display_cashout()
 
         int cashout_amount = g_game_vars.hands + blind_get_reward(g_game_vars.current_blind) +
                              calculate_interest_reward();
+        // Mr. Bones save: the cash-out total shows interest only.
+        if (game_round_was_saved_by_mr_bones())
+            cashout_amount = calculate_interest_reward();
 
         bool omit_space = cashout_amount >= 10;
         tte_printf(

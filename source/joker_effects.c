@@ -133,6 +133,7 @@ REGISTER_JOKER_DESC_FUNC(baseball_card_desc)
 REGISTER_JOKER_DESC_FUNC(stuntman_joker_desc)
 REGISTER_JOKER_DESC_FUNC(ancient_joker_desc)
 REGISTER_JOKER_DESC_FUNC(swashbuckler_joker_desc)
+REGISTER_JOKER_DESC_FUNC(gift_card_joker_desc)
 REGISTER_JOKER_EFFECT_FUNC(credit_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(burglar_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(flash_card_joker_effect)
@@ -147,6 +148,7 @@ REGISTER_JOKER_EFFECT_FUNC(baseball_card_effect)
 REGISTER_JOKER_EFFECT_FUNC(stuntman_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(ancient_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(swashbuckler_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(gift_card_joker_effect)
 
 // Joker Effect functions
 
@@ -343,6 +345,7 @@ const JokerInfo joker_registry[] =
         { "Stuntman",         RARE_JOKER,      7, false, stuntman_joker_desc,         stuntman_joker_effect           }, // 77 Stuntman (orig #136)
         { "Ancient Joker",    RARE_JOKER,      8, false, ancient_joker_desc,          ancient_joker_effect            }, // 78 Ancient Joker (orig #99)
         { "Swashbuckler",     COMMON_JOKER,    4, false, swashbuckler_joker_desc,     swashbuckler_joker_effect       }, // 79 Swashbuckler (orig #110)
+        { "Gift Card",        UNCOMMON_JOKER,  6, false, gift_card_joker_desc,        gift_card_joker_effect          }, // 80 Gift Card (orig #79)
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -4657,6 +4660,51 @@ static u32 swashbuckler_joker_effect(
             return JOKER_EFFECT_FLAG_MULT;
         }
     }
+    (void)scored_card;
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// --- Gift Card (ID 80) ---
+// (Official EN: "Add $1 of sell value to every Joker and Consumable card
+// at end of round" - fandom Nr 79, $6 Uncommon. Act = N/A (round-end
+// event). EVERY owned joker gains sell value - INCLUDING this card
+// itself and Blueprint/Brainstorm copies firing their own round-end
+// instance (+$1 each, doubled with a copy - matching original).
+// sell_value = value/2, so +2 to value = +$1 sell value.)
+static int gift_card_joker_desc(Joker* joker, Rect dest_rect)
+{
+    (void)joker;
+    static const char desc[] =
+        TTE_BLACK_TAG "Add " TTE_YELLOW_TAG "$1" TTE_BLACK_TAG " of sell value to every "
+        TTE_YELLOW_TAG "Joker" TTE_BLACK_TAG " and " TTE_YELLOW_TAG "Consumable" TTE_BLACK_TAG
+        " card at end of round";
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 gift_card_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    if (joker_event == JOKER_EVENT_ON_ROUND_END)
+    {
+        // +$1 sell value to EVERY owned joker (incl. self). Consumables
+        // don't exist in this port yet - jokers only.
+        ListItr itr = list_itr_create(get_jokers_list());
+        JokerObject* cur;
+        while ((cur = list_itr_next(&itr)))
+        {
+            if (cur != NULL && cur->joker != NULL)
+                cur->joker->value += 2;
+        }
+
+        *joker_effect = &s_shared_joker_effect;
+        (*joker_effect)->message = "+$1";
+        return JOKER_EFFECT_FLAG_MESSAGE;
+    }
+    (void)joker;
     (void)scored_card;
     return JOKER_EFFECT_FLAG_NONE;
 }

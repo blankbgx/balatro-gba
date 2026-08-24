@@ -2358,11 +2358,14 @@ typedef enum
     DEFER_RIFF_RAFF, // activate: lock spawn count; fire: spawn jokers
     DEFER_DAGGER,    // activate: lock right neighbor; fire: sacrifice it
     DEFER_BURGLAR,   // activate: lock nothing; fire: +3 hands, 0 discards + HUD pulse
-    DEFER_ANCIENT_SUIT, // activate: show colored suit message; fire: nothing
+    DEFER_MSG,       // activate: show queued message text + shake; fire: nothing
 } DeferredKind;
 
 static JokerObject* s_deferred_queue[MAX_JOKERS_HELD_SIZE];
 static DeferredKind s_deferred_kind[MAX_JOKERS_HELD_SIZE];
+// Deep-copied message text for DEFER_MSG (M14c lesson: never store a
+// pointer to caller stack/snprintf buffers - the queue fires later).
+static char s_deferred_message[MAX_JOKERS_HELD_SIZE][16];
 static int s_deferred_count = 0;
 static int s_deferred_active = -1;
 static int s_deferred_anim_count = 0; // Riff-Raff spawn count (locked at activation)
@@ -2718,6 +2721,39 @@ static bool deferred_source_is_alive(JokerObject* source)
     return alive;
 }
 
+// Enqueue a message to show on the given joker through the unified
+// deferred queue (serialized, one beat each - 回合结束/盲注阶段消息不再
+// 同步重叠). Resolves self_object by joker pointer like Riff-Raff.
+// Deep-copies the text (M14c: queue fires later, no dangling pointers).
+static void deferred_enqueue_message(Joker* joker, const char* text)
+{
+    if (joker == NULL || text == NULL)
+        return;
+    if (s_deferred_count >= MAX_JOKERS_HELD_SIZE)
+        return;
+
+    ListItr itr = list_itr_create(get_jokers_list());
+    JokerObject* self_object = NULL;
+    JokerObject* cur;
+    while ((cur = list_itr_next(&itr)))
+    {
+        if (cur->joker == joker)
+        {
+            self_object = cur;
+            break;
+        }
+    }
+    if (self_object == NULL)
+        return;
+
+    s_deferred_queue[s_deferred_count] = self_object;
+    s_deferred_kind[s_deferred_count] = DEFER_MSG;
+    s_deferred_message[s_deferred_count][0] = '\0';
+    strncat(s_deferred_message[s_deferred_count], text,
+            sizeof(s_deferred_message[s_deferred_count]) - 1);
+    s_deferred_count++;
+}
+
 // M24: true while any deferred blind-selected effect is still queued.
 // round.c gates card dealing on this (plus hud_roll_is_active()) so HUD
 // numbers don't change after cards are dealt.
@@ -2889,19 +2925,15 @@ void deferred_effects_process_pending(void)
                 break;
             }
 
-            case DEFER_ANCIENT_SUIT:
+            case DEFER_MSG:
             {
-                // Activate: show the current suit as a WHITE message (user
-                // 2026-08-23: 特殊颜色看不清——统一白色; the special-color
-                // pb is already set white below). In-round there is no desc
-                // view, so each round announces the suit. No fire effect
+                // Activate: show the queued message text (round-end
+                // payouts like Egg "+$3" / Gift Card "+$1", Ancient suit
+                // name, ...) - serialized one beat each. No fire effect
                 // (the message IS the whole effect).
-                u8 suit = (u8)source->joker->persistent_state;
-                if (suit >= NUM_SUITS)
-                    suit = 0;
                 tte_set_pos(fx2int(source->x) + TILE_SIZE, JOKER_SCORE_TEXT_Y);
                 tte_set_special(TTE_WHITE_PB * TTE_SPECIAL_PB_MULT_OFFSET);
-                tte_write(s_ancient_suit_names[suit]);
+                tte_write(s_deferred_message[s_deferred_active]);
                 joker_object_shake(source, UNDEFINED);
                 schedule_joker_event_text_clear();
                 s_deferred_ran_animation = true;
@@ -3064,10 +3096,10 @@ void deferred_effects_process_pending(void)
                 break;
             }
 
-            case DEFER_ANCIENT_SUIT:
+            case DEFER_MSG:
             {
-                // Fire: nothing - the colored suit message shown at
-                // activation IS the whole effect.
+                // Fire: nothing - the message shown at activation IS the
+                // whole effect.
                 break;
             }
         }
@@ -3233,13 +3265,13 @@ static u32 egg_joker_effect(
 {
     if (joker_event == JOKER_EVENT_ON_ROUND_END)
     {
-        // sell_value = value / 2, so +6 to value = +$3 sell value
+        // sell_value = value / 2, so +6 to value = +$3 sell value.
+        // The value change is immediate; the "+$3" pop is serialized
+        // through the deferred queue (round-end messages no longer
+        // overlap, e.g. Egg + Gift Card - M34 follow-up).
         joker->value += 6;
-
-        // Show "+$3" animation with shake
-        *joker_effect = &s_shared_joker_effect;
-        (*joker_effect)->message = "+$3";
-        return JOKER_EFFECT_FLAG_MESSAGE;
+        deferred_enqueue_message(joker, "+$3");
+        return JOKER_EFFECT_FLAG_NONE;
     }
 
     return JOKER_EFFECT_FLAG_NONE;
@@ -4566,23 +4598,12 @@ static u32 ancient_joker_effect(
         // only - copies stay silent (they mirror the same suit anyway).
         if (!s_is_copying_joker)
         {
-            ListItr itr = list_itr_create(get_jokers_list());
-            JokerObject* self_object = NULL;
-            JokerObject* cur;
-            while ((cur = list_itr_next(&itr)))
-            {
-                if (cur->joker == joker)
-                {
-                    self_object = cur;
-                    break;
-                }
-            }
-            if (self_object != NULL)
-            {
-                s_deferred_queue[s_deferred_count] = self_object;
-                s_deferred_kind[s_deferred_count] = DEFER_ANCIENT_SUIT;
-                s_deferred_count++;
-            }
+            // Announce the current suit (white message, serialized via
+            // the unified deferred queue - M34 follow-up).
+            u8 suit = (u8)joker->persistent_state;
+            if (suit >= NUM_SUITS)
+                suit = 0;
+            deferred_enqueue_message(joker, s_ancient_suit_names[suit]);
         }
     }
     else if (joker_event == JOKER_EVENT_ON_ROUND_END)
@@ -4691,7 +4712,9 @@ static u32 gift_card_joker_effect(
     if (joker_event == JOKER_EVENT_ON_ROUND_END)
     {
         // +$1 sell value to EVERY owned joker (incl. self). Consumables
-        // don't exist in this port yet - jokers only.
+        // don't exist in this port yet - jokers only. The value changes
+        // are immediate; the "+$1" pop is serialized via the deferred
+        // queue (no longer overlapping Egg's "+$3" - M34 follow-up).
         ListItr itr = list_itr_create(get_jokers_list());
         JokerObject* cur;
         while ((cur = list_itr_next(&itr)))
@@ -4700,9 +4723,8 @@ static u32 gift_card_joker_effect(
                 cur->joker->value += 2;
         }
 
-        *joker_effect = &s_shared_joker_effect;
-        (*joker_effect)->message = "+$1";
-        return JOKER_EFFECT_FLAG_MESSAGE;
+        deferred_enqueue_message(joker, "+$1");
+        return JOKER_EFFECT_FLAG_NONE;
     }
     (void)joker;
     (void)scored_card;

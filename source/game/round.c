@@ -1487,6 +1487,43 @@ static inline void cards_in_hand_update_loop(void)
             hand[i]->ty = hand_y;
         }
     }
+
+    // Empty-hand transitions (2026-08-24, M31 follow-up): with multiple
+    // Stuntmen the hand size can be <= 4, so the player can play or
+    // discard ALL cards, leaving hand_top == -1. The loop above then
+    // never runs and the in-loop `i == 0` transitions never fire -
+    // the game would freeze in HAND_PLAY / HAND_DISCARD forever
+    // (user-reported: 打空手牌后不再进入计分). Fire them here instead.
+    // Same gating as the in-loop branches: the frame after the last
+    // card left (s_discarded_card reset), on the 10-frame beat.
+    if (get_hand_top() < 0 && !s_discarded_card && g_game_vars.timer % FRAMES(10) == 0)
+    {
+        if (get_hand_state() == HAND_PLAY)
+        {
+            set_hand_state(HAND_PLAYING);
+            s_cards_drawn = 0;
+            hand_set_nb_selected_cards(0);
+            g_game_vars.timer = TM_ZERO;
+            s_scored_card_index = get_played_size();
+            select_cards_in_played_hand();
+        }
+        else if (get_hand_state() == HAND_DISCARD)
+        {
+            // Dispatch ON_HAND_DISCARDED to all jokers before transitioning
+            // state (same as the in-loop branch).
+            ListItr itr = list_itr_create(get_jokers_list());
+            JokerObject* joker_obj;
+            while ((joker_obj = list_itr_next(&itr)))
+            {
+                joker_object_score(joker_obj, NULL, JOKER_EVENT_ON_HAND_DISCARDED);
+            }
+            set_hand_state(HAND_DRAW);
+            s_sound_played = false;
+            s_cards_discarded = 0;
+            hand_set_nb_selected_cards(0);
+            g_game_vars.timer = TM_ZERO;
+        }
+    }
 }
 
 static inline void game_round_ui_text_update(void)

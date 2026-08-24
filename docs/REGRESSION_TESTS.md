@@ -23,7 +23,7 @@
 **功能**：Mr. Bones 骷髅先生（orig #107，$5 Uncommon，反应式被动）——**手数耗尽且最终分数 < 盲注要求但 ≥ 25% 时免死**，随后自毁。救下的回合**盲注照常推进**（boss 算通过、ante++）但**不给盲注奖励和剩余手数奖励，只给利息**（3DS `handle_failed_blind_reset` 参照）。
 
 **实现**：
-- round.c：`s_mr_bones_saved` flag + `mr_bones_can_save()`（hands==0 ∧ score<req ∧ score≥req/4 ∧ 活着的真身在场）+ `mr_bones_activate()`（"saved!" 白字消息 + shake + expire 自毁，M27 去重防护）
+- round.c：`s_mr_bones_saved` flag + `mr_bones_can_save()`（hands==0 ∧ score<req ∧ score≥req/4 ∧ 活着的真身在场）+ `mr_bones_activate()`（"Saved!" 白字消息 + shake + expire 自毁，M27 去重防护）
 - **触发时机**：PLAY_ENDED 分数 lerp 锁定时（**手牌归位牌组之前**，原版观感）——每手结算完都检查（hands!=0 提前 false）
 - `handle_round_over`：`s_mr_bones_saved` 视为盲注通过（跳过 LOSE 分支；boss 照常 ante++/beaten）；ON_ROUND_END 照常派发（Egg 成长等，存活回合语义）
 - round_end.c：奖励三项（盲注/手数/利息）中**盲注+手数置 0**，利息保留；cash-out 总额同步只算利息
@@ -33,7 +33,7 @@
 
 **复测步骤**：
 1. 商店买 Mr. Bones（$5 Uncommon）→ 卡面正常（gfx18 slot 2 骷髅主题）
-2. 手数耗尽、分数 < 要求但 ≥ 25% → **手牌归位前**弹 "saved!" + 骷髅自毁 → 进入回合结算（不进败局画面）
+2. 手数耗尽、分数 < 要求但 ≥ 25% → **手牌归位前**弹 "Saved!" + 骷髅自毁 → 进入回合结算（不进败局画面）
 3. 救下回合结算面板：**无盲注奖励行、无手数奖励行，只有利息行**；cash out 总额 = 仅利息
 4. 分数 < 25% → 正常败局（Mr. Bones 不自毁，不救）
 5. 分数 ≥ 要求 → 正常胜利，Mr. Bones 不消耗

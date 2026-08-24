@@ -249,7 +249,7 @@ static bool mr_bones_can_save(void)
     return is_joker_owned(MR_BONES_JOKER_ID);
 }
 
-// Show "saved!" on Mr. Bones and self-destruct it (expire animation via
+// Show "Saved!" on Mr. Bones and self-destruct it (expire animation via
 // the expired-joker loop; M27 dedup guard applies).
 static void mr_bones_activate(void)
 {
@@ -271,7 +271,7 @@ static void mr_bones_activate(void)
     s_mr_bones_saved = true;
     tte_set_pos(fx2int(bones->x) + TILE_SIZE, JOKER_SCORE_TEXT_Y);
     tte_set_special(TTE_WHITE_PB * TTE_SPECIAL_PB_MULT_OFFSET);
-    tte_write("saved!");
+    tte_write("Saved!");
     joker_object_shake(bones, UNDEFINED);
     schedule_joker_event_text_clear();
     list_push_back(get_expired_jokers_list(), bones);

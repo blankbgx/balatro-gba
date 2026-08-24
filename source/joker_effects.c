@@ -132,6 +132,7 @@ REGISTER_JOKER_DESC_FUNC(square_joker_desc)
 REGISTER_JOKER_DESC_FUNC(baseball_card_desc)
 REGISTER_JOKER_DESC_FUNC(stuntman_joker_desc)
 REGISTER_JOKER_DESC_FUNC(ancient_joker_desc)
+REGISTER_JOKER_DESC_FUNC(swashbuckler_joker_desc)
 REGISTER_JOKER_EFFECT_FUNC(credit_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(burglar_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(flash_card_joker_effect)
@@ -145,6 +146,7 @@ REGISTER_JOKER_EFFECT_FUNC(square_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(baseball_card_effect)
 REGISTER_JOKER_EFFECT_FUNC(stuntman_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(ancient_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(swashbuckler_joker_effect)
 
 // Joker Effect functions
 
@@ -340,6 +342,7 @@ const JokerInfo joker_registry[] =
         { "Baseball Card",    RARE_JOKER,      8, false, baseball_card_desc,          baseball_card_effect            }, // 76 Baseball Card (orig #92)
         { "Stuntman",         RARE_JOKER,      7, false, stuntman_joker_desc,         stuntman_joker_effect           }, // 77 Stuntman (orig #136)
         { "Ancient Joker",    RARE_JOKER,      8, false, ancient_joker_desc,          ancient_joker_effect            }, // 78 Ancient Joker (orig #99)
+        { "Swashbuckler",     COMMON_JOKER,    4, false, swashbuckler_joker_desc,     swashbuckler_joker_effect       }, // 79 Swashbuckler (orig #110)
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -4598,5 +4601,62 @@ static u32 ancient_joker_effect(
     }
     (void)joker;
     (void)joker_effect;
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// --- Swashbuckler (ID 79) ---
+// (Official EN: "Adds the sell value of all other owned Jokers to Mult
+// (Currently +1 Mult)" - fandom Nr 110, $4 Common. Act = Indep:
+// settlement-type +Mult reported at INDEPENDENT. Blueprint/Brainstorm
+// copies re-report it (the copy counts the real card as "other").
+// joker_get_sell_value() reads live value/2, so a growing Egg etc. is
+// absorbed correctly.)
+static int swashbuckler_sell_total(const Joker* self)
+{
+    int total = 0;
+    ListItr itr = list_itr_create(get_jokers_list());
+    JokerObject* cur;
+    while ((cur = list_itr_next(&itr)))
+    {
+        if (cur == NULL || cur->joker == NULL)
+            continue;
+        if (self != NULL && cur->joker == self)
+            continue; // own sell value does NOT count (原版 "other owned")
+        total += joker_get_sell_value(cur->joker);
+    }
+    return total;
+}
+
+static int swashbuckler_joker_desc(Joker* joker, Rect dest_rect)
+{
+    char desc[200];
+    snprintf(
+        desc, sizeof(desc),
+        TTE_BLACK_TAG "Adds the sell value of all other owned "
+        TTE_YELLOW_TAG "Jokers" TTE_BLACK_TAG " to " TTE_RED_TAG "Mult" TTE_BLACK_TAG
+        " (currently " TTE_RED_TAG "+%ld Mult" TTE_BLACK_TAG ")",
+        (long)swashbuckler_sell_total(joker)
+    );
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 swashbuckler_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    if (joker_event == JOKER_EVENT_INDEPENDENT)
+    {
+        int total = swashbuckler_sell_total(joker);
+        if (total > 0)
+        {
+            *joker_effect = &s_shared_joker_effect;
+            (*joker_effect)->mult = (u32)total;
+            return JOKER_EFFECT_FLAG_MULT;
+        }
+    }
+    (void)scored_card;
     return JOKER_EFFECT_FLAG_NONE;
 }

@@ -118,6 +118,7 @@ enum JokerEvent
 #define BASEBALL_CARD_ID      76
 #define STUNTMAN_JOKER_ID     77
 #define ANCIENT_JOKER_ID      78
+#define SWASHBUCKLER_JOKER_ID 79
 
 // Serialized "Upgrade!"-style message pop above a joker, used by the
 // ON_PLAYED growth animation queue (joker_effects.c growth_msg_*).

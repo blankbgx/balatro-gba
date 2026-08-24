@@ -27,6 +27,7 @@
 - **复制语义**：事件型 → 蓝图/脑暴复制**有效**（复制体也触发自己的回合结束实例 → 双倍 +$2，原版一致）
 - 消息 "+$1"（Egg 同款同步 MESSAGE）
 - 素材：**gfx1 扩展 64→96px（slot 2）+ 1 新色 #FEBC43**（橙黄，填满 palette 16）；Greedy/Lusty 槽零差异；红橙系匹配完美（素材主色 #FF6367→#FF6368 dE=1、玫红 #F03563→#F03464 dE≈1.4）
+- **消息串行化（9ba9f42）**：回合结束消息统一走 deferred 队列（新增通用 `DEFER_MSG` kind + 深拷贝文本数组）——Egg "+$3" / Gift Card "+$1" / Ancient 花色消息逐个播放（30 帧/条），不再同帧重叠；数值变更仍立即生效。Ancient 的 DEFER_ANCIENT_SUIT 特化并入 DEFER_MSG（统一）。GM/Cavendish 的 EXTINCT! 保持同步（EXPIRE 语义耦合，稀有事件）
 
 **复测步骤**（与 M33 侠盗一并测）：
 1. 商店买 Gift Card（$6 Uncommon）→ 卡面正常（gfx1 slot 2 礼品卡主题）

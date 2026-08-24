@@ -1975,10 +1975,14 @@ static u32 blueprint_brainstorm_joker_effect(
 {
     u32 effect_flags_ret = JOKER_EFFECT_FLAG_NONE;
 
-    // No need for this kind of init since these Jokers
-    // will have their data copied when needed
-    if (joker_event == JOKER_EVENT_ON_JOKER_CREATED ||
-        joker_event == JOKER_EVENT_ON_ROUND_END)
+    // ON_JOKER_CREATED stays excluded: copies sync persistent_state from
+    // the source when needed instead of running the target's init.
+    // ON_ROUND_END passes through (2026-08-24, M34 follow-up): round-end
+    // events ARE copyable in 原版 (Blueprint copying Egg/Gift Card doubles
+    // the sell-value gain). Self-mutating effects must target
+    // s_copied_joker_source when copying (e.g. Egg's value), since the
+    // effect receives the copy's own joker.
+    if (joker_event == JOKER_EVENT_ON_JOKER_CREATED)
     {
         return effect_flags_ret;
     }
@@ -3269,7 +3273,14 @@ static u32 egg_joker_effect(
         // The value change is immediate; the "+$3" pop is serialized
         // through the deferred queue (round-end messages no longer
         // overlap, e.g. Egg + Gift Card - M34 follow-up).
-        joker->value += 6;
+        // Copy-targeting (M34 follow-up): when fired through a
+        // Blueprint/Brainstorm copy, `joker` is the COPY's joker - the
+        // sell value must grow on the REAL Egg (s_copied_joker_source),
+        // matching 原版 (the copy re-runs Egg's effect on Egg itself).
+        Joker* value_target =
+            s_is_copying_joker ? s_copied_joker_source : joker;
+        if (value_target != NULL)
+            value_target->value += 6;
         deferred_enqueue_message(joker, "+$3");
         return JOKER_EFFECT_FLAG_NONE;
     }
@@ -4723,7 +4734,7 @@ static u32 gift_card_joker_effect(
                 cur->joker->value += 2;
         }
 
-        deferred_enqueue_message(joker, "+$1");
+        deferred_enqueue_message(joker, "Value Up!");
         return JOKER_EFFECT_FLAG_NONE;
     }
     (void)joker;

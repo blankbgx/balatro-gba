@@ -2850,6 +2850,15 @@ void deferred_effects_process_pending(void)
         } while (source == NULL || source->joker == NULL ||
                  !deferred_source_is_alive(source));
 
+        // M34 follow-up: erase the message row BEFORE drawing the new pop.
+        // Beats are 30 frames but text self-clears after 90, so without
+        // this each new pop lands on top of the previous 2 still showing
+        // (e.g. consecutive "Value Up!" pops covering each other). Guarded
+        // like joker_event_text_clear_update_loop: never erase scoring
+        // numbers mid-play.
+        if (get_hand_state() != HAND_PLAYING)
+            tte_erase_rect_wrapper(PLAYED_CARDS_SCORES_RECT);
+
         switch (s_deferred_kind[s_deferred_active])
         {
             case DEFER_RIFF_RAFF:

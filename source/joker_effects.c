@@ -3281,7 +3281,7 @@ static u32 egg_joker_effect(
             s_is_copying_joker ? s_copied_joker_source : joker;
         if (value_target != NULL)
             value_target->value += 6;
-        deferred_enqueue_message(joker, "+$3");
+        deferred_enqueue_message(joker, "Value Up!");
         return JOKER_EFFECT_FLAG_NONE;
     }
 

@@ -86,15 +86,20 @@ static StateMachine round_end_sm = STATE_MACHINE_DEFINE(state_info, ROUND_END_ST
 
 static int calculate_interest_reward(void)
 {
+    // Tiers are capped at MAX_INTEREST (= $5 with INTEREST_PER_5 == 1);
+    // the tier COUNT never changes - To the Moon raises the per-tier
+    // payout instead.
     int reward = (g_game_vars.money / 5) * INTEREST_PER_5;
     if (reward > MAX_INTEREST)
         reward = MAX_INTEREST;
     // To the Moon (冲向月球, ID 71): "Earn an extra $1 of interest for
-    // every $5 you have at end of round" — the extra tier duplicates the
-    // base interest (cap effectively $10), implemented here as reward x2
-    // (silent-state passive - Blueprint/Brainstorm copies don't count).
-    if (is_to_the_moon_active())
-        reward *= 2;
+    // every $5 you have at end of round". 原版 stacks: each copy adds +$1
+    // per tier (tiers stay capped), so reward = tiers * (1 + count).
+    // (silent-state passive - Blueprint/Brainstorm copies don't count;
+    // copies resolve to silent round-end exclusion anyway.)
+    int moon_count = count_to_the_moon();
+    if (moon_count > 0)
+        reward *= 1 + moon_count;
     return reward;
 }
 

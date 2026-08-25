@@ -4174,7 +4174,7 @@ static u32 to_the_moon_joker_effect(
 )
 {
     // Passive: the effect is implemented in round_end.c's
-    // calculate_interest_reward() via is_to_the_moon_active().
+    // calculate_interest_reward() via count_to_the_moon().
     (void)joker;
     (void)scored_card;
     (void)joker_event;
@@ -4183,20 +4183,26 @@ static u32 to_the_moon_joker_effect(
     return JOKER_EFFECT_FLAG_NONE;
 }
 
-bool is_to_the_moon_active(void)
+// Counts alive To the Moon jokers (冲向月球 stacks in 原版: each copy adds
+// +$1 interest per $5 tier). Only real jokers count - Blueprint/Brainstorm
+// copies have their own IDs and never match; expired ones are skipped
+// (about to be removed, consistent with count_stuntman_effects).
+int count_to_the_moon(void)
 {
+    int count = 0;
     List* jokers = get_jokers_list();
     ListItr itr = list_itr_create(jokers);
     JokerObject* joker_object;
     while ((joker_object = list_itr_next(&itr)))
     {
         if (joker_object != NULL && joker_object->joker != NULL &&
-            joker_object->joker->id == TO_THE_MOON_ID)
+            joker_object->joker->id == TO_THE_MOON_ID &&
+            !list_contains(get_expired_jokers_list(), joker_object))
         {
-            return true;
+            count++;
         }
     }
-    return false;
+    return count;
 }
 
 // --- Splash (ID 72) ---

@@ -164,11 +164,12 @@ int count_stuntman_effects(void);
 // whether a purchase is affordable - re-evaluated per purchase so buying
 // (or losing) a card updates the debt limit immediately.
 int count_credit_card_effects(void);
-// True while at least one REAL To the Moon (冲向月球, ID 71) is held:
-// end-of-round interest is doubled. Silent-state joker (no trigger
-// action) - Blueprint/Brainstorm copies do NOT count (same rule as
-// Credit Card / Showman).
-bool is_to_the_moon_active(void);
+// Count of alive REAL To the Moon (冲向月球, ID 71) jokers: each adds +$1
+// interest per $5 tier at end of round (stacks in 原版; the tier cap
+// itself never changes). Silent-state joker (no trigger action) -
+// Blueprint/Brainstorm copies do NOT count (same rule as Credit Card /
+// Showman).
+int count_to_the_moon(void);
 // Resolve what a Blueprint/Brainstorm copying joker ultimately copies,
 // bouncing through other copying jokers (Blueprint -> right neighbor,
 // Brainstorm -> leftmost) until a non-copying joker is found, or NULL

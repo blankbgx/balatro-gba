@@ -18,6 +18,30 @@
 
 ---
 
+### M37. Runner 跑步选手（82）实装：顺子手牌成长 +15 筹码（P1）— 2026-08-28, commit a793331
+
+**功能**：Runner 跑步选手（orig #49，$5 Common，Act Mixed）——**打出含顺子的牌型时成长 +15 筹码**（起始 +0），计分时应用累计筹码。
+
+**实现**：
+- Green/Square 模式：`scoring_state` 存累计筹码；ON_HAND_PLAYED 真身成长 +15 + "Upgrade!" 弹窗（复制体静默镜像，计分时读 `s_copied_joker_source->scoring_state`）
+- **"contains a Straight" 用 contained_hands 位域**（`get_contained_hands()->STRAIGHT`）——顺子/同花顺/皇家同花顺/四指 4 张顺子全算，贴原版 `poker_hands['Straight']` 语义
+- 计分侧可复制：INDEPENDENT 阶段 FLAG_CHIPS（复制体再次应用镜像值 → 双倍筹码，与 Green Joker 的 mult 同规则）
+- desc 动态 "(currently +N Chips)"（snprintf %ld 模式）
+- 素材：gfx0 扩展 1088→1120px（slot 34），**零新增色**（10 色全精确命中已满的 16 色 palette）
+
+**复测步骤**：
+1. 商店买 Runner（$5 Common）→ 卡面正常（gfx0 slot 34 跑步主题）
+2. 打出顺子 → "Upgrade!" 弹窗，desc 变 +15；再打出 → +30 累积
+3. 顺子手牌计分 → chips +累计值；非同花顺/皇家同花顺也成长
+4. 非顺子牌型（对子等）→ 不成长、无弹窗
+5. 蓝图/脑暴复制 → 计分时双倍筹码；成长仍只涨真身（不双倍）
+6. 卖出 → 无残留（成长状态随卡走）
+7. 多成长卡同场（Runner + Green）→ Upgrade! 串行播放（M29 队列）
+
+**复测结果**：⏳ 待 Delta 实测
+
+---
+
 ### M36. 冲向月球多实例不叠加：利息只有 ×2（P1）— 2026-08-25, commit 371ee26
 
 **背景**：用户实测发现多张冲向月球只有一张生效。原版机制：利息 = `min(money/5, 5层) × (1 + 月球数量)`——每张月球给每 $5 档位 +$1（层数上限 5 不变，每档金额叠加），2 张 = 每 $5 给 $3。本地当时是布尔实现（`is_to_the_moon_active()` → reward ×2 封顶），多张不叠加。

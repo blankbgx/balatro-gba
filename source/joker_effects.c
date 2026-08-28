@@ -135,6 +135,7 @@ REGISTER_JOKER_DESC_FUNC(ancient_joker_desc)
 REGISTER_JOKER_DESC_FUNC(swashbuckler_joker_desc)
 REGISTER_JOKER_DESC_FUNC(gift_card_joker_desc)
 REGISTER_JOKER_DESC_FUNC(mr_bones_desc)
+REGISTER_JOKER_DESC_FUNC(runner_joker_desc)
 REGISTER_JOKER_EFFECT_FUNC(credit_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(burglar_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(flash_card_joker_effect)
@@ -151,6 +152,7 @@ REGISTER_JOKER_EFFECT_FUNC(ancient_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(swashbuckler_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(gift_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(mr_bones_effect)
+REGISTER_JOKER_EFFECT_FUNC(runner_joker_effect)
 
 // Joker Effect functions
 
@@ -349,6 +351,7 @@ const JokerInfo joker_registry[] =
         { "Swashbuckler",     COMMON_JOKER,    4, false, swashbuckler_joker_desc,     swashbuckler_joker_effect       }, // 79 Swashbuckler (orig #110)
         { "Gift Card",        UNCOMMON_JOKER,  6, false, gift_card_joker_desc,        gift_card_joker_effect          }, // 80 Gift Card (orig #79)
         { "Mr. Bones",        UNCOMMON_JOKER,  5, false, mr_bones_desc,               mr_bones_effect                 }, // 81 Mr. Bones (orig #107)
+        { "Runner",           COMMON_JOKER,    5, false, runner_joker_desc,           runner_joker_effect             }, // 82 Runner (orig #49)
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -4787,5 +4790,74 @@ static u32 mr_bones_effect(
     (void)scored_card;
     (void)joker_event;
     (void)joker_effect;
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// --- Runner (ID 82) ---
+// (Official EN: "Gains +15 Chips if played hand contains a Straight
+// (Currently +0 Chips)" - fandom Nr 49, $5 Common. Act = Mixed: growth on
+// straight-containing hands (real jokers only, copies stay silent and
+// mirror the value) + chips at INDEPENDENT scoring (copyable - copies
+// apply the synced value again, like Green Joker's mult). "Contains a
+// Straight" reads the contained-hands bitmask so Straight Flush and
+// Royal Flush (and Four Fingers 4-card straights) all qualify, matching
+// 原版's poker_hands['Straight'] check.)
+static int runner_joker_desc(Joker* joker, Rect dest_rect)
+{
+    // Dynamic "(Currently +N Chips)" via snprintf %ld (Flash Card
+    // pattern). scoring_state is the accumulated chips value.
+    u32 accumulated = (joker != NULL) ? joker->scoring_state : 0;
+    char desc[160];
+    snprintf(
+        desc, sizeof(desc),
+        TTE_BLACK_TAG "Gains " TTE_BLUE_TAG "+15 Chips" TTE_BLACK_TAG " if played hand contains a "
+        TTE_BLUE_TAG "Straight" TTE_BLACK_TAG " (currently " TTE_BLUE_TAG "+%ld Chips" TTE_BLACK_TAG ")",
+        (long)accumulated
+    );
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 runner_joker_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    (void)scored_card;
+
+    switch (joker_event)
+    {
+        case JOKER_EVENT_ON_JOKER_CREATED:
+            joker->scoring_state = 0;
+            break;
+
+        case JOKER_EVENT_ON_HAND_PLAYED:
+            // Copies stay silent: accumulation belongs to the real joker,
+            // the copy mirrors the value at INDEPENDENT (Green/Square rule).
+            if (!s_is_copying_joker && get_contained_hands()->STRAIGHT)
+            {
+                joker->scoring_state += 15;
+                growth_msg_enqueue(joker, "Upgrade!");
+            }
+            break;
+
+        case JOKER_EVENT_INDEPENDENT:
+        {
+            u32 accumulated =
+                s_is_copying_joker ? s_copied_joker_source->scoring_state
+                                   : joker->scoring_state;
+            if (accumulated > 0)
+            {
+                *joker_effect = &s_shared_joker_effect;
+                (*joker_effect)->chips = accumulated;
+                return JOKER_EFFECT_FLAG_CHIPS;
+            }
+            break;
+        }
+
+        default:
+            break;
+    }
     return JOKER_EFFECT_FLAG_NONE;
 }

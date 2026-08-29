@@ -18,6 +18,30 @@
 
 ---
 
+### M38. To Do List 待办清单（83）实装：目标牌型打出得 $4（P1）— 2026-08-29, commit cd356f9
+
+**功能**：To Do List 待办清单（orig #60，$4 Common，Act On Played）——**打出的牌型是目标牌型时得 $4**，回合结束随机换目标牌型。
+
+**实现**：
+- `persistent_state` = 当前目标牌型（HIGH_CARD..FLUSH_FIVE，排除 NONE）；`ON_JOKER_CREATED` 首回合随机 + `ON_ROUND_END` 每回合结束重 roll（专用序列 `RNG_SEQ_JOKER_TODO_LIST`）
+- `ON_HAND_PLAYED`：牌型匹配 → FLAG_MONEY +$4（joker.c 现有 money 通道，黄色 "4$" 弹窗）
+- **目标牌型滚动无"与上回合不同"排除**（3DS/merged.md 均无此规则；Ancient 的"花色不重复"是用户对花色的确认规则，牌型未给——**纯随机可重复，待考证**：若原版排除上回合牌型再改）
+- 复制：persistent_state 同步镜像 → 复制体同目标、触发再付一次（事件型可复制 ✓）；复制体不独立 roll（guard）
+- desc 动态显示当前目标牌型名（snprintf %s——**牌型名是纯文本无 TTE 标记**，无双标记卡死风险，M32 教训）
+- 素材：**gfx7 扩展 64→96px（slot 2）**，2 新色（#EEF1A4 纸黄、#0179C1 蓝），米/棕映射现有（dE≤7）；palette 13→15
+- 插曲：ID 82 已被 Runner 占用（M37，8-28 实装）→ Todo List 落 83；gfx18 中途恢复过再补回骷髅槽（量化脚本备份文件被 grit glob 到的坑：备份必须移出 graphics/）
+
+**复测步骤**：
+1. 商店买 To Do List（$4 Common）→ desc 显示当前目标牌型（动态）
+2. 打出目标牌型 → +$4（黄色 "4$" 弹窗）；非目标牌型 → 无收益
+3. 回合结束 → desc 目标牌型变化（纯随机，可能与上回合相同——待考证项）
+4. 蓝图复制 → 同目标、打出目标牌型时 +$8（双份）
+5. 卡面：gfx7 slot 2（黄纸+蓝笔）显示正常
+
+**复测结果**：⏳ 待 Delta 实测
+
+---
+
 ### M37. Runner 跑步选手（82）实装：顺子手牌成长 +15 筹码（P1）— 2026-08-28, commit a793331
 
 **功能**：Runner 跑步选手（orig #49，$5 Common，Act Mixed）——**打出含顺子的牌型时成长 +15 筹码**（起始 +0），计分时应用累计筹码。

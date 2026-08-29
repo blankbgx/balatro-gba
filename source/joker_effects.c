@@ -2408,11 +2408,15 @@ static u32 s_deferred_next_beat_at = 0;
 // staggered per-joker upgrade pops.
 static JokerObject* s_growth_msg_queue[MAX_JOKERS_HELD_SIZE];
 static const char* s_growth_msg_text[MAX_JOKERS_HELD_SIZE];
+// Optional money payload applied AT POP TIME (0 = message only) - To Do
+// List's +$4 lands as each pop plays (原版: the money counter ticks up
+// per instance, in step with the animation; user 2026-08-29).
+static int s_growth_msg_money[MAX_JOKERS_HELD_SIZE];
 static int s_growth_msg_count = 0;
 static int s_growth_msg_active = -1;
 static u32 s_growth_msg_next_at = 0;
 
-static void growth_msg_enqueue(Joker* joker, const char* message)
+static void growth_msg_enqueue_money(Joker* joker, const char* message, int money)
 {
     if (s_growth_msg_count >= MAX_JOKERS_HELD_SIZE)
         return; // Decorational animation: never block gameplay.
@@ -2433,7 +2437,13 @@ static void growth_msg_enqueue(Joker* joker, const char* message)
 
     s_growth_msg_queue[s_growth_msg_count] = self_object;
     s_growth_msg_text[s_growth_msg_count] = message;
+    s_growth_msg_money[s_growth_msg_count] = money;
     s_growth_msg_count++;
+}
+
+static void growth_msg_enqueue(Joker* joker, const char* message)
+{
+    growth_msg_enqueue_money(joker, message, 0);
 }
 
 // Fires happen FRAMES after enqueue; the joker may have been sold/destroyed
@@ -2465,6 +2475,12 @@ void growth_msg_process_pending(void)
             return;
         }
         joker_show_message(s_growth_msg_queue[0], s_growth_msg_text[0]);
+        // Money payload lands as the pop plays (serial, per-instance).
+        if (s_growth_msg_money[0] > 0)
+        {
+            g_game_vars.money += s_growth_msg_money[0];
+            display_money();
+        }
         s_growth_msg_next_at = game_get_ui_tick() + DEFER_DELAY;
         return;
     }
@@ -2485,6 +2501,11 @@ void growth_msg_process_pending(void)
         }
         joker_show_message(s_growth_msg_queue[s_growth_msg_active],
                            s_growth_msg_text[s_growth_msg_active]);
+        if (s_growth_msg_money[s_growth_msg_active] > 0)
+        {
+            g_game_vars.money += s_growth_msg_money[s_growth_msg_active];
+            display_money();
+        }
         s_growth_msg_next_at = game_get_ui_tick() + DEFER_DELAY;
     }
 }
@@ -4894,23 +4915,38 @@ static enum HandType todo_list_roll_target(void)
     return pool[rng_get_u32(RNG_SEQ_JOKER_TODO_LIST) % n];
 }
 
+// Shared per-round target (user 2026-08-29 + 原版/3DS):
+// 原版 stores the target in G.GAME.current_round.current_hand (GLOBAL) and
+// 3DS rolls via "shared_picks" per joker def - ALL To Do List instances
+// share the SAME target each round.
+//   s_todo_list_has_target: a target exists (first creation rolls one)
+//   s_todo_list_last_end_roll_round: round whose END rolled the target
+//   (round-end rolls happen exactly once per round regardless of how
+//   many real instances exist; a mid-round Riff-Raff spawn does NOT
+//   suppress the upcoming round-end roll - separate markers, no round
+//   number collision).
+static enum HandType s_todo_list_target = HIGH_CARD;
+static bool s_todo_list_has_target = false;
+static s32 s_todo_list_last_end_roll_round = 0;
+
+static void todo_list_roll_shared(void)
+{
+    s_todo_list_target = todo_list_roll_target();
+    s_todo_list_has_target = true;
+}
+
 static int todo_list_desc(Joker* joker, Rect dest_rect)
 {
     // Dynamic target hand name via snprintf %s - the name string is plain
     // text with NO embedded TTE tags, so no double-tag freeze risk (M32).
-    enum HandType target = HIGH_CARD;
-    if (joker != NULL)
-    {
-        target = (enum HandType)joker->persistent_state;
-        if (target <= NONE || target > HAND_TYPE_MAX)
-            target = HIGH_CARD;
-    }
+    // Reads the shared target (persistent_state no longer used).
+    (void)joker;
     char desc[160];
     snprintf(
         desc, sizeof(desc),
         TTE_BLACK_TAG "Earn " TTE_YELLOW_TAG "$4" TTE_BLACK_TAG " if " TTE_BLUE_TAG "poker hand"
         TTE_BLACK_TAG " is " TTE_YELLOW_TAG "%s" TTE_BLACK_TAG ", hand changes at end of round",
-        get_hand_type_name(target)
+        get_hand_type_name(s_todo_list_target)
     );
     return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
 }
@@ -4927,26 +4963,31 @@ static u32 todo_list_effect(
     switch (joker_event)
     {
         case JOKER_EVENT_ON_JOKER_CREATED:
-            // First-round target: random from the eligible pool (special
-            // hands excluded until played this run).
-            if (!s_is_copying_joker)
-                joker->persistent_state = todo_list_roll_target();
+            // Only the first-ever instance rolls a target; later instances
+            // (incl. mid-round Riff-Raff spawns) share the current one.
+            if (!s_is_copying_joker && !s_todo_list_has_target)
+                todo_list_roll_shared();
             break;
 
         case JOKER_EVENT_ON_HAND_PLAYED:
-            if (get_hand_type() == (enum HandType)joker->persistent_state)
+            if (get_hand_type() == s_todo_list_target)
             {
-                *joker_effect = &s_shared_joker_effect;
-                (*joker_effect)->money = 4;
-                return JOKER_EFFECT_FLAG_MONEY;
+                // Money applies AT POP TIME via the growth queue (serial
+                // per-instance, 原版-style ticking money counter).
+                growth_msg_enqueue_money(joker, "+$4", 4);
             }
             break;
 
         case JOKER_EVENT_ON_ROUND_END:
-            // Roll a fresh random target for next round (real jokers only;
-            // copies mirror via persistent_state sync).
-            if (!s_is_copying_joker)
-                joker->persistent_state = todo_list_roll_target();
+            // Roll next round's shared target exactly once per round end
+            // (the first real instance rolls; others see this round's
+            // number already recorded and skip).
+            if (!s_is_copying_joker &&
+                s_todo_list_last_end_roll_round != g_game_vars.round)
+            {
+                todo_list_roll_shared();
+                s_todo_list_last_end_roll_round = g_game_vars.round;
+            }
             break;
 
         default:

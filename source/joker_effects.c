@@ -135,6 +135,7 @@ REGISTER_JOKER_DESC_FUNC(ancient_joker_desc)
 REGISTER_JOKER_DESC_FUNC(swashbuckler_joker_desc)
 REGISTER_JOKER_DESC_FUNC(gift_card_joker_desc)
 REGISTER_JOKER_DESC_FUNC(mr_bones_desc)
+REGISTER_JOKER_DESC_FUNC(todo_list_desc)
 REGISTER_JOKER_DESC_FUNC(runner_joker_desc)
 REGISTER_JOKER_EFFECT_FUNC(credit_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(burglar_joker_effect)
@@ -152,6 +153,7 @@ REGISTER_JOKER_EFFECT_FUNC(ancient_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(swashbuckler_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(gift_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(mr_bones_effect)
+REGISTER_JOKER_EFFECT_FUNC(todo_list_effect)
 REGISTER_JOKER_EFFECT_FUNC(runner_joker_effect)
 
 // Joker Effect functions
@@ -352,6 +354,7 @@ const JokerInfo joker_registry[] =
         { "Gift Card",        UNCOMMON_JOKER,  6, false, gift_card_joker_desc,        gift_card_joker_effect          }, // 80 Gift Card (orig #79)
         { "Mr. Bones",        UNCOMMON_JOKER,  5, false, mr_bones_desc,               mr_bones_effect                 }, // 81 Mr. Bones (orig #107)
         { "Runner",           COMMON_JOKER,    5, false, runner_joker_desc,           runner_joker_effect             }, // 82 Runner (orig #49)
+        { "To Do List",       COMMON_JOKER,    4, false, todo_list_desc,              todo_list_effect                }, // 83 To Do List (orig #60)
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -4855,6 +4858,78 @@ static u32 runner_joker_effect(
             }
             break;
         }
+
+        default:
+            break;
+    }
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// --- To Do List (ID 83) ---
+// (Official EN: "Earn $4 if poker hand is a [Poker Hand], poker hand
+// changes at end of round" - fandom Nr 60, $4 Common. Act = On Played.
+// persistent_state = current target hand type (1..HAND_TYPE_MAX; NONE
+// excluded). Round end rolls a fresh random target - 3DS/merged.md have
+// NO same-as-previous exclusion (Ancient Joker's "never repeat" rule is
+// user-confirmed for suits; for hands no such rule was given - pure
+// random, may repeat; flag for 考证 if 原版 excludes). Blueprint/Brainstorm
+// copies mirror the target via persistent_state sync and pay again
+// (event-triggered, copyable).)
+static int todo_list_desc(Joker* joker, Rect dest_rect)
+{
+    // Dynamic target hand name via snprintf %s - the name string is plain
+    // text with NO embedded TTE tags, so no double-tag freeze risk (M32).
+    enum HandType target = HIGH_CARD;
+    if (joker != NULL)
+    {
+        target = (enum HandType)joker->persistent_state;
+        if (target <= NONE || target > HAND_TYPE_MAX)
+            target = HIGH_CARD;
+    }
+    char desc[160];
+    snprintf(
+        desc, sizeof(desc),
+        TTE_BLACK_TAG "Earn " TTE_YELLOW_TAG "$4" TTE_BLACK_TAG " if " TTE_BLUE_TAG "poker hand"
+        TTE_BLACK_TAG " is " TTE_YELLOW_TAG "%s" TTE_BLACK_TAG ", hand changes at end of round",
+        get_hand_type_name(target)
+    );
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 todo_list_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    (void)scored_card;
+
+    switch (joker_event)
+    {
+        case JOKER_EVENT_ON_JOKER_CREATED:
+            // First-round target: fully random (no previous to exclude).
+            if (!s_is_copying_joker)
+                joker->persistent_state =
+                    HIGH_CARD + rng_get_u32(RNG_SEQ_JOKER_TODO_LIST) % HAND_TYPE_MAX;
+            break;
+
+        case JOKER_EVENT_ON_HAND_PLAYED:
+            if (get_hand_type() == (enum HandType)joker->persistent_state)
+            {
+                *joker_effect = &s_shared_joker_effect;
+                (*joker_effect)->money = 4;
+                return JOKER_EFFECT_FLAG_MONEY;
+            }
+            break;
+
+        case JOKER_EVENT_ON_ROUND_END:
+            // Roll a fresh random target for next round (real jokers only;
+            // copies mirror via persistent_state sync).
+            if (!s_is_copying_joker)
+                joker->persistent_state =
+                    HIGH_CARD + rng_get_u32(RNG_SEQ_JOKER_TODO_LIST) % HAND_TYPE_MAX;
+            break;
 
         default:
             break;

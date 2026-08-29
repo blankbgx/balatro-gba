@@ -4582,9 +4582,38 @@ int count_stuntman_effects(void)
 //    differs from the previous round's);
 //  - the suit is drawn from all 4 suits regardless of deck composition
 //    (even a 1-suit deck still rolls any of the 4).
-// State: persistent_state = current suit (0-3, card.h NUM_SUITS); the
-// copy mechanism syncs it to Blueprint/Brainstorm copies, so copies
-// trigger on the same suit automatically (per-card X1.5 each, no guard).
+// SHARED ROLL (2026-08-29, 原版 G.GAME.current_round.ancient_card is
+// global + 3DS shared_picks): ALL Ancient Joker instances share the same
+// suit each round - Showman duplicates play the same suit, copies read
+// the same value. persistent_state is no longer used.
+
+// Shared per-round suit + roll markers (same pattern as To Do List):
+//   s_ancient_has_suit: a suit exists (first creation rolls one, no
+//     previous-round exclusion);
+//   s_ancient_last_end_roll_round: round whose END rolled the suit
+//     (round end rolls exactly once regardless of instance count).
+static u8 s_ancient_suit = 0;
+static bool s_ancient_has_suit = false;
+static s32 s_ancient_last_end_roll_round = 0;
+
+static void ancient_roll_shared(bool exclude_current)
+{
+    u32 r;
+    if (exclude_current)
+    {
+        // NEVER the same as the current suit: roll among the other 3
+        // (map 0-2 skipping current), independent of deck composition.
+        r = rng_get_u32(RNG_SEQ_JOKER_ANCIENT) % (NUM_SUITS - 1);
+        if (r >= s_ancient_suit)
+            r++;
+    }
+    else
+    {
+        r = rng_get_u32(RNG_SEQ_JOKER_ANCIENT) % NUM_SUITS;
+    }
+    s_ancient_suit = (u8)r;
+    s_ancient_has_suit = true;
+}
 
 // 4 pre-built static descs (one per suit): avoids snprintf/%s and the
 // double-`#{...}#{...}` tag run that the sprintf-joined variant produced
@@ -4601,7 +4630,8 @@ static const char* const s_ancient_descs[NUM_SUITS] =
 
 static int ancient_joker_desc(Joker* joker, Rect dest_rect)
 {
-    u8 suit = (joker != NULL) ? (u8)joker->persistent_state : 0;
+    (void)joker; // shared suit - no per-instance state
+    u8 suit = s_ancient_suit;
     if (suit >= NUM_SUITS)
         suit = 0;
     return tte_printf_justified_in_rect(
@@ -4618,20 +4648,19 @@ static u32 ancient_joker_effect(
 {
     if (joker_event == JOKER_EVENT_ON_JOKER_CREATED)
     {
-        // First-round suit: fully random (no previous-round exclusion).
-        if (!s_is_copying_joker)
-            joker->persistent_state = rng_get_u32(RNG_SEQ_JOKER_ANCIENT) % NUM_SUITS;
+        // Only the first-ever instance rolls a suit (fully random - no
+        // previous-round exclusion); later instances share it.
+        if (!s_is_copying_joker && !s_ancient_has_suit)
+            ancient_roll_shared(false);
     }
     else if (joker_event == JOKER_EVENT_ON_CARD_SCORED && scored_card != NULL)
     {
-        // Per-card settlement: each scored card matching the current suit
+        // Per-card settlement: each scored card matching the SHARED suit
         // gives X1.5 (Baron-style - N matching cards = X1.5^N). Smeared
         // Joker merges red/black suits via card_effective_suit_mask()
         // (原版: Hearts counts Diamonds too when Smeared is active - the
         // suit check goes through the merged suit semantics, M32 follow-up).
-        // Copies mirror persistent_state (synced) so they trigger on the
-        // same suit.
-        u8 current_suit = (u8)joker->persistent_state;
+        u8 current_suit = s_ancient_suit;
         if (current_suit >= NUM_SUITS)
             current_suit = 0;
         if ((card_effective_suit_mask(scored_card->suit) & (1 << current_suit)) != 0)
@@ -4649,12 +4678,10 @@ static u32 ancient_joker_effect(
         // blind-selected serialization - plays left-to-right, one beat
         // each, gated with HUD rolls) instead of a synchronous MESSAGE
         // that would overlap other blind-selected effects. Real joker
-        // only - copies stay silent (they mirror the same suit anyway).
+        // only - copies stay silent.
         if (!s_is_copying_joker)
         {
-            // Announce the current suit (white message, serialized via
-            // the unified deferred queue - M34 follow-up).
-            u8 suit = (u8)joker->persistent_state;
+            u8 suit = s_ancient_suit;
             if (suit >= NUM_SUITS)
                 suit = 0;
             deferred_enqueue_message(joker, s_ancient_suit_names[suit]);
@@ -4662,19 +4689,14 @@ static u32 ancient_joker_effect(
     }
     else if (joker_event == JOKER_EVENT_ON_ROUND_END)
     {
-        // Suit changes at end of round. NEVER the same as the current
-        // round's suit: roll among the other 3 (map 0-2 skipping current),
-        // independent of deck composition. Only the real joker rolls -
-        // copies keep mirroring persistent_state.
-        if (!s_is_copying_joker)
+        // Roll next round's shared suit exactly once per round end (the
+        // first real instance rolls; others skip). NEVER repeats the
+        // current suit (user rule).
+        if (!s_is_copying_joker &&
+            s_ancient_last_end_roll_round != g_game_vars.round)
         {
-            u8 current = (u8)joker->persistent_state;
-            if (current >= NUM_SUITS)
-                current = 0;
-            u32 r = rng_get_u32(RNG_SEQ_JOKER_ANCIENT) % (NUM_SUITS - 1);
-            if (r >= current)
-                r++;
-            joker->persistent_state = r;
+            ancient_roll_shared(true);
+            s_ancient_last_end_roll_round = g_game_vars.round;
         }
     }
     (void)joker;
@@ -4976,6 +4998,15 @@ static u32 todo_list_effect(
                 // per-instance, 原版-style ticking money counter).
                 growth_msg_enqueue_money(joker, "+$4", 4);
             }
+            break;
+
+        case JOKER_EVENT_ON_BLIND_SELECTED:
+            // Announce the current target hand at round start (user
+            // 2026-08-29, like Ancient Joker's suit pop): white message
+            // via the deferred queue, real instances only (copies stay
+            // silent).
+            if (!s_is_copying_joker)
+                deferred_enqueue_message(joker, get_hand_type_name(s_todo_list_target));
             break;
 
         case JOKER_EVENT_ON_ROUND_END:

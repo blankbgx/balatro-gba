@@ -27,7 +27,8 @@
 - `ON_HAND_PLAYED`：牌型匹配 → FLAG_MONEY +$4（joker.c 现有 money 通道，黄色 "4$" 弹窗）
 - **目标牌型滚动无"与上回合不同"排除**（3DS/merged.md 均无此规则；Ancient 的"花色不重复"是用户对花色的确认规则，牌型未给——**纯随机可重复，待考证**：若原版排除上回合牌型再改）
 - **roll 池限制（6b5c206，用户指定）**：5oak / Flush House / Flush Five（常规 52 张牌组打不出的特殊牌型）**须本局打出过**（`run_played_hands[] > 0`）才进入 roll 池——原版 hand-visibility 规则；标准 10 种牌型始终在池
-- 复制：persistent_state 同步镜像 → 复制体同目标、触发再付一次（事件型可复制 ✓）；复制体不独立 roll（guard）
+- 复制：共享目标下复制体同目标、触发再付一次（事件型可复制 ✓）；复制体不 roll
+- **动画+共享+串行金钱（8b6433b，用户指定+原版对照）**：①打出目标时 "+$4" 入 ON_PLAYED growth 队列**串行弹**，金钱**随弹窗入账**（队列加 money 载荷——原版金钱计数逐实例随动画跳动，非一次性总额）②多实例**共享同一目标**（原版 `G.GAME.current_round.current_hand` 全局 / 3DS `shared_picks`）——非每实例独立 roll；回合末恰好 roll 一次（回合计数标记，多实例不重复 roll）；Riff-Raff 局中生成共享当前目标不抑制回合末 roll（has_target 与 end_roll_round 分离）
 - desc 动态显示当前目标牌型名（snprintf %s——**牌型名是纯文本无 TTE 标记**，无双标记卡死风险，M32 教训）
 - 素材：**gfx7 扩展 64→96px（slot 2）**，2 新色（#EEF1A4 纸黄、#0179C1 蓝），米/棕映射现有（dE≤7）；palette 13→15
 - 插曲：ID 82 已被 Runner 占用（M37，8-28 实装）→ Todo List 落 83；gfx18 中途恢复过再补回骷髅槽（量化脚本备份文件被 grit glob 到的坑：备份必须移出 graphics/）

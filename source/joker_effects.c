@@ -4875,6 +4875,25 @@ static u32 runner_joker_effect(
 // random, may repeat; flag for 考证 if 原版 excludes). Blueprint/Brainstorm
 // copies mirror the target via persistent_state sync and pay again
 // (event-triggered, copyable).)
+//
+// Roll pool restriction (user 2026-08-29): special hands that a plain
+// 52-card deck cannot produce (Five of a Kind / Flush House / Flush
+// Five) join the pool only after being PLAYED this run
+// (run_played_hands[] > 0) - 原版 hand-visibility rule.
+static enum HandType todo_list_roll_target(void)
+{
+    static enum HandType pool[HAND_TYPE_MAX];
+    int n = 0;
+    for (int h = HIGH_CARD; h <= HAND_TYPE_MAX; h++)
+    {
+        // run_played_hands is indexed by (hand_type - 1) - NONE excluded.
+        if (h >= FIVE_OF_A_KIND && g_game_vars.run_played_hands[h - 1] == 0)
+            continue; // special hand never played this run
+        pool[n++] = (enum HandType)h;
+    }
+    return pool[rng_get_u32(RNG_SEQ_JOKER_TODO_LIST) % n];
+}
+
 static int todo_list_desc(Joker* joker, Rect dest_rect)
 {
     // Dynamic target hand name via snprintf %s - the name string is plain
@@ -4908,10 +4927,10 @@ static u32 todo_list_effect(
     switch (joker_event)
     {
         case JOKER_EVENT_ON_JOKER_CREATED:
-            // First-round target: fully random (no previous to exclude).
+            // First-round target: random from the eligible pool (special
+            // hands excluded until played this run).
             if (!s_is_copying_joker)
-                joker->persistent_state =
-                    HIGH_CARD + rng_get_u32(RNG_SEQ_JOKER_TODO_LIST) % HAND_TYPE_MAX;
+                joker->persistent_state = todo_list_roll_target();
             break;
 
         case JOKER_EVENT_ON_HAND_PLAYED:
@@ -4927,8 +4946,7 @@ static u32 todo_list_effect(
             // Roll a fresh random target for next round (real jokers only;
             // copies mirror via persistent_state sync).
             if (!s_is_copying_joker)
-                joker->persistent_state =
-                    HIGH_CARD + rng_get_u32(RNG_SEQ_JOKER_TODO_LIST) % HAND_TYPE_MAX;
+                joker->persistent_state = todo_list_roll_target();
             break;
 
         default:

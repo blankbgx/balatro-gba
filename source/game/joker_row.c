@@ -129,10 +129,16 @@ void jokers_sel_row_on_key_transit(SelectionGrid* selection_grid, Selection* sel
 
     if (key_hit(SELL_KEY))
     {
-        // Selling is only allowed in the shop. KEY_L is shared (TAB_LEFT in
-        // run setup, PLAY_HAND_KEY in round), and this callback is registered
-        // for BOTH the shop row and the in-round joker row - without this
-        // guard, L would sell a joker mid-round (original Balatro never does).
+        // Selling is temporarily restricted to the shop. KEY_L is shared
+        // (TAB_LEFT in run setup, PLAY_HAND_KEY in round), and this callback
+        // is registered for BOTH the shop row and the in-round joker row.
+        // NOTE (2026-08-22, user-verified): the ORIGINAL repo intentionally
+        // supports in-round selling - certain Boss blinds require selling a
+        // joker mid-round to clear a debuff. We block it FOR NOW only because
+        // all Boss blinds are still placeholders (no debuffs implemented);
+        // re-enable in-round selling when Boss debuffs land (see
+        // DEVELOPMENT_TODO.md "对局内出售小丑"). This guard must NOT be
+        // treated as original-accurate.
         if (game_get_state() != GAME_STATE_SHOP)
         {
             return;

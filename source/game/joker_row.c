@@ -92,6 +92,18 @@ static inline void game_sell_joker(int joker_idx)
     display_money();
     sprite_object_erase_text_under((SpriteObject*)joker_object);
 
+    // Merry Andy (84): undo the purchase-time +3 discards. Selling is
+    // SHOP-ONLY (the caller guards on GAME_STATE_SHOP - original never
+    // sells mid-round), and discards here is always the post-cashout full
+    // value, so a flat -3 per sold Andy cleanly reverts the buy-time bump.
+    // Without this a buy/sell loop could farm unlimited discards.
+    if (joker_object->joker != NULL &&
+        joker_object->joker->id == MERRY_ANDY_JOKER_ID)
+    {
+        g_game_vars.discards =
+            (g_game_vars.discards > 3) ? g_game_vars.discards - 3 : 0;
+    }
+
     remove_owned_joker(joker_idx);
 
     joker_start_discard_animation(joker_object);

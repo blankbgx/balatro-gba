@@ -123,6 +123,7 @@ enum JokerEvent
 #define MR_BONES_JOKER_ID     81
 #define RUNNER_JOKER_ID       82
 #define TODO_LIST_JOKER_ID    83
+#define MERRY_ANDY_JOKER_ID   84
 
 // Serialized "Upgrade!"-style message pop above a joker, used by the
 // ON_PLAYED growth animation queue (joker_effects.c growth_msg_*).
@@ -156,6 +157,7 @@ void joker_play_baseball_animation(JokerObject* source, JokerObject* target);
 // Brainstorm copies do NOT apply (silent-state rule - the -2 is a passive
 // stat, not a triggered action). round.c derives the effective hand size.
 int count_stuntman_effects(void);
+int count_merry_andy_effects(void);
 
 // Credit Card: shop purchases may go into debt down to -20$ per REAL
 // Credit Card held. Blueprint/Brainstorm cannot copy this passive effect

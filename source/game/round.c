@@ -1257,8 +1257,19 @@ static inline void game_round_process_input_and_state(void)
 // the game soft-locks (user-mandated 2026-08-22).
 static inline int get_effective_hand_size(void)
 {
-    int size = g_game_vars.hand_size - 2 * count_stuntman_effects();
+    int size = g_game_vars.hand_size - 2 * count_stuntman_effects() -
+               count_merry_andy_effects();
     return size > 0 ? size : 1;
+}
+
+// Merry Andy (84): +3 discards per real instance on top of the base
+// maximum. Derived live (like the hand size), so selling restores the
+// base value automatically. Burglar still zeroes discards at blind
+// select afterwards - with Burglar held, Andy's bonus is wasted
+// (user-confirmed 原版 behavior 2026-08-30).
+int get_effective_max_discards(void)
+{
+    return MAX_DISCARDS + 3 * count_merry_andy_effects();
 }
 
 static inline void card_draw(void)

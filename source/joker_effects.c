@@ -136,6 +136,7 @@ REGISTER_JOKER_DESC_FUNC(swashbuckler_joker_desc)
 REGISTER_JOKER_DESC_FUNC(gift_card_joker_desc)
 REGISTER_JOKER_DESC_FUNC(mr_bones_desc)
 REGISTER_JOKER_DESC_FUNC(todo_list_desc)
+REGISTER_JOKER_DESC_FUNC(merry_andy_desc)
 REGISTER_JOKER_DESC_FUNC(runner_joker_desc)
 REGISTER_JOKER_EFFECT_FUNC(credit_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(burglar_joker_effect)
@@ -155,6 +156,7 @@ REGISTER_JOKER_EFFECT_FUNC(gift_card_joker_effect)
 REGISTER_JOKER_EFFECT_FUNC(mr_bones_effect)
 REGISTER_JOKER_EFFECT_FUNC(todo_list_effect)
 REGISTER_JOKER_EFFECT_FUNC(runner_joker_effect)
+REGISTER_JOKER_EFFECT_FUNC(merry_andy_effect)
 
 // Joker Effect functions
 
@@ -355,6 +357,7 @@ const JokerInfo joker_registry[] =
         { "Mr. Bones",        UNCOMMON_JOKER,  5, false, mr_bones_desc,               mr_bones_effect                 }, // 81 Mr. Bones (orig #107)
         { "Runner",           COMMON_JOKER,    5, false, runner_joker_desc,           runner_joker_effect             }, // 82 Runner (orig #49)
         { "To Do List",       COMMON_JOKER,    4, false, todo_list_desc,              todo_list_effect                }, // 83 To Do List (orig #60)
+        { "Merry Andy",       UNCOMMON_JOKER,  7, false, merry_andy_desc,             merry_andy_effect               }, // 84 Merry Andy (orig #125)
 
         // The following jokers
     // uncomment them when their sprites are added.
@@ -5025,4 +5028,69 @@ static u32 todo_list_effect(
             break;
     }
     return JOKER_EFFECT_FLAG_NONE;
+}
+
+// --- Merry Andy (ID 84) ---
+// (Official EN: "+3 discards each round, -1 hand size" - fandom Nr 125,
+// $7 Uncommon. Act = N/A: BOTH parts are passive stats, NOT copyable
+// (silent-state rule, same as Stuntman's -2). USER RULES 2026-08-30:
+//  - the +3 discards apply IMMEDIATELY at purchase (current discards
+//    += 3 right away), not granted at round start like Burglar - so
+//    with Burglar held, Merry Andy's bonus is wasted (Burglar zeroes
+//    discards at blind select after the reset);
+//  - multi-instance hand size floors at 1 (Stuntman rule).
+// Implementation: derived values - round.c get_effective_hand_size()
+// subtracts 1 per real Andy, and get_effective_max_discards() adds 3 per
+// real Andy (selling restores both automatically, nothing to revert).)
+static int merry_andy_desc(Joker* joker, Rect dest_rect)
+{
+    (void)joker;
+    static const char desc[] =
+        TTE_BLUE_TAG "+3 discards" TTE_BLACK_TAG " each round, " TTE_YELLOW_TAG "-1 hand size"
+        TTE_BLACK_TAG;
+    return tte_printf_justified_in_rect(desc, dest_rect, JUSTIFY_CENTER, SCREEN_LEFT, true);
+}
+
+static u32 merry_andy_effect(
+    Joker* joker,
+    Card* scored_card,
+    enum JokerEvent joker_event,
+    JokerEffect** joker_effect
+)
+{
+    if (joker_event == JOKER_EVENT_ON_JOKER_CREATED)
+    {
+        // Purchase-time immediate effect: +3 discards NOW (not deferred to
+        // round start). Real cards only (passive stat - copies silent).
+        // NO display_discards() here: purchases happen on the SHOP screen
+        // whose background has no discard HUD - drawing would punch a hole
+        // in the shop layout. The value shows at the next round's HUD draw.
+        if (!s_is_copying_joker)
+        {
+            g_game_vars.discards += 3;
+        }
+    }
+    (void)joker;
+    (void)scored_card;
+    (void)joker_effect;
+    return JOKER_EFFECT_FLAG_NONE;
+}
+
+// Number of REAL Merry Andys held (Showman duplicates stack: +3 discards
+// / -1 hand size each). Blueprint/Brainstorm copies are NOT counted
+// (passive stat, silent-state rule).
+int count_merry_andy_effects(void)
+{
+    int count = 0;
+    ListItr itr = list_itr_create(get_jokers_list());
+    JokerObject* cur;
+    while ((cur = list_itr_next(&itr)))
+    {
+        if (cur != NULL && cur->joker != NULL &&
+            cur->joker->id == MERRY_ANDY_JOKER_ID)
+        {
+            count++;
+        }
+    }
+    return count;
 }

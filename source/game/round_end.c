@@ -403,7 +403,7 @@ static inline void game_round_end_cashout(void)
     display_money();
 
     g_game_vars.hands = MAX_HANDS;       // Reset the hands to the maximum
-    g_game_vars.discards = MAX_DISCARDS; // Reset the discards to the maximum
+    g_game_vars.discards = get_effective_max_discards(); // + Merry Andy bonus
     // TODO: these can just be in one spot, passing global to global
     display_hands();    // Set the hands display
     display_discards(); // Set the discards display

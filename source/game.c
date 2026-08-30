@@ -202,7 +202,7 @@ void game_init()
     game_shop_reset();
 
     g_game_vars.hands = MAX_HANDS;
-    g_game_vars.discards = MAX_DISCARDS;
+    g_game_vars.discards = get_effective_max_discards(); /* Merry Andy bonus */
     g_game_vars.timer = TM_ZERO;
     g_game_vars.current_blind = BLIND_TYPE_SMALL;
     g_game_vars.blinds_states[0] = BLIND_STATE_CURRENT;
@@ -1135,7 +1135,7 @@ void game_start(void)
     tte_colors_setup();
 
     g_game_vars.hands = MAX_HANDS;
-    g_game_vars.discards = MAX_DISCARDS;
+    g_game_vars.discards = get_effective_max_discards(); /* Merry Andy bonus */
 
     // Fill the deck with all the cards. Later on this can be replaced with a more dynamic system
     // that allows for different decks and card types.

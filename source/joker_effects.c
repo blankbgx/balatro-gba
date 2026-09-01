@@ -5058,20 +5058,14 @@ static u32 merry_andy_effect(
     JokerEffect** joker_effect
 )
 {
-    if (joker_event == JOKER_EVENT_ON_JOKER_CREATED)
-    {
-        // Purchase-time immediate effect: +3 discards NOW (not deferred to
-        // round start). Real cards only (passive stat - copies silent).
-        // NO display_discards() here: purchases happen on the SHOP screen
-        // whose background has no discard HUD - drawing would punch a hole
-        // in the shop layout. The value shows at the next round's HUD draw.
-        if (!s_is_copying_joker)
-        {
-            g_game_vars.discards += 3;
-        }
-    }
+    // Both stats are PASSIVE and derived live (round.c get_effective_hand_size
+    // / get_effective_max_discards). The +3 discards on acquisition lives in
+    // game.c add_joker() (ownership time), NOT here: ON_JOKER_CREATED fires at
+    // shop ROLL time (joker_new during display), which would leak +3 before
+    // the joker is even bought (2026-08-30 bug). So this effect is a no-op.
     (void)joker;
     (void)scored_card;
+    (void)joker_event;
     (void)joker_effect;
     return JOKER_EFFECT_FLAG_NONE;
 }

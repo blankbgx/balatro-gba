@@ -839,6 +839,16 @@ void add_joker(JokerObject* joker_object)
     {
         s_showman_joker_count++;
     }
+
+    if (joker_object->joker->id == MERRY_ANDY_JOKER_ID)
+    {
+        // +3 discards applied IMMEDIATELY on acquisition (not at round
+        // start, unlike Burglar - user rule 2026-08-30). Lives HERE
+        // (ownership time) rather than ON_JOKER_CREATED, which fires at
+        // shop ROLL time (joker_new during display) and would leak +3
+        // before the joker is even bought.
+        g_game_vars.discards += 3;
+    }
 }
 
 void remove_owned_joker(int owned_joker_idx)
@@ -865,6 +875,14 @@ void remove_owned_joker(int owned_joker_idx)
     if (joker_object->joker->id == SHOWMAN_ID)
     {
         s_showman_joker_count--;
+    }
+
+    if (joker_object->joker->id == MERRY_ANDY_JOKER_ID)
+    {
+        // Revert the acquisition-time +3 (symmetric with add_joker()).
+        // Floor at 0 for safety (any removal path that runs mid-round).
+        g_game_vars.discards =
+            (g_game_vars.discards > 3) ? g_game_vars.discards - 3 : 0;
     }
 
     // TODO: Move to site of joker_destroy()?

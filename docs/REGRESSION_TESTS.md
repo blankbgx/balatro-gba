@@ -24,7 +24,7 @@
 
 **实现**：
 - 双被动均走**派生值**（Stuntman 模式）：`get_effective_hand_size()` 减 1/真身（下限 1 不变）、新增 `get_effective_max_discards()` = MAX_DISCARDS + 3/真身（round.h 导出）；卖出自动恢复，无残留
-- **购入立即生效（用户规则，与窃贼相反）**：ON_JOKER_CREATED → `discards += 3` 立即加到当前弃牌数（窃贼是回合开始才给，安迪是买到就给）。**不调用 display_discards()**——购买发生在商店画面，其背景无弃牌 HUD 区，调用会擦坏商店布局；数值下回合 HUD 自然显示
+- **购入立即生效（用户规则，与窃贼相反）**：+3 弃牌在**持有时刻**（game.c `add_joker()`）立即加到当前弃牌数——不是 ON_JOKER_CREATED（那在商店 roll 展示时就触发，会泄漏）；`remove_owned_joker()` 对称 -3。**架构坑（7e9ace5）**：ON_JOKER_CREATED 在 `joker_new()` 触发、而 joker_new 在商店**刷新展示**时就被调用（joker_object_roll_new 建展示卡），非购买时——任何"购入才生效"的玩法数值效果必须放 add_joker()/remove_owned_joker()，不能放 ON_JOKER_CREATED
 - **与窃贼同场 = 废牌（用户确认原版行为）**：回合重置先给满（4+3=7），窃贼盲注选择时清零 → 安迪加成被吞
 - **售出行为（e871a37，用户关注）**：**对局内售出当前暂屏蔽**（joker_row.c guard `GAME_STATE_SHOP`）——**注意：原版是支持对局内售出的**（Boss 盲注要求对局内售小丑解除 debuff，DEVELOPMENT_TODO 归档决策）；当前 Boss 盲注全是占位故暂屏蔽，待 Boss debuff 实装时须恢复。因此**当前售出只发生在商店**：售出安迪 → **-3 回退购时加成**（防买/卖循环刷弃牌）。手牌上限是派生值（发牌时实时读），售出后下回合发牌自然恢复。若将来恢复对局内售出：手牌恢复后**不会立即补牌**，保持到下次发牌（原版行为），且需按 Boss 语义处理弃牌回退
 - 复制：全被动不可复制（silent-state rule，与 Stuntman 同）；Showman 双真身叠加（+6 弃牌 -2 手牌）

@@ -1253,17 +1253,18 @@ static inline void game_round_process_input_and_state(void)
 // 1 per real instance. hand_size keeps its stored default; the effective
 // value is derived on use (3DS demake pattern: query-time derivation,
 // single source of truth).
-// NO FLOOR: 原版 (user-verified via video 2026-08-31) allows the cap to
-// reach 0/negative - it is NOT an immediate loss, and the loss fires at
-// DEAL time (game_round_process_card_draw): a 0/negative cap means the
+// FLOOR OF 0 (原版, user-verified 2026-08-31): the cap bottoms out at 0 -
+// it can never go negative. A 0-cap is NOT an immediate loss; the loss
+// fires at DEAL time (game_round_process_card_draw): a 0-cap means the
 // deal cannot produce cards, so the round is lost right there. Selling a
 // Stuntman/Merry Andy in the shop (before the deal) restores the size and
-// reverses the loss. The old floor-of-1 here was a soft-lock workaround
-// that hid the original mechanic.
+// reverses the loss. (The earlier floor-of-1 was a soft-lock workaround
+// that hid this mechanic.)
 static inline int get_effective_hand_size(void)
 {
-    return g_game_vars.hand_size - 2 * count_stuntman_effects() -
-           count_merry_andy_effects();
+    int size = g_game_vars.hand_size - 2 * count_stuntman_effects() -
+               count_merry_andy_effects();
+    return size > 0 ? size : 0;
 }
 
 // Merry Andy (84): +3 discards per real instance on top of the base
@@ -1342,13 +1343,13 @@ static inline void game_round_process_card_draw(void)
     }
     s_deal_after_effects_at = 0;
 
-    // 原版 (user-verified video 2026-08-31): a 0/negative hand size cap is
-    // not an immediate loss - the loss fires HERE, when the round tries to
-    // DEAL. With the cap at 0 or below the deal cannot produce any cards,
-    // so the run is lost at this moment. Selling a Stuntman/Merry Andy in
-    // the shop (already done before the deal) restores the size and avoids
-    // this loss. Placed after the effect-settle beat so blind-selected
-    // effects still play first (原版 order: effects -> deal -> loss).
+    // 原版 (user-verified video 2026-08-31): a 0 hand size cap is not an
+    // immediate loss - the loss fires HERE, when the round tries to DEAL.
+    // With the cap at 0 the deal cannot produce any cards, so the run is
+    // lost at this moment. Selling a Stuntman/Merry Andy in the shop
+    // (already done before the deal) restores the size and avoids this
+    // loss. Placed after the effect-settle beat so blind-selected effects
+    // still play first (原版 order: effects -> deal -> loss).
     if (get_hand_state() == HAND_DRAW && get_effective_hand_size() <= 0)
     {
         game_change_state(GAME_STATE_LOSE);

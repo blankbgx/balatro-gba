@@ -1249,17 +1249,21 @@ static inline void game_round_process_input_and_state(void)
  *         it in our hand.
  */
 // Effective hand size: Stuntman (77) passively reduces it by 2 per REAL
-// Stuntman held (copies do NOT apply - silent-state rule). hand_size
-// keeps its stored default; the effective value is derived on use
-// (3DS demake pattern: query-time derivation, single source of truth).
-// FLOOR OF 1: 4+ Stuntmen would drive the cap to 0/negative - a 0-cap
-// hand can never be dealt, playing/discarding becomes impossible and
-// the game soft-locks (user-mandated 2026-08-22).
+// Stuntman held (copies do NOT apply - silent-state rule), Merry Andy by
+// 1 per real instance. hand_size keeps its stored default; the effective
+// value is derived on use (3DS demake pattern: query-time derivation,
+// single source of truth).
+// NO FLOOR: 原版 (user-verified via video 2026-08-31) allows the cap to
+// reach 0/negative - it is NOT an immediate loss, and the loss fires at
+// DEAL time (game_round_process_card_draw): a 0/negative cap means the
+// deal cannot produce cards, so the round is lost right there. Selling a
+// Stuntman/Merry Andy in the shop (before the deal) restores the size and
+// reverses the loss. The old floor-of-1 here was a soft-lock workaround
+// that hid the original mechanic.
 static inline int get_effective_hand_size(void)
 {
-    int size = g_game_vars.hand_size - 2 * count_stuntman_effects() -
-               count_merry_andy_effects();
-    return size > 0 ? size : 1;
+    return g_game_vars.hand_size - 2 * count_stuntman_effects() -
+           count_merry_andy_effects();
 }
 
 // Merry Andy (84): +3 discards per real instance on top of the base
@@ -1337,6 +1341,19 @@ static inline void game_round_process_card_draw(void)
         return;
     }
     s_deal_after_effects_at = 0;
+
+    // 原版 (user-verified video 2026-08-31): a 0/negative hand size cap is
+    // not an immediate loss - the loss fires HERE, when the round tries to
+    // DEAL. With the cap at 0 or below the deal cannot produce any cards,
+    // so the run is lost at this moment. Selling a Stuntman/Merry Andy in
+    // the shop (already done before the deal) restores the size and avoids
+    // this loss. Placed after the effect-settle beat so blind-selected
+    // effects still play first (原版 order: effects -> deal -> loss).
+    if (get_hand_state() == HAND_DRAW && get_effective_hand_size() <= 0)
+    {
+        game_change_state(GAME_STATE_LOSE);
+        return;
+    }
 
     if (get_hand_state() == HAND_DRAW && s_cards_drawn < get_effective_hand_size())
     {
